@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-secondary;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-surface/80 backdrop-blur-md border border-border/50;
+  }
+
+  .glow-profit {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+  }
+
+  .glow-expense {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+  }
+
+  .stat-card {
+    @apply bg-surface border border-border rounded-xl p-5 transition-all duration-200 hover:border-border/80;
+  }
+
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
+  }
+
+  .section-title {
+    @apply text-xl font-semibold text-text-primary;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent to-profit bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1F2937 25%,
+    #263244 50%,
+    #1F2937 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
