@@ -1,11 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
+import { PwaRegistration } from "@/components/pwa/PwaRegistration";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
     default: "GranaBase — Gestão Financeira para Renda Variável",
     template: "%s | GranaBase",
+  },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "GranaBase",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: "/icons/icon-192.svg",
+    icon: [
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
   },
   description:
     "Controle financeiro premium para autônomos, freelancers e quem tem renda variável. Saiba exatamente quanto entrou, saiu e sobra.",
@@ -25,7 +39,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0F172A",
+  themeColor: "#0ea5e9",
 };
 
 export default function RootLayout({
@@ -36,6 +50,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body className="bg-background text-text-primary antialiased">
+        <PwaRegistration />
         {children}
         <Toaster
           theme="dark"

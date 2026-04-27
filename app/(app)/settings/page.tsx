@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { FinancialSettings } from "@/components/settings/FinancialSettings";
+import { InstallAppSettings } from "@/components/settings/InstallAppSettings";
 import { PreferenceSettings } from "@/components/settings/PreferenceSettings";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
@@ -561,6 +562,8 @@ export default function SettingsPage() {
             onReset={() => setFinancialForm(initialFinancialForm)}
             onExport={() => void handleExportData()}
           />
+
+          <InstallAppSettings />
 
           <AccountSettings
             loading={loading}
