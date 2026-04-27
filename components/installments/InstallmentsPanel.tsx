@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -26,6 +27,8 @@ import { StatCard } from "@/components/shared/StatCard";
 interface InstallmentWithPayments extends Installment {
   payments: InstallmentPayment[];
 }
+
+type StatusFilter = "all" | "pending" | "overdue" | "paid";
 
 const EMPTY_FORM: InstallmentFormData = {
   description: "",
@@ -68,6 +71,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [form, setForm] = useState<InstallmentFormData>(EMPTY_FORM);
   const [installmentCountInput, setInstallmentCountInput] = useState("");
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
@@ -369,6 +373,20 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     }
   };
 
+  const isPaymentOverdue = (payment: InstallmentPayment) => {
+    if (payment.status === "paid") {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dueDate = new Date(`${payment.due_date}T00:00:00`);
+    dueDate.setHours(0, 0, 0, 0);
+
+    return dueDate < today;
+  };
+
   const totalPending = items
     .flatMap((item) => item.payments)
     .filter((payment) => getEffectiveInstallmentStatus(payment) !== "paid")
@@ -377,9 +395,47 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     .flatMap((item) => item.payments)
     .filter((payment) => payment.status === "paid")
     .reduce((sum, payment) => sum + payment.amount, 0);
+  const filteredItems = items.filter((item) => {
+    const payments = item.payments ?? [];
+
+    if (statusFilter === "all") {
+      return true;
+    }
+
+    if (statusFilter === "pending") {
+      return payments.some((payment) => payment.status !== "paid" && !isPaymentOverdue(payment));
+    }
+
+    if (statusFilter === "overdue") {
+      return payments.some((payment) => isPaymentOverdue(payment));
+    }
+
+    if (statusFilter === "paid") {
+      return payments.length > 0 && payments.every((payment) => payment.status === "paid");
+    }
+
+    return true;
+  });
+  const emptyFilteredDescription =
+    statusFilter === "pending"
+      ? "Nenhum parcelamento com parcelas pendentes no momento."
+      : statusFilter === "overdue"
+        ? "Nenhum parcelamento com parcelas atrasadas no momento."
+        : "Nenhum parcelamento totalmente pago no momento.";
 
   return (
     <>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+        <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+          <TabsList>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="pending">Pendentes</TabsTrigger>
+            <TabsTrigger value="overdue">Atrasadas</TabsTrigger>
+            <TabsTrigger value="paid">Pagas</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard title="A pagar" value={formatCurrency(totalPending)} icon={CreditCard} variant="warning" loading={loading} />
         <StatCard title="Ja pago" value={formatCurrency(totalPaid)} icon={Check} variant="profit" loading={loading} />
@@ -400,9 +456,15 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
           actionLabel="+ Novo parcelamento"
           onAction={openCreateModal}
         />
+      ) : filteredItems.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          title="Nenhum parcelamento encontrado"
+          description={emptyFilteredDescription}
+        />
       ) : (
         <div className="space-y-3">
-          {items.map((item) => {
+          {filteredItems.map((item) => {
             const paidCount = item.payments.filter((payment) => payment.status === "paid").length;
             const progress = item.installment_count > 0 ? (paidCount / item.installment_count) * 100 : 0;
             const nextPayment = item.payments.find((payment) => getEffectiveInstallmentStatus(payment) !== "paid");

@@ -244,9 +244,29 @@ export default function BillsPage() {
 
       <div className="mb-5 flex flex-col gap-3">
         <Tabs value={activeTab} onValueChange={(value) => handleSectionChange(value as ActiveTab)}>
-          <TabsList>
-            <TabsTrigger value="bills">Contas</TabsTrigger>
-            <TabsTrigger value="installments">Parcelamentos</TabsTrigger>
+          <TabsList className="h-auto rounded-xl border-border/80 bg-surface/80 p-1.5">
+            <TabsTrigger
+              value="bills"
+              className={cn(
+                "min-w-[120px] border border-transparent px-4 py-2",
+                activeTab === "bills"
+                  ? "!border-warning/70 !bg-warning !text-slate-950 !shadow-sm"
+                  : "hover:bg-background/70"
+              )}
+            >
+              Contas
+            </TabsTrigger>
+            <TabsTrigger
+              value="installments"
+              className={cn(
+                "min-w-[140px] border border-transparent px-4 py-2",
+                activeTab === "installments"
+                  ? "!border-accent/70 !bg-accent !text-slate-950 !shadow-sm"
+                  : "hover:bg-background/70"
+              )}
+            >
+              Parcelamentos
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
