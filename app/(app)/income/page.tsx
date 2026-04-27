@@ -42,7 +42,6 @@ export default function IncomePage() {
   const supabase = createClient();
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<IncomeEntry | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -61,7 +60,6 @@ export default function IncomePage() {
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
     const { data, error } = await supabase
       .from("income_entries")
       .select("*")
@@ -100,8 +98,13 @@ export default function IncomePage() {
         if (error) throw error;
         toast.success("Entrada atualizada com sucesso");
       } else {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          toast.error("Usuário não autenticado. Faça login novamente.");
+          return;
+        }
         const { error } = await supabase.from("income_entries").insert(coerceMutation({
-          user_id: userId, description: data.description, amount: data.amount,
+          user_id: user.id, description: data.description, amount: data.amount,
           category: data.category, received_at: data.received_at,
           payment_method: data.payment_method || null, notes: data.notes || null,
         }));
@@ -110,8 +113,10 @@ export default function IncomePage() {
       }
       setModalOpen(false);
       await fetchEntries();
-    } catch {
-      toast.error("Erro ao salvar entrada. Tente novamente.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Income insert error:", err);
+      toast.error(`Erro ao salvar entrada: ${msg}`);
     }
   };
 
