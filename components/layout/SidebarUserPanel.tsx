@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ChevronUp, LogOut, Settings, UserCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -90,14 +89,26 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
         return;
       }
 
-      const { data: profileData } = await supabase
+      const { data: profileById } = await supabase
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name")
         .eq("id", user.id)
         .maybeSingle();
-      const profile = (profileData ?? null) as Pick<Profile, "full_name" | "email"> | null;
 
-      const email = profile?.email ?? user.email ?? "";
+      const profileData =
+        profileById ??
+        (
+          await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", user.id)
+            .maybeSingle()
+        ).data ??
+        null;
+
+      const profile = (profileData ?? null) as { full_name?: string | null } | null;
+
+      const email = user.email ?? "";
       const displayName = getDisplayName(
         email,
         profile?.full_name,
