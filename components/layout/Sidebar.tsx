@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -80,6 +81,7 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="px-3 pb-4 border-t border-border pt-3">
+        <SidebarUserPanel onLogout={handleLogout} />
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-expense/10 hover:text-expense transition-all duration-150 w-full"
