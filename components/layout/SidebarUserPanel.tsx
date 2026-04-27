@@ -207,7 +207,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
       </button>
 
       {menuOpen && (
-        <div className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-20 overflow-hidden rounded-2xl border border-border/80 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md">
+        <div className="animate-fade-in absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-20 overflow-hidden rounded-2xl border border-border/80 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md">
           <Link
             href="/settings#profile"
             onClick={() => setMenuOpen(false)}
@@ -224,6 +224,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
             <Settings className="h-4 w-4" />
             Configuracoes
           </Link>
+          <div className="my-1 border-t border-border/70" />
           <button
             type="button"
             onClick={async () => {

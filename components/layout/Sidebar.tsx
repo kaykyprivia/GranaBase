@@ -11,8 +11,6 @@ import {
   PiggyBank,
   Target,
   BarChart3,
-  Settings,
-  LogOut,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,7 +28,6 @@ const navItems = [
   { href: "/investments", label: "Investimentos", icon: PiggyBank },
   { href: "/goals", label: "Metas", icon: Target },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
-  { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -82,13 +79,6 @@ export function Sidebar() {
       {/* Footer */}
       <div className="px-3 pb-4 border-t border-border pt-3">
         <SidebarUserPanel onLogout={handleLogout} />
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-expense/10 hover:text-expense transition-all duration-150 w-full"
-        >
-          <LogOut style={{ height: "18px", width: "18px" }} className="shrink-0" />
-          Sair
-        </button>
       </div>
     </aside>
   );
