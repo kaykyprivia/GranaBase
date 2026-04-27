@@ -36,8 +36,12 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/register");
 
   const isPublicRoute = request.nextUrl.pathname === "/";
+  const isPwaAssetRoute =
+    request.nextUrl.pathname === "/manifest.webmanifest" ||
+    request.nextUrl.pathname === "/sw.js" ||
+    request.nextUrl.pathname.startsWith("/icons/");
 
-  if (!user && !isAuthRoute && !isPublicRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute && !isPwaAssetRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
