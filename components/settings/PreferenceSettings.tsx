@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { BellRing, EyeOff, RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormField } from "@/components/shared/FormField";
 import type { PreferenceFormState } from "@/components/settings/types";
-import { cn } from "@/lib/utils";
 
 interface PreferenceSettingsProps {
   value: PreferenceFormState;
@@ -19,48 +17,6 @@ interface PreferenceSettingsProps {
   onFieldChange: <K extends keyof PreferenceFormState>(field: K, fieldValue: PreferenceFormState[K]) => void;
   onSave: () => void;
   onReset: () => void;
-}
-
-interface ToggleRowProps {
-  title: string;
-  description: string;
-  active: boolean;
-  onToggle: () => void;
-  disabled?: boolean;
-  icon: ReactNode;
-}
-
-function ToggleRow({ title, description, active, onToggle, disabled, icon }: ToggleRowProps) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background/40 p-4">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 rounded-xl bg-surface p-2 text-text-secondary">{icon}</div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">{title}</p>
-          <p className="text-sm text-text-secondary">{description}</p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={active}
-        onClick={onToggle}
-        disabled={disabled}
-        className={cn(
-          "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
-          active ? "border-accent/50 bg-accent/90" : "border-border bg-surface"
-        )}
-      >
-        <span
-          className={cn(
-            "mx-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-            active ? "translate-x-5" : "translate-x-0"
-          )}
-        />
-      </button>
-    </div>
-  );
 }
 
 export function PreferenceSettings({
@@ -147,24 +103,6 @@ export function PreferenceSettings({
                 </SelectContent>
               </Select>
             </FormField>
-
-            <div className="space-y-3">
-              <ToggleRow
-                title="Mostrar valores borrados"
-                description="Ative para preservar privacidade visual em reunioes, gravacoes e locais publicos."
-                active={value.privacyMode}
-                onToggle={() => onFieldChange("privacyMode", !value.privacyMode)}
-                icon={<EyeOff className="h-4 w-4" />}
-              />
-
-              <ToggleRow
-                title="Receber notificacoes"
-                description="Mantem alertas e lembretes futuros habilitados para contas e metas."
-                active={value.notificationsEnabled}
-                onToggle={() => onFieldChange("notificationsEnabled", !value.notificationsEnabled)}
-                icon={<BellRing className="h-4 w-4" />}
-              />
-            </div>
 
             <div className="flex flex-wrap gap-3">
               <Button type="button" onClick={onSave} loading={saving} className="gap-2">
