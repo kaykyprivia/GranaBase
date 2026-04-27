@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { RefreshCcw, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AccountSettings } from "@/components/settings/AccountSettings";
@@ -511,7 +511,8 @@ export default function SettingsPage() {
                 ? `${unsavedSections} ${unsavedSections === 1 ? "secao pendente" : "secoes pendentes"}`
                 : "Tudo salvo"}
             </Badge>
-            <Button type="button" variant="outline" onClick={() => void loadSettings()} disabled={loading}>
+            <Button type="button" variant="outline" onClick={() => void loadSettings()} disabled={loading} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
               Recarregar dados
             </Button>
           </div>

@@ -29,7 +29,7 @@ export function AccountSettings({
   return (
     <>
       <Card className="border-border/80 bg-surface/95">
-        <CardHeader>
+        <CardHeader className="gap-3">
           <CardTitle>Conta</CardTitle>
           <CardDescription>
             Gerencie seu plano e controle a permanencia da sua conta com seguranca.
@@ -64,7 +64,7 @@ export function AccountSettings({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-expense/25 bg-expense/5 p-4">
+              <div className="rounded-2xl border border-expense/30 bg-expense/10 p-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
                   <ShieldAlert className="h-4 w-4 text-expense" />
                   Zona de perigo

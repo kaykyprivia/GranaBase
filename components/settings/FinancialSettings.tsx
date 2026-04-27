@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Landmark, RotateCcw, Save, Wallet } from "lucide-react";
+import { Archive, Download, RotateCcw, Save } from "lucide-react";
 import { EXPENSE_CATEGORIES } from "@/lib/finance";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,7 @@ export function FinancialSettings({
 
             <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
               <div className="mb-3 flex items-center gap-2 text-sm font-medium text-text-primary">
-                <Landmark className="h-4 w-4 text-warning" />
+                <Archive className="h-4 w-4 text-accent" />
                 Backup e portabilidade
               </div>
               <p className="mb-4 text-sm text-text-secondary">
@@ -127,15 +127,6 @@ export function FinancialSettings({
               </Button>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                <Wallet className="h-4 w-4 text-accent" />
-                Operacao mais rapida
-              </div>
-              <p className="text-sm text-text-secondary">
-                Seus lancamentos futuros podem usar esses padroes para reduzir cliques e manter consistencia financeira.
-              </p>
-            </div>
           </div>
         )}
       </CardContent>

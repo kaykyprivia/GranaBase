@@ -129,7 +129,7 @@ export function InstallAppSettings() {
 
   return (
     <Card className="border-border/80 bg-surface/95">
-      <CardHeader>
+      <CardHeader className="gap-3">
         <CardTitle>Instalar aplicativo</CardTitle>
         <CardDescription>
           Instale o GranaBase no seu celular ou computador para acessar mais rapido, como um app nativo.
@@ -167,7 +167,7 @@ export function InstallAppSettings() {
               )}
 
               {isIos && !installed && (
-                <div className="mt-4 rounded-xl border border-warning/20 bg-warning/10 p-3 text-sm text-text-secondary">
+                <div className="mt-4 space-y-1 rounded-xl border border-warning/20 bg-warning/10 p-3 text-sm text-text-secondary">
                   <p>1. Toque em Compartilhar</p>
                   <p>2. Depois em &quot;Adicionar a Tela de Inicio&quot;</p>
                 </div>

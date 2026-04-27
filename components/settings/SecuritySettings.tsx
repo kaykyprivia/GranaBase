@@ -77,7 +77,7 @@ export function SecuritySettings({
   return (
     <>
       <Card className="border-border/80 bg-surface/95">
-        <CardHeader>
+        <CardHeader className="gap-3">
           <CardTitle>Seguranca</CardTitle>
           <CardDescription>
             Revise acessos importantes e mantenha sua conta protegida sem sair do fluxo do dia a dia.
@@ -126,20 +126,18 @@ export function SecuritySettings({
 
               <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <SmartphoneNfc className="h-4 w-4 text-profit" />
+                  <SmartphoneNfc className="h-4 w-4 text-text-secondary" />
                   Autenticacao em dois fatores
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-sm text-text-secondary">
-                    Recurso reservado para a proxima camada de protecao da plataforma.
-                  </p>
-                  <Badge variant="secondary">Em breve</Badge>
-                </div>
+                <p className="mb-3 text-sm text-text-secondary">
+                  Recurso reservado para a proxima camada de protecao da plataforma.
+                </p>
+                <Badge variant="secondary">Em breve</Badge>
               </div>
 
               <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <Clock3 className="h-4 w-4 text-text-primary" />
+                  <Clock3 className="h-4 w-4 text-text-secondary" />
                   Ultimo acesso
                 </div>
                 <p className="text-sm text-text-secondary">{formatLastAccess(lastAccess)}</p>

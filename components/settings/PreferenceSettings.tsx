@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BellRing, EyeOff, MonitorCog, RotateCcw, Save } from "lucide-react";
+import { BellRing, EyeOff, RotateCcw, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,16 +164,6 @@ export function PreferenceSettings({
                 onToggle={() => onFieldChange("notificationsEnabled", !value.notificationsEnabled)}
                 icon={<BellRing className="h-4 w-4" />}
               />
-
-              <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <MonitorCog className="h-4 w-4 text-accent" />
-                  Experiencia consistente
-                </div>
-                <p className="text-sm text-text-secondary">
-                  Suas preferencias ficam salvas na conta para deixar o produto mais alinhado ao seu ritmo de uso.
-                </p>
-              </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
