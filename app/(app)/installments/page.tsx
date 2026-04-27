@@ -29,11 +29,14 @@ interface InstallmentWithPayments extends Installment {
 
 const EMPTY_FORM: InstallmentFormData = {
   description: "",
-  total_amount: 0,
+  installment_amount: 0,
   installment_count: 1,
   first_due_date: "",
   notes: "",
 };
+
+const calculateTotalAmount = (installmentAmount: number, installmentCount: number) =>
+  Math.round(installmentAmount * installmentCount * 100) / 100;
 
 export default function InstallmentsPage() {
   const supabase = createClient();
@@ -49,7 +52,7 @@ export default function InstallmentsPage() {
   const [form, setForm] = useState<InstallmentFormData>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
 
-  const installmentAmount = form.installment_count > 0 ? form.total_amount / form.installment_count : 0;
+  const totalAmount = form.installment_count > 0 ? calculateTotalAmount(form.installment_amount, form.installment_count) : 0;
 
   const fetchData = useCallback(async () => {
     const {
@@ -105,13 +108,14 @@ export default function InstallmentsPage() {
 
     setSaving(true);
     try {
-      const unitAmount = result.data.total_amount / result.data.installment_count;
+      const unitAmount = result.data.installment_amount;
+      const totalAmount = calculateTotalAmount(result.data.installment_amount, result.data.installment_count);
       const { data: createdData, error } = await supabase
         .from("installments")
         .insert(coerceMutation({
           user_id: userId,
           description: result.data.description,
-          total_amount: result.data.total_amount,
+          total_amount: totalAmount,
           installment_count: result.data.installment_count,
           installment_amount: unitAmount,
           first_due_date: result.data.first_due_date,
@@ -381,14 +385,14 @@ export default function InstallmentsPage() {
             </FormField>
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Valor total" error={formErrors.total_amount} required>
+              <FormField label="Valor da parcela" error={formErrors.installment_amount} required>
                 <CurrencyInput
-                  value={form.total_amount}
-                  onChange={(value) => setForm((current) => ({ ...current, total_amount: value }))}
-                  error={formErrors.total_amount}
+                  value={form.installment_amount}
+                  onChange={(value) => setForm((current) => ({ ...current, installment_amount: value }))}
+                  error={formErrors.installment_amount}
                 />
               </FormField>
-              <FormField label="Numero de parcelas" error={formErrors.installment_count} required>
+              <FormField label="Quantidade de parcelas" error={formErrors.installment_count} required>
                 <Input
                   type="number"
                   min={1}
@@ -400,11 +404,12 @@ export default function InstallmentsPage() {
               </FormField>
             </div>
 
-            {form.total_amount > 0 && form.installment_count > 0 && (
+            {form.installment_amount > 0 && form.installment_count > 0 && (
               <div className="rounded-lg border border-accent/20 bg-accent/10 p-3">
-                <p className="text-sm font-medium text-accent">
-                  {form.installment_count}x de {formatCurrency(installmentAmount)}
-                </p>
+                <p className="text-sm text-accent">Valor da parcela: {formatCurrency(form.installment_amount)}</p>
+                <p className="text-sm text-accent">Quantidade: {form.installment_count}</p>
+                <p className="text-sm font-medium text-accent">{form.installment_count}x de {formatCurrency(form.installment_amount)}</p>
+                <p className="text-sm font-medium text-accent">Total: {formatCurrency(totalAmount)}</p>
               </div>
             )}
 

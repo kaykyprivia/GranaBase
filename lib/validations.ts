@@ -44,8 +44,8 @@ export const billSchema = z.object({
 
 export const installmentSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
-  total_amount: z.number().positive("Valor total deve ser positivo"),
-  installment_count: z.number().int().positive("Número de parcelas deve ser positivo"),
+  installment_amount: z.number().positive("Valor da parcela deve ser positivo"),
+  installment_count: z.number().int().positive("Quantidade de parcelas deve ser positiva"),
   first_due_date: z.string().min(1, "Data da 1ª parcela é obrigatória"),
   notes: z.string().optional(),
 });
