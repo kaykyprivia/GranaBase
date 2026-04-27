@@ -8,19 +8,19 @@ export const metadata: Metadata = {
     default: "GranaBase — Gestão Financeira para Renda Variável",
     template: "%s | GranaBase",
   },
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.webmanifest?v=2",
   appleWebApp: {
     capable: true,
     title: "GranaBase",
     statusBarStyle: "default",
   },
   icons: {
-    apple: "/apple-touch-icon.png",
-    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png?v=2",
+    shortcut: "/favicon.ico?v=2",
     icon: [
-      { url: "/favicon.ico", type: "image/x-icon" },
-      { url: "/icons/granabase-icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/granabase-icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico?v=2", type: "image/x-icon" },
+      { url: "/icons/granabase-icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { url: "/icons/granabase-icon-512.png?v=2", sizes: "512x512", type: "image/png" },
     ],
   },
   description:
