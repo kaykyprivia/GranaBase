@@ -33,11 +33,15 @@ export default function LoginPage() {
     });
 
     if (error) {
-      toast.error(
-        error.message === "Invalid login credentials"
-          ? "Email ou senha incorretos"
-          : "Erro ao fazer login. Tente novamente."
-      );
+      const code = (error as { code?: string }).code ?? "";
+      const msg = error.message ?? "";
+      if (code === "email_not_confirmed" || msg.toLowerCase().includes("not confirmed")) {
+        toast.error("Conta ainda não confirmada. Verifique seu e-mail para ativar o acesso.");
+      } else if (code === "invalid_credentials" || msg.toLowerCase().includes("invalid login credentials")) {
+        toast.error("Email ou senha incorretos.");
+      } else {
+        toast.error(msg || "Erro ao fazer login. Tente novamente.");
+      }
       return;
     }
 

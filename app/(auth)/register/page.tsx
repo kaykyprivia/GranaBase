@@ -28,7 +28,7 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (data: RegisterFormData) => {
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -37,17 +37,22 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      if (error.message.includes("already registered")) {
+      if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("already been registered")) {
         toast.error("Este email já está cadastrado. Faça login.");
       } else {
-        toast.error("Erro ao criar conta. Tente novamente.");
+        toast.error(error.message || "Erro ao criar conta. Tente novamente.");
       }
       return;
     }
 
-    toast.success("Conta criada com sucesso! Bem-vindo ao GranaBase.");
-    router.push("/dashboard");
-    router.refresh();
+    if (signUpData.session) {
+      toast.success("Conta criada com sucesso! Bem-vindo ao GranaBase.");
+      router.push("/dashboard");
+      router.refresh();
+    } else {
+      toast.success("Conta criada! Verifique seu e-mail para confirmar o cadastro antes de entrar.");
+      router.push("/login");
+    }
   };
 
   return (
