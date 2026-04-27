@@ -5,7 +5,7 @@ import { Menu, X, Wallet, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, FileText, CreditCard,
+  LayoutDashboard, TrendingUp, TrendingDown, FileText,
   Calendar, PiggyBank, Target, BarChart3, Settings, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,6 @@ const navItems = [
   { href: "/income", label: "Entradas", icon: TrendingUp },
   { href: "/expenses", label: "Gastos", icon: TrendingDown },
   { href: "/bills", label: "Contas", icon: FileText },
-  { href: "/installments", label: "Parcelas", icon: CreditCard },
   { href: "/calendar", label: "Calendário", icon: Calendar },
   { href: "/investments", label: "Investimentos", icon: PiggyBank },
   { href: "/goals", label: "Metas", icon: Target },
