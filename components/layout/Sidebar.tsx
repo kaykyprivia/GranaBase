@@ -42,14 +42,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-surface border-r border-border">
+    <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col bg-surface border-r border-border">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-border">
+      <div className="shrink-0 flex items-center gap-2.5 px-5 py-5 border-b border-border">
         <BrandLogo className="h-14 rounded-xl" priority />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 min-h-0 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -71,7 +71,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-4 border-t border-border pt-3">
+      <div className="shrink-0 px-3 pb-4 border-t border-border pt-3">
         <SidebarUserPanel onLogout={handleLogout} />
       </div>
     </aside>
