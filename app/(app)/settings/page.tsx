@@ -167,10 +167,7 @@ export default function SettingsPage() {
       const nextPreferenceForm: PreferenceFormState = {
         themePreference: settingsRow?.theme_preference ?? DEFAULT_PREFERENCE_FORM.themePreference,
         currencyFormat: settingsRow?.currency_format ?? DEFAULT_PREFERENCE_FORM.currencyFormat,
-        privacyMode: settingsRow?.privacy_mode ?? DEFAULT_PREFERENCE_FORM.privacyMode,
         weekStart: settingsRow?.week_start ?? DEFAULT_PREFERENCE_FORM.weekStart,
-        notificationsEnabled:
-          settingsRow?.notifications_enabled ?? DEFAULT_PREFERENCE_FORM.notificationsEnabled,
       };
 
       const nextFinancialForm: FinancialFormState = {
@@ -329,9 +326,7 @@ export default function SettingsPage() {
       await updateUserSettings({
         theme_preference: preferenceForm.themePreference,
         currency_format: preferenceForm.currencyFormat,
-        privacy_mode: preferenceForm.privacyMode,
         week_start: preferenceForm.weekStart,
-        notifications_enabled: preferenceForm.notificationsEnabled,
       });
 
       setInitialPreferenceForm(preferenceForm);

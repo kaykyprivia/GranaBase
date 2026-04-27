@@ -13,9 +13,7 @@ export interface ProfileFormState {
 export interface PreferenceFormState {
   themePreference: ThemePreference;
   currencyFormat: CurrencyCode;
-  privacyMode: boolean;
   weekStart: WeekStart;
-  notificationsEnabled: boolean;
 }
 
 export interface FinancialFormState {
@@ -34,9 +32,7 @@ export const DEFAULT_PROFILE_FORM: ProfileFormState = {
 export const DEFAULT_PREFERENCE_FORM: PreferenceFormState = {
   themePreference: "dark",
   currencyFormat: "BRL",
-  privacyMode: false,
   weekStart: "monday",
-  notificationsEnabled: true,
 };
 
 export const DEFAULT_FINANCIAL_FORM: FinancialFormState = {
