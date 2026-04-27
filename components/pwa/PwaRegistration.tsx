@@ -10,7 +10,10 @@ export function PwaRegistration() {
 
     const register = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        if (process.env.NODE_ENV === "development") {
+          console.log("[PWA] Service worker registered, scope:", registration.scope);
+        }
       } catch {
         return;
       }

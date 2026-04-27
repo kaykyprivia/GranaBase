@@ -47,15 +47,25 @@ export function InstallAppSettings() {
 
   useEffect(() => {
     const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+    const ios = isIosDevice(userAgent);
+    const standalone = isStandaloneMode();
 
-    setIsIos(isIosDevice(userAgent));
-    setInstalled(isStandaloneMode());
+    setIsIos(ios);
+    setInstalled(standalone);
     setLoading(false);
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[PWA] iOS detected:", ios);
+      console.log("[PWA] Standalone mode detected:", standalone);
+    }
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
       setCanInstall(true);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[PWA] beforeinstallprompt fired — install button enabled");
+      }
     };
 
     const handleInstalled = () => {
@@ -63,6 +73,9 @@ export function InstallAppSettings() {
       setCanInstall(false);
       setDeferredPrompt(null);
       toast.success("GranaBase instalado com sucesso.");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[PWA] appinstalled fired — app is now installed");
+      }
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
