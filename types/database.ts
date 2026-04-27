@@ -38,6 +38,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_settings: {
+        Row: {
+          user_id: string;
+          phone: string | null;
+          avatar_url: string | null;
+          theme_preference: "dark" | "light";
+          currency_format: "BRL" | "USD";
+          privacy_mode: boolean;
+          week_start: "monday" | "sunday";
+          notifications_enabled: boolean;
+          primary_currency: "BRL" | "USD";
+          monthly_goal_default: number;
+          default_expense_category: string;
+          plan: "free" | "pro";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          phone?: string | null;
+          avatar_url?: string | null;
+          theme_preference?: "dark" | "light";
+          currency_format?: "BRL" | "USD";
+          privacy_mode?: boolean;
+          week_start?: "monday" | "sunday";
+          notifications_enabled?: boolean;
+          primary_currency?: "BRL" | "USD";
+          monthly_goal_default?: number;
+          default_expense_category?: string;
+          plan?: "free" | "pro";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          phone?: string | null;
+          avatar_url?: string | null;
+          theme_preference?: "dark" | "light";
+          currency_format?: "BRL" | "USD";
+          privacy_mode?: boolean;
+          week_start?: "monday" | "sunday";
+          notifications_enabled?: boolean;
+          primary_currency?: "BRL" | "USD";
+          monthly_goal_default?: number;
+          default_expense_category?: string;
+          plan?: "free" | "pro";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       income_entries: {
         Row: {
           id: string;
@@ -356,7 +407,12 @@ export interface Database {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      delete_my_account: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   };
@@ -370,6 +426,7 @@ export type Updates<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Update"];
 
 export type Profile = Tables<"profiles">;
+export type UserSettings = Tables<"user_settings">;
 export type IncomeEntry = Tables<"income_entries">;
 export type ExpenseEntry = Tables<"expense_entries">;
 export type Bill = Tables<"bills">;
@@ -385,4 +442,6 @@ export type InsertInstallment = Inserts<"installments">;
 export type InsertInstallmentPayment = Inserts<"installment_payments">;
 export type InsertInvestment = Inserts<"investments">;
 export type InsertFinancialGoal = Inserts<"financial_goals">;
+export type InsertUserSettings = Inserts<"user_settings">;
 export type UpdateProfile = Updates<"profiles">;
+export type UpdateUserSettings = Updates<"user_settings">;
