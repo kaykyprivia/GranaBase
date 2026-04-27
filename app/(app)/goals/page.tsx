@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Target, Plus, Pencil, Trash2, Wallet, PauseCircle, CheckCircle2 } from "lucide-react";
+import { Target, Plus, Pencil, Trash2, Wallet, PauseCircle, CheckCircle2, Lightbulb, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
 import { GOAL_CATEGORIES } from "@/lib/finance";
+import { calculateMonthlySuggestion } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
 import type { FinancialGoal } from "@/types/database";
@@ -326,6 +327,7 @@ export default function GoalsPage() {
           {filteredGoals.map((goal) => {
             const progress = goal.target_amount > 0 ? Math.min((goal.current_amount / goal.target_amount) * 100, 100) : 0;
             const remaining = Math.max(goal.target_amount - goal.current_amount, 0);
+            const monthlySuggestion = calculateMonthlySuggestion(goal);
 
             return (
               <Card key={goal.id} className="overflow-hidden">
@@ -374,6 +376,52 @@ export default function GoalsPage() {
                       Meta de {formatCurrency(goal.target_amount)}
                       {goal.deadline ? ` ate ${formatDate(goal.deadline)}` : ""}
                     </p>
+
+                    {monthlySuggestion.status !== "no_deadline" && (
+                      <div className="mt-3 rounded-xl border border-border/70 bg-background/30 p-3">
+                        {monthlySuggestion.status === "completed" ? (
+                          <div className="flex items-start gap-3">
+                            <div className="rounded-lg bg-profit/15 p-2 text-profit">
+                              <CheckCircle2 className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">Meta concluida</p>
+                              <p className="mt-1 text-sm font-semibold text-profit">Meta batida</p>
+                            </div>
+                          </div>
+                        ) : monthlySuggestion.status === "expired" ? (
+                          <div className="flex items-start gap-3">
+                            <div className="rounded-lg bg-expense/15 p-2 text-expense">
+                              <AlertTriangle className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">Prazo encerrado</p>
+                              <p className="mt-1 text-sm font-semibold text-expense">Revise o prazo ou aumente seus aportes.</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-3">
+                            <div className="rounded-lg bg-warning/15 p-2 text-warning">
+                              <Lightbulb className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+                                {monthlySuggestion.status === "immediate" ? "Sugestao imediata" : "Para atingir sua meta"}
+                              </p>
+                              <p className="mt-1 text-lg font-semibold text-warning">
+                                {formatCurrency(monthlySuggestion.monthlyValue)}
+                                {monthlySuggestion.status === "immediate" ? " este mes" : " por mes"}
+                              </p>
+                              {monthlySuggestion.status === "monthly" && (
+                                <p className="mt-1 text-sm text-text-secondary">
+                                  Considere guardar esse valor por {monthlySuggestion.monthsLeft} {monthlySuggestion.monthsLeft === 1 ? "mes" : "meses"} restantes.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
