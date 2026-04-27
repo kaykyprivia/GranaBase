@@ -30,7 +30,7 @@ interface InstallmentWithPayments extends Installment {
 const EMPTY_FORM: InstallmentFormData = {
   description: "",
   installment_amount: 0,
-  installment_count: 1,
+  installment_count: 0,
   first_due_date: "",
   notes: "",
 };
@@ -50,9 +50,14 @@ export default function InstallmentsPage() {
   const [saving, setSaving] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [form, setForm] = useState<InstallmentFormData>(EMPTY_FORM);
+  const [installmentCountInput, setInstallmentCountInput] = useState("");
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
 
-  const totalAmount = form.installment_count > 0 ? calculateTotalAmount(form.installment_amount, form.installment_count) : 0;
+  const installmentCount = Number(installmentCountInput);
+  const isValidInstallmentCount = Number.isInteger(installmentCount) && installmentCount > 0;
+  const totalAmount = form.installment_amount > 0 && isValidInstallmentCount
+    ? calculateTotalAmount(form.installment_amount, installmentCount)
+    : 0;
 
   const fetchData = useCallback(async () => {
     const {
@@ -95,7 +100,17 @@ export default function InstallmentsPage() {
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormErrors({});
-    const result = installmentSchema.safeParse(form);
+
+    if (!isValidInstallmentCount) {
+      setFormErrors({ installment_count: "Quantidade de parcelas deve ser positiva" });
+      toast.error("Informe uma quantidade de parcelas valida.");
+      return;
+    }
+
+    const result = installmentSchema.safeParse({
+      ...form,
+      installment_count: installmentCount,
+    });
 
     if (!result.success) {
       const nextErrors: Partial<Record<keyof InstallmentFormData, string>> = {};
@@ -144,6 +159,7 @@ export default function InstallmentsPage() {
       await supabase.from("installment_payments").insert(coerceMutation(payments));
       toast.success(`Parcelamento criado com ${result.data.installment_count} parcelas`);
       setForm(EMPTY_FORM);
+      setInstallmentCountInput("");
       setModalOpen(false);
       await fetchData();
     } catch {
@@ -220,6 +236,7 @@ export default function InstallmentsPage() {
         <Button
           onClick={() => {
             setForm(EMPTY_FORM);
+            setInstallmentCountInput("");
             setFormErrors({});
             setModalOpen(true);
           }}
@@ -397,18 +414,24 @@ export default function InstallmentsPage() {
                   type="number"
                   min={1}
                   max={360}
-                  value={form.installment_count}
-                  onChange={(event) => setForm((current) => ({ ...current, installment_count: parseInt(event.target.value, 10) || 1 }))}
+                  placeholder="Ex: 9"
+                  value={installmentCountInput}
+                  onChange={(event) => {
+                    setInstallmentCountInput(event.target.value);
+                    if (formErrors.installment_count) {
+                      setFormErrors((current) => ({ ...current, installment_count: undefined }));
+                    }
+                  }}
                   error={formErrors.installment_count}
                 />
               </FormField>
             </div>
 
-            {form.installment_amount > 0 && form.installment_count > 0 && (
+            {form.installment_amount > 0 && isValidInstallmentCount && (
               <div className="rounded-lg border border-accent/20 bg-accent/10 p-3">
                 <p className="text-sm text-accent">Valor da parcela: {formatCurrency(form.installment_amount)}</p>
-                <p className="text-sm text-accent">Quantidade: {form.installment_count}</p>
-                <p className="text-sm font-medium text-accent">{form.installment_count}x de {formatCurrency(form.installment_amount)}</p>
+                <p className="text-sm text-accent">Quantidade: {installmentCount}</p>
+                <p className="text-sm font-medium text-accent">{installmentCount}x de {formatCurrency(form.installment_amount)}</p>
                 <p className="text-sm font-medium text-accent">Total: {formatCurrency(totalAmount)}</p>
               </div>
             )}
