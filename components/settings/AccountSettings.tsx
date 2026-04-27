@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, LogOut, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { Crown, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,7 @@ interface AccountSettingsProps {
   loading: boolean;
   plan: PlanType;
   email: string;
-  loggingOut: boolean;
   deletingAccount: boolean;
-  onLogout: () => Promise<void>;
   onDeleteAccount: () => Promise<void>;
 }
 
@@ -23,9 +21,7 @@ export function AccountSettings({
   loading,
   plan,
   email,
-  loggingOut,
   deletingAccount,
-  onLogout,
   onDeleteAccount,
 }: AccountSettingsProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -36,7 +32,7 @@ export function AccountSettings({
         <CardHeader>
           <CardTitle>Conta</CardTitle>
           <CardDescription>
-            Gerencie seu plano, saia com seguranca e controle a permanencia da sua conta.
+            Gerencie seu plano e controle a permanencia da sua conta com seguranca.
           </CardDescription>
         </CardHeader>
 
@@ -66,20 +62,6 @@ export function AccountSettings({
                     Upgrade para Pro em breve
                   </Button>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <LogOut className="h-4 w-4 text-accent" />
-                  Sessao da conta
-                </div>
-                <p className="mb-4 text-sm text-text-secondary">
-                  Saia deste dispositivo a qualquer momento mantendo seus dados protegidos.
-                </p>
-                <Button type="button" variant="outline" onClick={onLogout} loading={loggingOut} className="gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Sair da conta
-                </Button>
               </div>
 
               <div className="rounded-2xl border border-expense/25 bg-expense/5 p-4">

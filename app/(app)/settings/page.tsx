@@ -106,7 +106,6 @@ export default function SettingsPage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [endingSessions, setEndingSessions] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [profileMatchField, setProfileMatchField] = useState<ProfileMatchField>(null);
@@ -475,26 +474,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-
-    try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success("Sessao encerrada.");
-      router.push("/login");
-      router.refresh();
-    } catch (error) {
-      toast.error(getSupabaseErrorMessage(error));
-    } finally {
-      setLoggingOut(false);
-    }
-  };
-
   const handleDeleteAccount = async () => {
     setDeletingAccount(true);
 
@@ -587,9 +566,7 @@ export default function SettingsPage() {
             loading={loading}
             plan={plan}
             email={profileForm.email}
-            loggingOut={loggingOut}
             deletingAccount={deletingAccount}
-            onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
           />
         </div>
