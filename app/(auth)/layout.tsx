@@ -1,4 +1,4 @@
-import { Wallet } from "lucide-react";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +14,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-accent/20 border border-accent/30">
-            <Wallet className="h-6 w-6 text-accent" />
-          </div>
-          <div>
-            <span className="text-2xl font-bold text-text-primary">Grana</span>
-            <span className="text-2xl font-bold text-accent">Base</span>
-          </div>
+        <div className="relative">
+          <BrandLogo className="h-24 rounded-2xl" priority />
         </div>
 
         {/* Hero copy */}
@@ -66,13 +60,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="p-2 rounded-xl bg-accent/20">
-              <Wallet className="h-5 w-5 text-accent" />
-            </div>
-            <span className="text-xl font-bold">
-              Grana<span className="text-accent">Base</span>
-            </span>
+          <div className="lg:hidden mb-8">
+            <BrandLogo className="h-16 rounded-2xl" priority />
           </div>
           {children}
         </div>

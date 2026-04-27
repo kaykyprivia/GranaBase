@@ -11,13 +11,13 @@ import {
   PiggyBank,
   Target,
   BarChart3,
-  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -45,13 +45,7 @@ export function Sidebar() {
     <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-surface border-r border-border">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-border">
-        <div className="p-2 rounded-lg bg-accent/20">
-          <Wallet className="h-5 w-5 text-accent" />
-        </div>
-        <div>
-          <span className="text-lg font-bold text-text-primary">Grana</span>
-          <span className="text-lg font-bold text-accent">Base</span>
-        </div>
+        <BrandLogo className="h-14 rounded-xl" priority />
       </div>
 
       {/* Navigation */}

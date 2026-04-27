@@ -1,9 +1,10 @@
 import Link from "next/link";
 import {
-  Wallet, TrendingUp, TrendingDown, FileText, Target,
+  TrendingUp, TrendingDown, FileText, Target,
   BarChart3, Shield, Zap, ChevronRight, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 const features = [
   {
@@ -56,14 +57,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-accent/20">
-              <Wallet className="h-5 w-5 text-accent" />
-            </div>
-            <span className="text-lg font-bold">
-              Grana<span className="text-accent">Base</span>
-            </span>
-          </div>
+          <BrandLogo className="h-12 rounded-xl" priority />
           <div className="flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" size="sm">Entrar</Button>

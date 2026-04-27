@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X, Wallet, Bell } from "lucide-react";
+import { Menu, X, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -52,12 +53,7 @@ export function Header({ pageTitle }: HeaderProps) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-1.5">
-              <Wallet className="h-5 w-5 text-accent" />
-              <span className="font-bold text-text-primary">
-                Grana<span className="text-accent">Base</span>
-              </span>
-            </div>
+            <BrandLogo className="h-11 rounded-lg" priority />
           </div>
           <div className="flex items-center gap-2">
             {pageTitle && (
@@ -79,14 +75,7 @@ export function Header({ pageTitle }: HeaderProps) {
           />
           <div className="relative z-10 w-72 h-full bg-surface border-r border-border flex flex-col animate-slide-in">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-accent/20">
-                  <Wallet className="h-4 w-4 text-accent" />
-                </div>
-                <span className="font-bold text-text-primary">
-                  Grana<span className="text-accent">Base</span>
-                </span>
-              </div>
+              <BrandLogo className="h-12 rounded-xl" priority />
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 rounded-lg text-text-secondary hover:bg-border"
