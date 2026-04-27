@@ -23,6 +23,19 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 
+function getSupabaseErrorMessage(error: unknown): string {
+  if (!error) return "Erro desconhecido.";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object") {
+    const e = error as { message?: string; code?: string; details?: string; hint?: string };
+    return [e.message, e.code ? `code=${e.code}` : null, e.details, e.hint]
+      .filter(Boolean)
+      .join(" | ");
+  }
+  return "Erro inesperado.";
+}
+
 const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissão", "Pix", "Reembolso", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
 
@@ -108,15 +121,18 @@ export default function IncomePage() {
           category: data.category, received_at: data.received_at,
           payment_method: data.payment_method || null, notes: data.notes || null,
         }));
-        if (error) throw error;
+        if (error) {
+          console.error("INCOME INSERT ERROR:", JSON.stringify(error, null, 2));
+          throw new Error(getSupabaseErrorMessage(error));
+        }
         toast.success("Entrada registrada com sucesso");
       }
       setModalOpen(false);
       await fetchEntries();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("Income insert error:", err);
-      toast.error(`Erro ao salvar entrada: ${msg}`);
+    } catch (error) {
+      const message = getSupabaseErrorMessage(error);
+      console.error("INCOME SUBMIT FAILED:", error);
+      toast.error(`Erro ao salvar entrada: ${message}`);
     }
   };
 
