@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronDown, ChevronUp, CreditCard, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CreditCard, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
@@ -38,6 +38,19 @@ const EMPTY_FORM: InstallmentFormData = {
 const calculateTotalAmount = (installmentAmount: number, installmentCount: number) =>
   Math.round(installmentAmount * installmentCount * 100) / 100;
 
+function getSupabaseErrorMessage(error: unknown): string {
+  if (!error) return "Erro desconhecido.";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object") {
+    const err = error as { message?: string; code?: string; details?: string; hint?: string };
+    return [err.message, err.code ? `code=${err.code}` : null, err.details, err.hint]
+      .filter(Boolean)
+      .join(" | ");
+  }
+  return "Erro inesperado.";
+}
+
 export default function InstallmentsPage() {
   const supabase = createClient();
   const [items, setItems] = useState<InstallmentWithPayments[]>([]);
@@ -45,6 +58,8 @@ export default function InstallmentsPage() {
   const [userId, setUserId] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [editingInstallment, setEditingInstallment] = useState<InstallmentWithPayments | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,6 +73,85 @@ export default function InstallmentsPage() {
   const totalAmount = form.installment_amount > 0 && isValidInstallmentCount
     ? calculateTotalAmount(form.installment_amount, installmentCount)
     : 0;
+
+  const resetFormState = () => {
+    setForm(EMPTY_FORM);
+    setInstallmentCountInput("");
+    setFormErrors({});
+    setEditingInstallment(null);
+    setFormMode("create");
+  };
+
+  const openCreateModal = () => {
+    resetFormState();
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    resetFormState();
+  };
+
+  const createInstallmentPayments = (installmentId: string, firstDueDate: string, unitAmount: number, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const dueDate = addMonths(new Date(`${firstDueDate}T00:00:00`), index);
+      return {
+        user_id: userId,
+        installment_id: installmentId,
+        installment_number: index + 1,
+        due_date: dueDate.toISOString().split("T")[0],
+        amount: unitAmount,
+        status: "pending" as const,
+      };
+    });
+
+  const getValidatedFormData = () => {
+    setFormErrors({});
+
+    if (!isValidInstallmentCount) {
+      setFormErrors({ installment_count: "Quantidade de parcelas deve ser positiva" });
+      toast.error("Informe uma quantidade de parcelas valida.");
+      return null;
+    }
+
+    const result = installmentSchema.safeParse({
+      ...form,
+      installment_count: installmentCount,
+    });
+
+    if (!result.success) {
+      const nextErrors: Partial<Record<keyof InstallmentFormData, string>> = {};
+      result.error.errors.forEach((issue) => {
+        nextErrors[issue.path[0] as keyof InstallmentFormData] = issue.message;
+      });
+      setFormErrors(nextErrors);
+      return null;
+    }
+
+    return result.data;
+  };
+
+  const openEditModal = (item: InstallmentWithPayments) => {
+    const hasPaidPayments = item.payments.some((payment) => payment.status === "paid");
+
+    if (hasPaidPayments) {
+      toast.error("Este parcelamento ja possui parcelas pagas. Para evitar inconsistencias, edite apenas observacoes ou exclua/recrie manualmente.");
+      return;
+    }
+
+    setFormMode("edit");
+    setEditingInstallment(item);
+    setForm({
+      description: item.description,
+      installment_amount: item.installment_amount,
+      installment_count: item.installment_count,
+      first_due_date: item.first_due_date,
+      notes: item.notes ?? "",
+    });
+    setInstallmentCountInput(String(item.installment_count));
+    setFormErrors({});
+    setModalOpen(true);
+  };
 
   const fetchData = useCallback(async () => {
     const {
@@ -97,76 +191,125 @@ export default function InstallmentsPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setFormErrors({});
-
-    if (!isValidInstallmentCount) {
-      setFormErrors({ installment_count: "Quantidade de parcelas deve ser positiva" });
-      toast.error("Informe uma quantidade de parcelas valida.");
-      return;
-    }
-
-    const result = installmentSchema.safeParse({
-      ...form,
-      installment_count: installmentCount,
-    });
-
-    if (!result.success) {
-      const nextErrors: Partial<Record<keyof InstallmentFormData, string>> = {};
-      result.error.errors.forEach((issue) => {
-        nextErrors[issue.path[0] as keyof InstallmentFormData] = issue.message;
-      });
-      setFormErrors(nextErrors);
-      return;
-    }
-
+  const handleCreate = async (values: InstallmentFormData) => {
     setSaving(true);
     try {
-      const unitAmount = result.data.installment_amount;
-      const totalAmount = calculateTotalAmount(result.data.installment_amount, result.data.installment_count);
+      const unitAmount = values.installment_amount;
+      const totalAmount = calculateTotalAmount(values.installment_amount, values.installment_count);
       const { data: createdData, error } = await supabase
         .from("installments")
         .insert(coerceMutation({
           user_id: userId,
-          description: result.data.description,
+          description: values.description,
           total_amount: totalAmount,
-          installment_count: result.data.installment_count,
+          installment_count: values.installment_count,
           installment_amount: unitAmount,
-          first_due_date: result.data.first_due_date,
-          notes: result.data.notes || null,
+          first_due_date: values.first_due_date,
+          notes: values.notes || null,
         }))
         .select()
         .single();
 
       const created = createdData ? coerceData<Installment>(createdData) : null;
       if (error || !created) {
-        throw error;
+        throw error ?? new Error("Nao foi possivel criar o parcelamento.");
       }
 
-      const payments = Array.from({ length: result.data.installment_count }, (_, index) => {
-        const dueDate = addMonths(new Date(`${result.data.first_due_date}T00:00:00`), index);
-        return {
-          user_id: userId,
-          installment_id: created.id,
-          installment_number: index + 1,
-          due_date: dueDate.toISOString().split("T")[0],
-          amount: unitAmount,
-          status: "pending" as const,
-        };
-      });
+      const payments = createInstallmentPayments(created.id, values.first_due_date, unitAmount, values.installment_count);
+      const { error: paymentsError } = await supabase.from("installment_payments").insert(coerceMutation(payments));
 
-      await supabase.from("installment_payments").insert(coerceMutation(payments));
-      toast.success(`Parcelamento criado com ${result.data.installment_count} parcelas`);
-      setForm(EMPTY_FORM);
-      setInstallmentCountInput("");
-      setModalOpen(false);
+      if (paymentsError) {
+        throw paymentsError;
+      }
+
+      toast.success(`Parcelamento criado com ${values.installment_count} parcelas`);
+      closeModal();
       await fetchData();
-    } catch {
-      toast.error("Erro ao criar parcelamento");
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleUpdate = async (values: InstallmentFormData) => {
+    if (!editingInstallment) {
+      toast.error("Parcelamento nao encontrado.");
+      return;
+    }
+
+    const hasPaidPayments = editingInstallment.payments.some((payment) => payment.status === "paid");
+
+    if (hasPaidPayments) {
+      toast.error("Este parcelamento ja possui parcelas pagas. Para evitar inconsistencias, edite apenas observacoes ou exclua/recrie manualmente.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const unitAmount = values.installment_amount;
+      const totalAmount = calculateTotalAmount(values.installment_amount, values.installment_count);
+
+      const { error: updateError } = await supabase
+        .from("installments")
+        .update(coerceMutation({
+          description: values.description,
+          installment_amount: unitAmount,
+          installment_count: values.installment_count,
+          total_amount: totalAmount,
+          first_due_date: values.first_due_date,
+          notes: values.notes || null,
+        }))
+        .eq("id", editingInstallment.id)
+        .eq("user_id", userId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { error: deletePaymentsError } = await supabase
+        .from("installment_payments")
+        .delete()
+        .eq("installment_id", editingInstallment.id)
+        .eq("user_id", userId);
+
+      if (deletePaymentsError) {
+        throw deletePaymentsError;
+      }
+
+      const payments = createInstallmentPayments(editingInstallment.id, values.first_due_date, unitAmount, values.installment_count);
+      const { error: insertPaymentsError } = await supabase
+        .from("installment_payments")
+        .insert(coerceMutation(payments));
+
+      if (insertPaymentsError) {
+        throw insertPaymentsError;
+      }
+
+      toast.success("Parcelamento atualizado");
+      closeModal();
+      await fetchData();
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const values = getValidatedFormData();
+
+    if (!values) {
+      return;
+    }
+
+    if (formMode === "edit") {
+      await handleUpdate(values);
+      return;
+    }
+
+    await handleCreate(values);
   };
 
   const handleMarkPaymentPaid = async (paymentId: string) => {
@@ -183,8 +326,8 @@ export default function InstallmentsPage() {
 
       toast.success("Parcela marcada como paga");
       await fetchData();
-    } catch {
-      toast.error("Erro ao marcar parcela");
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
     } finally {
       setMarkingPaidId(null);
     }
@@ -204,8 +347,8 @@ export default function InstallmentsPage() {
       }
       setItems((current) => current.filter((item) => item.id !== deleteId));
       toast.success("Parcelamento excluido");
-    } catch {
-      toast.error("Erro ao excluir parcelamento");
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
     } finally {
       setDeleting(false);
       setDeleteId(null);
@@ -234,12 +377,7 @@ export default function InstallmentsPage() {
           </div>
         </div>
         <Button
-          onClick={() => {
-            setForm(EMPTY_FORM);
-            setInstallmentCountInput("");
-            setFormErrors({});
-            setModalOpen(true);
-          }}
+          onClick={openCreateModal}
           size="sm"
           className="gap-1.5 shrink-0"
         >
@@ -267,7 +405,7 @@ export default function InstallmentsPage() {
           title="Nenhum parcelamento"
           description="Registre uma compra parcelada para acompanhar pagas, faltantes, proxima e restante."
           actionLabel="+ Novo parcelamento"
-          onAction={() => setModalOpen(true)}
+          onAction={openCreateModal}
         />
       ) : (
         <div className="space-y-3">
@@ -291,6 +429,15 @@ export default function InstallmentsPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => openEditModal(item)}
+                        className="text-text-secondary hover:bg-accent/10 hover:text-accent"
+                        title="Editar parcelamento"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -385,18 +532,27 @@ export default function InstallmentsPage() {
         </div>
       )}
 
-      <Dialog open={modalOpen} onOpenChange={(open) => !open && setModalOpen(false)}>
+      <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo parcelamento</DialogTitle>
-            <DialogDescription>Crie uma compra parcelada e gere as parcelas automaticamente.</DialogDescription>
+            <DialogTitle>{formMode === "edit" ? "Editar parcelamento" : "Novo parcelamento"}</DialogTitle>
+            <DialogDescription>
+              {formMode === "edit"
+                ? "Atualize a compra parcelada e regenere as parcelas automaticamente."
+                : "Crie uma compra parcelada e gere as parcelas automaticamente."}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <FormField label="Descricao" error={formErrors.description} required>
               <Input
                 placeholder="Ex: Notebook Samsung"
                 value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                onChange={(event) => {
+                  setForm((current) => ({ ...current, description: event.target.value }));
+                  if (formErrors.description) {
+                    setFormErrors((current) => ({ ...current, description: undefined }));
+                  }
+                }}
                 error={formErrors.description}
               />
             </FormField>
@@ -405,7 +561,12 @@ export default function InstallmentsPage() {
               <FormField label="Valor da parcela" error={formErrors.installment_amount} required>
                 <CurrencyInput
                   value={form.installment_amount}
-                  onChange={(value) => setForm((current) => ({ ...current, installment_amount: value }))}
+                  onChange={(value) => {
+                    setForm((current) => ({ ...current, installment_amount: value }));
+                    if (formErrors.installment_amount) {
+                      setFormErrors((current) => ({ ...current, installment_amount: undefined }));
+                    }
+                  }}
                   error={formErrors.installment_amount}
                 />
               </FormField>
@@ -440,7 +601,12 @@ export default function InstallmentsPage() {
               <Input
                 type="date"
                 value={form.first_due_date}
-                onChange={(event) => setForm((current) => ({ ...current, first_due_date: event.target.value }))}
+                onChange={(event) => {
+                  setForm((current) => ({ ...current, first_due_date: event.target.value }));
+                  if (formErrors.first_due_date) {
+                    setFormErrors((current) => ({ ...current, first_due_date: undefined }));
+                  }
+                }}
                 error={formErrors.first_due_date}
               />
             </FormField>
@@ -455,11 +621,11 @@ export default function InstallmentsPage() {
             </FormField>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
+              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
                 Cancelar
               </Button>
               <Button type="submit" loading={saving}>
-                Criar parcelamento
+                {formMode === "edit" ? "Salvar alteracoes" : "Criar parcelamento"}
               </Button>
             </DialogFooter>
           </form>
