@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PiggyBank, Plus, Search, Pencil, Trash2, TrendingUp } from "lucide-react";
@@ -24,6 +24,168 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  InvestmentsSubSidebar,
+  investmentTabs,
+  type InvestmentTabId,
+} from "@/components/investments/InvestmentsSubSidebar";
+
+interface InvestmentCategoryMeta {
+  title: string;
+  description: string;
+}
+
+const investmentCategoryMeta: Record<InvestmentTabId, InvestmentCategoryMeta> = {
+  overview: {
+    title: "Visão geral",
+    description: "Uma leitura ampla dos seus aportes, filtros ativos e movimentações recentes.",
+  },
+  portfolio: {
+    title: "Carteira",
+    description: "Todos os registros que compõem a sua carteira atual, mantendo os filtros da página.",
+  },
+  stocks: {
+    title: "Ações",
+    description: "Posições de renda variável local agrupadas em ações e ETFs.",
+  },
+  fiis: {
+    title: "FIIs",
+    description: "Fundos imobiliários que já foram registrados como investimento.",
+  },
+  "fixed-income": {
+    title: "Renda fixa",
+    description: "Tesouro, CDBs e reservas que funcionam como caixa ou proteção.",
+  },
+  crypto: {
+    title: "Criptomoedas",
+    description: "Acompanhe seus ativos digitais dentro da mesma experiência da carteira.",
+  },
+  international: {
+    title: "Exterior",
+    description: "Espaço reservado para ativos internacionais quando a base tiver esse recorte explícito.",
+  },
+  dividends: {
+    title: "Dividendos",
+    description: "Área preparada para consolidar renda passiva quando o app passar a registrar proventos.",
+  },
+  earnings: {
+    title: "Proventos",
+    description: "Uma visão futura para JCP, dividendos, amortizações e demais eventos de caixa.",
+  },
+  contributions: {
+    title: "Aportes",
+    description: "Histórico de registros lançados na sua carteira, destacando os aportes feitos.",
+  },
+  profitability: {
+    title: "Rentabilidade",
+    description: "Pronta para receber comparativos e evolução de performance quando houver métricas dedicadas.",
+  },
+  reports: {
+    title: "Relatórios",
+    description: "Seção reservada para análises consolidadas, exportações e visões executivas.",
+  },
+};
+
+function matchesInvestmentTab(entry: Investment, tab: InvestmentTabId) {
+  const normalizedType = entry.investment_type.trim().toLowerCase();
+  const normalizedName = entry.name.trim().toLowerCase();
+
+  switch (tab) {
+    case "overview":
+    case "portfolio":
+    case "contributions":
+      return true;
+    case "stocks":
+      return normalizedType === "acao" || normalizedType === "etf";
+    case "fiis":
+      return normalizedType === "fii";
+    case "fixed-income":
+      return normalizedType === "tesouro" || normalizedType === "cdb" || normalizedType === "reserva";
+    case "crypto":
+      return normalizedType === "crypto";
+    case "international":
+      return (
+        normalizedType.includes("bdr")
+        || normalizedName.includes("exterior")
+        || normalizedName.includes("internacional")
+        || normalizedName.includes("global")
+        || normalizedName.includes("usa")
+        || normalizedName.includes("eua")
+        || normalizedName.includes("nasdaq")
+        || normalizedName.includes("nyse")
+        || normalizedName.includes("s&p")
+        || normalizedName.includes("sp500")
+      );
+    case "dividends":
+    case "earnings":
+    case "profitability":
+    case "reports":
+      return false;
+    default:
+      return false;
+  }
+}
+
+function InvestmentsTable({
+  entries,
+  onEdit,
+  onDelete,
+}: {
+  entries: Investment[];
+  onEdit: (entry: Investment) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      <div className="hidden grid-cols-[1fr_180px_140px_110px_88px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
+        <span>Investimento</span>
+        <span>Tipo</span>
+        <span>Valor</span>
+        <span>Data</span>
+        <span className="text-right">Acoes</span>
+      </div>
+      <div className="divide-y divide-border">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_88px]"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
+              {entry.notes && <p className="truncate text-xs text-text-secondary">{entry.notes}</p>}
+              <div className="mt-1 flex items-center gap-2 sm:hidden">
+                <Badge variant="default" className="text-[10px]">
+                  {entry.investment_type}
+                </Badge>
+                <span className="text-xs text-text-secondary">{formatDate(entry.invested_at)}</span>
+              </div>
+            </div>
+            <div className="hidden sm:block">
+              <Badge variant="default">{entry.investment_type}</Badge>
+            </div>
+            <div className="hidden text-sm font-semibold text-accent sm:block">{formatCurrency(entry.amount)}</div>
+            <div className="hidden text-sm text-text-secondary sm:block">{formatDate(entry.invested_at)}</div>
+            <div className="flex shrink-0 items-center gap-1 sm:justify-end">
+              <span className="mr-2 text-sm font-semibold text-accent sm:hidden">{formatCurrency(entry.amount)}</span>
+              <Button variant="ghost" size="icon-sm" onClick={() => onEdit(entry)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onDelete(entry.id)}
+                className="hover:bg-expense/10 hover:text-expense"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function InvestmentsPage() {
   const supabase = createClient();
@@ -37,6 +199,7 @@ export default function InvestmentsPage() {
   const [monthFilter, setMonthFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<InvestmentTabId>("overview");
 
   const monthOptions = getMonthOptions(18);
 
@@ -178,13 +341,31 @@ export default function InvestmentsPage() {
     .reduce((sum, entry) => sum + entry.amount, 0);
   const totalAll = entries.reduce((sum, entry) => sum + entry.amount, 0);
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
+  const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
+  const activeTabMeta = investmentCategoryMeta[activeTab];
+  const ActiveTabIcon = activeTabItem.icon;
 
-  const filtered = entries.filter((entry) => {
-    const matchMonth = monthFilter === "all" || entry.invested_at.startsWith(monthFilter);
-    const matchType = typeFilter === "all" || entry.investment_type === typeFilter;
-    const matchSearch = !search || entry.name.toLowerCase().includes(search.toLowerCase());
-    return matchMonth && matchType && matchSearch;
-  });
+  const filtered = useMemo(() => {
+    return entries.filter((entry) => {
+      const matchMonth = monthFilter === "all" || entry.invested_at.startsWith(monthFilter);
+      const matchType = typeFilter === "all" || entry.investment_type === typeFilter;
+      const matchSearch = !search || entry.name.toLowerCase().includes(search.toLowerCase());
+      return matchMonth && matchType && matchSearch;
+    });
+  }, [entries, monthFilter, search, typeFilter]);
+
+  const tabEntries = useMemo(
+    () => filtered.filter((entry) => matchesInvestmentTab(entry, activeTab)),
+    [activeTab, filtered]
+  );
+
+  const unfilteredTabEntries = useMemo(
+    () => entries.filter((entry) => matchesInvestmentTab(entry, activeTab)),
+    [activeTab, entries]
+  );
+
+  const isOverviewTab = activeTab === "overview";
+  const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
 
   return (
     <div className="page-container animate-fade-in">
@@ -245,71 +426,93 @@ export default function InvestmentsPage() {
         />
       </div>
 
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={PiggyBank}
-          title="Nenhum investimento encontrado"
-          description={search || monthFilter !== "all" || typeFilter !== "all"
-            ? "Ajuste os filtros para encontrar seus registros."
-            : "Comece registrando seu primeiro aporte."}
-          actionLabel={!search && monthFilter === "all" && typeFilter === "all" ? "+ Novo investimento" : undefined}
-          onAction={!search && monthFilter === "all" && typeFilter === "all" ? openCreate : undefined}
-        />
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-border">
-          <div className="hidden grid-cols-[1fr_180px_140px_110px_88px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
-            <span>Investimento</span>
-            <span>Tipo</span>
-            <span>Valor</span>
-            <span>Data</span>
-            <span className="text-right">Acoes</span>
-          </div>
-          <div className="divide-y divide-border">
-            {filtered.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_88px]"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
-                  {entry.notes && <p className="truncate text-xs text-text-secondary">{entry.notes}</p>}
-                  <div className="mt-1 flex items-center gap-2 sm:hidden">
-                    <Badge variant="default" className="text-[10px]">
-                      {entry.investment_type}
-                    </Badge>
-                    <span className="text-xs text-text-secondary">{formatDate(entry.invested_at)}</span>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <main className="min-w-0 flex-1">
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : isOverviewTab ? (
+            filtered.length === 0 ? (
+              <EmptyState
+                icon={PiggyBank}
+                title="Nenhum investimento encontrado"
+                description={hasFilterApplied
+                  ? "Ajuste os filtros para encontrar seus registros."
+                  : "Comece registrando seu primeiro aporte."}
+                actionLabel={!hasFilterApplied ? "+ Novo investimento" : undefined}
+                onAction={!hasFilterApplied ? openCreate : undefined}
+              />
+            ) : (
+              <InvestmentsTable
+                entries={filtered}
+                onEdit={openEdit}
+                onDelete={setDeleteId}
+              />
+            )
+          ) : (
+            <div className="space-y-4">
+              <Card className="border-border/70 bg-surface/90">
+                <CardHeader>
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-accent/12 p-2.5 text-accent">
+                      <ActiveTabIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle>{activeTabMeta.title}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {activeTabMeta.description}
+                      </CardDescription>
+                    </div>
                   </div>
-                </div>
-                <div className="hidden sm:block">
-                  <Badge variant="default">{entry.investment_type}</Badge>
-                </div>
-                <div className="hidden sm:block text-sm font-semibold text-accent">{formatCurrency(entry.amount)}</div>
-                <div className="hidden sm:block text-sm text-text-secondary">{formatDate(entry.invested_at)}</div>
-                <div className="flex shrink-0 items-center gap-1 sm:justify-end">
-                  <span className="mr-2 text-sm font-semibold text-accent sm:hidden">{formatCurrency(entry.amount)}</span>
-                  <Button variant="ghost" size="icon-sm" onClick={() => openEdit(entry)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setDeleteId(entry.id)}
-                    className="hover:bg-expense/10 hover:text-expense"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                </CardHeader>
+                {tabEntries.length > 0 && (
+                  <CardContent>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                      <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
+                        {tabEntries.length} registro{tabEntries.length !== 1 ? "s" : ""} visível{tabEntries.length !== 1 ? "is" : ""}
+                      </span>
+                      <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
+                        Total filtrado: {formatCurrency(tabEntries.reduce((sum, entry) => sum + entry.amount, 0))}
+                      </span>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+
+              {tabEntries.length > 0 ? (
+                <InvestmentsTable
+                  entries={tabEntries}
+                  onEdit={openEdit}
+                  onDelete={setDeleteId}
+                />
+              ) : (
+                <EmptyState
+                  icon={activeTabItem.icon}
+                  title={
+                    unfilteredTabEntries.length > 0
+                      ? `Nenhum registro visível em ${activeTabMeta.title}`
+                      : `${activeTabMeta.title} em preparação`
+                  }
+                  description={
+                    unfilteredTabEntries.length > 0
+                      ? "Os filtros atuais esconderam essa categoria. Ajuste mês, tipo ou busca para reencontrar os investimentos."
+                      : activeTab === "portfolio" || activeTab === "contributions" || hasFilterApplied
+                        ? "Ainda não há registros suficientes para compor esta visão com os filtros ativos."
+                        : "Essa categoria já tem espaço reservado e pode receber dados assim que você começar a registrar esse tipo de investimento."
+                  }
+                  actionLabel={!hasFilterApplied && activeTab !== "dividends" && activeTab !== "earnings" && activeTab !== "profitability" && activeTab !== "reports" ? "+ Novo investimento" : undefined}
+                  onAction={!hasFilterApplied && activeTab !== "dividends" && activeTab !== "earnings" && activeTab !== "profitability" && activeTab !== "reports" ? openCreate : undefined}
+                />
+              )}
+            </div>
+          )}
+        </main>
+      </div>
 
       <Dialog open={modalOpen} onOpenChange={(open) => !open && setModalOpen(false)}>
         <DialogContent>
