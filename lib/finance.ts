@@ -1,5 +1,8 @@
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment } from "@/types/database";
+import { getEffectiveInstallmentStatus } from "@/lib/installments";
 import { formatCurrency, getMonthYear, isOverdue } from "@/lib/utils";
+
+export { getEffectiveInstallmentStatus } from "@/lib/installments";
 
 export const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -47,14 +50,6 @@ export function getEffectiveBillStatus(bill: Pick<Bill, "status" | "due_date">) 
   }
 
   return bill.status;
-}
-
-export function getEffectiveInstallmentStatus(payment: Pick<InstallmentPayment, "status" | "due_date">) {
-  if (payment.status === "pending" && isOverdue(payment.due_date)) {
-    return "overdue" as const;
-  }
-
-  return payment.status;
 }
 
 export function buildMonthSeries(

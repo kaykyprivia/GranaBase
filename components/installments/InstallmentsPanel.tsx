@@ -1,14 +1,24 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
-import { Check, ChevronDown, ChevronUp, CreditCard, Pencil, Trash2 } from "lucide-react";
+import { BadgePercent, Check, ChevronDown, ChevronUp, CreditCard, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { getEffectiveInstallmentStatus } from "@/lib/finance";
+import {
+  buildInstallmentStatusUpdate,
+  getEffectiveInstallmentStatus,
+  getInstallmentPaidAmount,
+  getInstallmentStatusLabel,
+  isInstallmentPaid,
+  normalizeInstallmentStatus,
+  summarizeInstallmentPayments,
+  toggleDiscountStatus,
+  togglePaidStatus,
+} from "@/lib/installments";
 import { addMonths, cn, formatCurrency, formatDate } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
-import type { Installment, InstallmentPayment } from "@/types/database";
+import type { Installment, InstallmentPayment, InstallmentStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -26,6 +37,11 @@ import { StatCard } from "@/components/shared/StatCard";
 
 interface InstallmentWithPayments extends Installment {
   payments: InstallmentPayment[];
+}
+
+interface EditingPaymentState {
+  installmentDescription: string;
+  payment: InstallmentPayment;
 }
 
 type StatusFilter = "all" | "pending" | "overdue" | "paid";
@@ -70,11 +86,14 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [form, setForm] = useState<InstallmentFormData>(EMPTY_FORM);
   const [installmentCountInput, setInstallmentCountInput] = useState("");
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<EditingPaymentState | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<InstallmentStatus>("pending");
 
   const installmentCount = Number(installmentCountInput);
   const isValidInstallmentCount = Number.isInteger(installmentCount) && installmentCount > 0;
@@ -98,6 +117,12 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const closeModal = () => {
     setModalOpen(false);
     resetFormState();
+  };
+
+  const closePaymentDialog = () => {
+    setPaymentDialogOpen(false);
+    setEditingPayment(null);
+    setPaymentStatus("pending");
   };
 
   useImperativeHandle(ref, () => ({
@@ -144,7 +169,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   };
 
   const openEditModal = (item: InstallmentWithPayments) => {
-    const hasPaidPayments = item.payments.some((payment) => payment.status === "paid");
+    const hasPaidPayments = item.payments.some((payment) => isInstallmentPaid(payment.status));
 
     if (hasPaidPayments) {
       toast.error("Este parcelamento ja possui parcelas pagas. Para evitar inconsistencias, edite apenas observacoes ou exclua/recrie manualmente.");
@@ -163,6 +188,12 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     setInstallmentCountInput(String(item.installment_count));
     setFormErrors({});
     setModalOpen(true);
+  };
+
+  const openPaymentEditModal = (item: InstallmentWithPayments, payment: InstallmentPayment) => {
+    setEditingPayment({ installmentDescription: item.description, payment });
+    setPaymentStatus(normalizeInstallmentStatus(payment.status));
+    setPaymentDialogOpen(true);
   };
 
   const fetchData = useCallback(async () => {
@@ -256,7 +287,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       return;
     }
 
-    const hasPaidPayments = editingInstallment.payments.some((payment) => payment.status === "paid");
+    const hasPaidPayments = editingInstallment.payments.some((payment) => isInstallmentPaid(payment.status));
 
     if (hasPaidPayments) {
       toast.error("Este parcelamento ja possui parcelas pagas. Para evitar inconsistencias, edite apenas observacoes ou exclua/recrie manualmente.");
@@ -330,24 +361,66 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     await handleCreate(values);
   };
 
-  const handleMarkPaymentPaid = async (paymentId: string) => {
-    setMarkingPaidId(paymentId);
+  const updatePaymentStatus = async (payment: InstallmentPayment, nextStatus: InstallmentStatus, successMessage: string) => {
+    const currentStatus = normalizeInstallmentStatus(payment.status);
+
+    if (currentStatus === nextStatus) {
+      return true;
+    }
+
+    setUpdatingPaymentId(payment.id);
     try {
+      const payload = buildInstallmentStatusUpdate(payment, nextStatus);
       const { error } = await supabase
         .from("installment_payments")
-        .update(coerceMutation({ status: "paid" as const, paid_at: new Date().toISOString() }))
-        .eq("id", paymentId);
+        .update(coerceMutation(payload))
+        .eq("id", payment.id)
+        .eq("user_id", userId);
 
       if (error) {
         throw error;
       }
 
-      toast.success("Parcela marcada como paga");
+      toast.success(successMessage);
       await fetchData();
+      return true;
     } catch (error) {
       toast.error(getSupabaseErrorMessage(error));
+      return false;
     } finally {
-      setMarkingPaidId(null);
+      setUpdatingPaymentId(null);
+    }
+  };
+
+  const handleTogglePaid = async (payment: InstallmentPayment) => {
+    const currentStatus = normalizeInstallmentStatus(payment.status);
+    const nextStatus = togglePaidStatus(currentStatus);
+    const successMessage = isInstallmentPaid(currentStatus) ? "Parcela voltou para pendente" : "Parcela marcada como paga";
+
+    await updatePaymentStatus(payment, nextStatus, successMessage);
+  };
+
+  const handleToggleDiscount = async (payment: InstallmentPayment) => {
+    const currentStatus = normalizeInstallmentStatus(payment.status);
+    const nextStatus = toggleDiscountStatus(currentStatus);
+    const successMessage = currentStatus === "paid_with_discount"
+      ? "Desconto removido da parcela"
+      : "Parcela marcada como paga com desconto";
+
+    await updatePaymentStatus(payment, nextStatus, successMessage);
+  };
+
+  const handleSavePaymentEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!editingPayment) {
+      return;
+    }
+
+    const saved = await updatePaymentStatus(editingPayment.payment, paymentStatus, "Parcela atualizada");
+
+    if (saved) {
+      closePaymentDialog();
     }
   };
 
@@ -374,27 +447,16 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   };
 
   const isPaymentOverdue = (payment: InstallmentPayment) => {
-    if (payment.status === "paid") {
-      return false;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dueDate = new Date(`${payment.due_date}T00:00:00`);
-    dueDate.setHours(0, 0, 0, 0);
-
-    return dueDate < today;
+    return getEffectiveInstallmentStatus(payment) === "overdue";
   };
 
   const totalPending = items
     .flatMap((item) => item.payments)
-    .filter((payment) => getEffectiveInstallmentStatus(payment) !== "paid")
+    .filter((payment) => !isInstallmentPaid(payment.status))
     .reduce((sum, payment) => sum + payment.amount, 0);
   const totalPaid = items
     .flatMap((item) => item.payments)
-    .filter((payment) => payment.status === "paid")
-    .reduce((sum, payment) => sum + payment.amount, 0);
+    .reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
   const filteredItems = items.filter((item) => {
     const payments = item.payments ?? [];
 
@@ -403,7 +465,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     }
 
     if (statusFilter === "pending") {
-      return payments.some((payment) => payment.status !== "paid" && !isPaymentOverdue(payment));
+      return payments.some((payment) => !isInstallmentPaid(payment.status) && !isPaymentOverdue(payment));
     }
 
     if (statusFilter === "overdue") {
@@ -411,7 +473,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     }
 
     if (statusFilter === "paid") {
-      return payments.length > 0 && payments.every((payment) => payment.status === "paid");
+      return payments.length > 0 && payments.every((payment) => isInstallmentPaid(payment.status));
     }
 
     return true;
@@ -465,12 +527,11 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       ) : (
         <div className="space-y-3">
           {filteredItems.map((item) => {
-            const paidCount = item.payments.filter((payment) => payment.status === "paid").length;
-            const progress = item.installment_count > 0 ? (paidCount / item.installment_count) * 100 : 0;
-            const nextPayment = item.payments.find((payment) => getEffectiveInstallmentStatus(payment) !== "paid");
-            const paidAmount = item.payments.filter((payment) => payment.status === "paid").reduce((sum, payment) => sum + payment.amount, 0);
-            const remainingCount = item.installment_count - paidCount;
-            const remainingAmount = item.total_amount - paidAmount;
+            const { paidCount, paidAmount, progress, remainingCount, remainingAmount, nextPayment } = summarizeInstallmentPayments(
+              item.payments,
+              item.installment_count,
+              item.total_amount
+            );
             const expanded = expandedId === item.id;
 
             return (
@@ -546,34 +607,74 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                     <div className="space-y-2 border-t border-border pt-3">
                       {item.payments.map((payment) => {
                         const effectiveStatus = getEffectiveInstallmentStatus(payment);
+                        const normalizedStatus = normalizeInstallmentStatus(payment.status);
+                        const isPaid = isInstallmentPaid(normalizedStatus);
+                        const isDiscount = normalizedStatus === "paid_with_discount";
+                        const isUpdating = updatingPaymentId === payment.id;
+                        const paidActionLabel = isPaid ? "Voltar para pendente" : "Marcar como pago";
+                        const discountActionLabel = isDiscount ? "Remover desconto" : "Marcar como pago com desconto";
 
                         return (
-                          <div key={payment.id} className="flex items-center justify-between rounded-lg bg-background/50 px-3 py-2">
-                            <div className="flex items-center gap-3">
+                          <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/50 px-3 py-2">
+                            <div className="min-w-0 flex items-center gap-3">
                               <span className="w-14 text-xs font-medium text-text-secondary">
                                 {payment.installment_number}/{item.installment_count}
                               </span>
                               <span className="text-sm text-text-primary">{formatDate(payment.due_date)}</span>
                               <Badge variant={effectiveStatus} className="text-[10px]">
-                                {effectiveStatus === "paid" ? "Paga" : effectiveStatus === "overdue" ? "Atrasada" : "Pendente"}
+                                {getInstallmentStatusLabel(effectiveStatus)}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className={cn("text-sm font-semibold", effectiveStatus === "paid" ? "text-profit" : "text-text-primary")}>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <span className={cn("mr-1 text-sm font-semibold", isPaid ? "text-profit" : "text-text-primary")}>
                                 {formatCurrency(payment.amount)}
                               </span>
-                              {effectiveStatus !== "paid" && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  onClick={() => handleMarkPaymentPaid(payment.id)}
-                                  disabled={markingPaidId === payment.id}
-                                  className="text-profit hover:bg-profit/10"
-                                  title="Marcar como paga"
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => openPaymentEditModal(item, payment)}
+                                disabled={isUpdating}
+                                className="text-text-secondary hover:bg-surface hover:text-text-primary"
+                                title="Editar parcela"
+                                aria-label="Editar parcela"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleToggleDiscount(payment)}
+                                disabled={isUpdating}
+                                className={cn(
+                                  "rounded-full",
+                                  isDiscount
+                                    ? "text-accent hover:bg-accent/15 hover:text-accent"
+                                    : "text-text-secondary hover:bg-accent/10 hover:text-accent"
+                                )}
+                                title={discountActionLabel}
+                                aria-label={discountActionLabel}
+                              >
+                                <BadgePercent className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleTogglePaid(payment)}
+                                disabled={isUpdating}
+                                className={cn(
+                                  "rounded-full",
+                                  isPaid
+                                    ? "text-profit hover:bg-profit/15 hover:text-profit"
+                                    : "text-text-secondary hover:bg-profit/10 hover:text-profit"
+                                )}
+                                title={paidActionLabel}
+                                aria-label={paidActionLabel}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
                         );
@@ -681,6 +782,52 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
               </Button>
               <Button type="submit" loading={saving}>
                 {formMode === "edit" ? "Salvar alteracoes" : "Criar parcelamento"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={paymentDialogOpen} onOpenChange={(open) => !open && closePaymentDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar parcela</DialogTitle>
+            <DialogDescription>
+              {editingPayment ? `${editingPayment.installmentDescription} · ${formatDate(editingPayment.payment.due_date)}` : "Atualize o status da parcela."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSavePaymentEdit} className="space-y-4">
+            {editingPayment && (
+              <div className="rounded-lg border border-border/70 bg-background/40 px-3 py-2 text-sm">
+                <p className="font-medium text-text-primary">
+                  Parcela {editingPayment.payment.installment_number}
+                </p>
+                <p className="mt-1 text-text-secondary">
+                  Valor: {formatCurrency(editingPayment.payment.amount)}
+                </p>
+              </div>
+            )}
+
+            <FormField label="Status da parcela" required>
+              <Select value={paymentStatus} onValueChange={(value) => setPaymentStatus(value as InstallmentStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="paid">Pago</SelectItem>
+                  <SelectItem value="paid_with_discount">Pago com desconto</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closePaymentDialog} disabled={updatingPaymentId !== null}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={editingPayment !== null && updatingPaymentId === editingPayment.payment.id}>
+                Salvar status
               </Button>
             </DialogFooter>
           </form>

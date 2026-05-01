@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 type BillStatus = "pending" | "paid" | "overdue";
+export type InstallmentStatus = "pending" | "paid" | "paid_with_discount";
 type GoalStatus = "active" | "completed" | "paused";
 
 export interface Database {
@@ -275,7 +276,7 @@ export interface Database {
           installment_number: number;
           due_date: string;
           amount: number;
-          status: BillStatus;
+          status: InstallmentStatus;
           paid_at: string | null;
           created_at: string;
         };
@@ -286,7 +287,7 @@ export interface Database {
           installment_number: number;
           due_date: string;
           amount: number;
-          status?: BillStatus;
+          status?: InstallmentStatus;
           paid_at?: string | null;
           created_at?: string;
         };
@@ -297,7 +298,7 @@ export interface Database {
           installment_number?: number;
           due_date?: string;
           amount?: number;
-          status?: BillStatus;
+          status?: InstallmentStatus;
           paid_at?: string | null;
           created_at?: string;
         };

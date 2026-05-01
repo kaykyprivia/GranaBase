@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
 import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
+import { isInstallmentPaid } from "@/lib/installments";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,7 +142,7 @@ export default function DashboardPage() {
     const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
     const openBills = billRows.filter((bill) => bill.status !== "paid");
     const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
-    const futureInstallments = installmentPayments.filter((payment) => getEffectiveInstallmentStatus(payment) !== "paid");
+    const futureInstallments = installmentPayments.filter((payment) => !isInstallmentPaid(getEffectiveInstallmentStatus(payment)));
     const futureInstallmentsAmount = futureInstallments.reduce((sum, payment) => sum + payment.amount, 0);
     const investedTotal = investmentRows.reduce((sum, entry) => sum + entry.amount, 0);
 

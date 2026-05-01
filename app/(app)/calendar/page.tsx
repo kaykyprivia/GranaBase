@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Landmark, PiggyBank, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { buildFinancialEvents, getCalendarMatrix, getEventTone, type FinancialEvent } from "@/lib/finance";
+import { getInstallmentStatusLabel, type EffectiveInstallmentStatus } from "@/lib/installments";
 import { cn, formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment } from "@/types/database";
@@ -137,6 +138,26 @@ export default function CalendarPage() {
     }, {});
   }, [events]);
 
+  const getEventStatusLabel = (event: FinancialEvent) => {
+    if (event.type === "installment" && event.status) {
+      return getInstallmentStatusLabel(event.status as EffectiveInstallmentStatus);
+    }
+
+    return event.status ?? event.type;
+  };
+
+  const getEventStatusVariant = (event: FinancialEvent) => {
+    if (event.status === "paid_with_discount") {
+      return "paid_with_discount" as const;
+    }
+
+    if (event.status === "paid" || event.status === "overdue" || event.status === "pending") {
+      return event.status;
+    }
+
+    return "secondary" as const;
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <PageIntro
@@ -265,8 +286,8 @@ export default function CalendarPage() {
                           {(event.type === "income" ? "+" : "-").replace("-", event.type === "goal" ? "" : "-")}
                           {formatCurrency(event.amount)}
                         </p>
-                        <Badge variant={event.status === "paid" ? "paid" : event.status === "overdue" ? "overdue" : event.status === "pending" ? "pending" : "secondary"} className="mt-2 text-[10px]">
-                          {event.status ?? event.type}
+                        <Badge variant={getEventStatusVariant(event)} className="mt-2 text-[10px]">
+                          {getEventStatusLabel(event)}
                         </Badge>
                       </div>
                     </div>

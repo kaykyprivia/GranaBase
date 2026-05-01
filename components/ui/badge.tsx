@@ -14,6 +14,7 @@ const badgeVariants = cva(
         secondary: "bg-surface text-text-secondary border border-border",
         pending: "bg-warning/20 text-warning border border-warning/30",
         paid: "bg-profit/20 text-profit border border-profit/30",
+        paid_with_discount: "bg-accent/20 text-accent border border-accent/30",
         overdue: "bg-expense/20 text-expense border border-expense/30",
         active: "bg-accent/20 text-accent border border-accent/30",
         completed: "bg-profit/20 text-profit border border-profit/30",
