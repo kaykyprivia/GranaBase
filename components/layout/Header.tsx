@@ -89,9 +89,6 @@ export function Header({ pageTitle }: HeaderProps) {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-              <div className="px-0 pb-3">
-                <GlobalContributionButton className="w-full" onClick={() => setMobileMenuOpen(false)} />
-              </div>
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
