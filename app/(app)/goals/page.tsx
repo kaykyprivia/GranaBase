@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
 import { GOAL_CATEGORIES } from "@/lib/finance";
-import { calculateMonthlySuggestion } from "@/lib/goals";
+import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
-import type { FinancialGoal } from "@/types/database";
+import type { FinancialGoal, InvestmentWallet } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,26 +25,35 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 type GoalStatus = FinancialGoal["status"];
 
 interface GoalEditorState extends GoalFormData {
-  status: GoalStatus;
+  status: Exclude<GoalStatus, "completed">;
 }
 
 const EMPTY_GOAL_FORM: GoalEditorState = {
   name: "",
   target_amount: 0,
-  current_amount: 0,
   deadline: "",
   category: "",
   notes: "",
   status: "active",
 };
 
+function getGoalStatusLabel(status: GoalStatus) {
+  if (status === "completed") {
+    return "Concluida";
+  }
+
+  return status === "paused" ? "Pausada" : "Ativa";
+}
+
 export default function GoalsPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,10 +63,9 @@ export default function GoalsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<GoalEditorState>(EMPTY_GOAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof GoalEditorState, string>>>({});
-  const [contributionGoal, setContributionGoal] = useState<FinancialGoal | null>(null);
-  const [contributionAmount, setContributionAmount] = useState(0);
-  const [contributing, setContributing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | GoalStatus>("all");
+
+  const walletBalance = wallet?.total_balance ?? 0;
 
   const fetchGoals = useCallback(async () => {
     const {
@@ -70,24 +78,41 @@ export default function GoalsPage() {
     }
 
     setUserId(user.id);
-    const { data, error } = await supabase
-      .from("financial_goals")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    setLoading(true);
 
-    if (error) {
+    const [walletResponse, goalsResponse] = await Promise.all([
+      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("financial_goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (walletResponse.error) {
+      toast.error("Erro ao carregar patrimonio");
+      setLoading(false);
+      return;
+    }
+
+    if (goalsResponse.error) {
       toast.error("Erro ao carregar metas");
       setLoading(false);
       return;
     }
 
-    setGoals(data ?? []);
+    setWallet(walletResponse.data ?? null);
+    setGoals(goalsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
     fetchGoals();
+  }, [fetchGoals]);
+
+  useEffect(() => {
+    window.addEventListener("wallet:changed", fetchGoals);
+    return () => window.removeEventListener("wallet:changed", fetchGoals);
   }, [fetchGoals]);
 
   const openCreate = () => {
@@ -106,11 +131,10 @@ export default function GoalsPage() {
     setForm({
       name: goal.name,
       target_amount: goal.target_amount,
-      current_amount: goal.current_amount,
       deadline: goal.deadline ?? "",
       category: goal.category,
       notes: goal.notes ?? "",
-      status: goal.status,
+      status: goal.status === "paused" ? "paused" : "active",
     });
     setModalOpen(true);
   };
@@ -120,32 +144,16 @@ export default function GoalsPage() {
       return goals;
     }
 
-    return goals.filter((goal) => goal.status === statusFilter);
-  }, [goals, statusFilter]);
+    return goals.filter((goal) => calculateGoalMetrics(goal, walletBalance).status === statusFilter);
+  }, [goals, statusFilter, walletBalance]);
 
-  const totals = useMemo(() => {
-    return goals.reduce(
-      (accumulator, goal) => {
-        accumulator.target += goal.target_amount;
-        accumulator.current += goal.current_amount;
-        if (goal.status === "completed") {
-          accumulator.completed += 1;
-        }
-        if (goal.status === "active") {
-          accumulator.active += 1;
-        }
-        return accumulator;
-      },
-      { target: 0, current: 0, completed: 0, active: 0 }
-    );
-  }, [goals]);
+  const totals = useMemo(() => summarizeGoals(goals, walletBalance), [goals, walletBalance]);
 
   const validateForm = () => {
     setErrors({});
     const parsed = goalSchema.safeParse({
       name: form.name,
       target_amount: form.target_amount,
-      current_amount: form.current_amount,
       deadline: form.deadline || undefined,
       category: form.category,
       notes: form.notes || undefined,
@@ -173,22 +181,16 @@ export default function GoalsPage() {
     }
 
     setSaving(true);
-    const resolvedStatus: GoalStatus =
-      form.status === "paused"
-        ? "paused"
-        : parsed.current_amount >= parsed.target_amount
-          ? "completed"
-          : "active";
 
     try {
+      const status: GoalStatus = walletBalance >= parsed.target_amount ? "completed" : form.status;
       const payload = {
         name: parsed.name,
         target_amount: parsed.target_amount,
-        current_amount: parsed.current_amount,
         deadline: parsed.deadline || null,
         category: parsed.category,
         notes: parsed.notes || null,
-        status: resolvedStatus,
+        status,
       };
 
       if (editingGoal) {
@@ -238,34 +240,17 @@ export default function GoalsPage() {
     }
   };
 
-  const handleContribution = async () => {
-    if (!contributionGoal || contributionAmount <= 0) {
+  const updateGoalStatus = async (goal: FinancialGoal, nextStatus: Exclude<GoalStatus, "completed">) => {
+    const resolvedStatus: GoalStatus = walletBalance >= goal.target_amount ? "completed" : nextStatus;
+    const { error } = await supabase.from("financial_goals").update(coerceMutation({ status: resolvedStatus })).eq("id", goal.id);
+
+    if (error) {
+      toast.error(nextStatus === "paused" ? "Erro ao pausar meta" : "Erro ao retomar meta");
       return;
     }
 
-    setContributing(true);
-    const nextAmount = contributionGoal.current_amount + contributionAmount;
-    const nextStatus: GoalStatus = nextAmount >= contributionGoal.target_amount ? "completed" : contributionGoal.status === "paused" ? "paused" : "active";
-
-    try {
-      const { error } = await supabase
-        .from("financial_goals")
-        .update(coerceMutation({ current_amount: nextAmount, status: nextStatus }))
-        .eq("id", contributionGoal.id);
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success("Aporte registrado");
-      setContributionGoal(null);
-      setContributionAmount(0);
-      await fetchGoals();
-    } catch {
-      toast.error("Erro ao registrar aporte");
-    } finally {
-      setContributing(false);
-    }
+    toast.success(nextStatus === "paused" ? "Meta pausada" : "Meta retomada");
+    await fetchGoals();
   };
 
   return (
@@ -274,18 +259,21 @@ export default function GoalsPage() {
         icon={Target}
         iconTone="accent"
         title="Metas"
-        description="Transforme objetivos financeiros em planos com prazo, progresso e disciplina."
+        description="Metas acompanham o mesmo patrimonio global. Aportes e retiradas acontecem na carteira, sem saldo duplicado por objetivo."
         actions={
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nova meta
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <GlobalContributionButton />
+            <Button onClick={openCreate} variant="secondary" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nova meta
+            </Button>
+          </div>
         }
       />
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Valor planejado" value={formatCurrency(totals.target)} icon={Target} variant="accent" loading={loading} />
-        <StatCard title="Ja acumulado" value={formatCurrency(totals.current)} icon={Wallet} variant="profit" loading={loading} />
+        <StatCard title="Ja acumulado" value={formatCurrency(totals.walletBalance)} icon={Wallet} variant="profit" loading={loading} subtitle="Patrimonio unico" />
         <StatCard title="Metas ativas" value={String(totals.active)} icon={Target} variant="warning" loading={loading} />
         <StatCard title="Concluidas" value={String(totals.completed)} icon={CheckCircle2} variant="profit" loading={loading} />
       </div>
@@ -325,9 +313,8 @@ export default function GoalsPage() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredGoals.map((goal) => {
-            const progress = goal.target_amount > 0 ? Math.min((goal.current_amount / goal.target_amount) * 100, 100) : 0;
-            const remaining = Math.max(goal.target_amount - goal.current_amount, 0);
-            const monthlySuggestion = calculateMonthlySuggestion(goal);
+            const metrics = calculateGoalMetrics(goal, walletBalance);
+            const monthlySuggestion = calculateMonthlySuggestion(goal, walletBalance);
 
             return (
               <Card key={goal.id} className="overflow-hidden">
@@ -338,11 +325,11 @@ export default function GoalsPage() {
                       <p className="mt-1 text-sm text-text-secondary">{goal.category}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={goal.status}>{goal.status === "active" ? "Ativa" : goal.status === "completed" ? "Concluida" : "Pausada"}</Badge>
-                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(goal)}>
+                      <Badge variant={metrics.status}>{getGoalStatusLabel(metrics.status)}</Badge>
+                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(goal)} aria-label="Editar meta">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" className="hover:bg-expense/10 hover:text-expense" onClick={() => setDeleteId(goal.id)}>
+                      <Button variant="ghost" size="icon-sm" className="hover:bg-expense/10 hover:text-expense" onClick={() => setDeleteId(goal.id)} aria-label="Excluir meta">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -352,25 +339,25 @@ export default function GoalsPage() {
                   <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border/70 bg-background/40 p-4">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-text-secondary">Acumulado</p>
-                      <p className="mt-1 text-lg font-semibold text-profit">{formatCurrency(goal.current_amount)}</p>
+                      <p className="mt-1 text-lg font-semibold text-profit">{formatCurrency(metrics.walletBalance)}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-text-secondary">Faltando</p>
-                      <p className="mt-1 text-lg font-semibold text-text-primary">{formatCurrency(remaining)}</p>
+                      <p className="mt-1 text-lg font-semibold text-text-primary">{formatCurrency(metrics.remainingAmount)}</p>
                     </div>
                   </div>
 
                   <div>
                     <div className="mb-2 flex items-center justify-between text-sm">
                       <span className="text-text-secondary">Progresso</span>
-                      <span className={cn("font-semibold", progress >= 100 ? "text-profit" : progress >= 50 ? "text-warning" : "text-accent")}>
-                        {progress.toFixed(0)}%
+                      <span className={cn("font-semibold", metrics.progress >= 100 ? "text-profit" : metrics.progress >= 50 ? "text-warning" : "text-accent")}>
+                        {metrics.displayProgress}%
                       </span>
                     </div>
                     <Progress
-                      value={progress}
+                      value={metrics.progress}
                       className="h-2"
-                      indicatorClassName={progress >= 100 ? "bg-profit" : progress >= 50 ? "bg-warning" : "bg-accent"}
+                      indicatorClassName={metrics.progress >= 100 ? "bg-profit" : metrics.progress >= 50 ? "bg-warning" : "bg-accent"}
                     />
                     <p className="mt-2 text-sm text-text-secondary">
                       Meta de {formatCurrency(goal.target_amount)}
@@ -386,7 +373,7 @@ export default function GoalsPage() {
                             </div>
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">Meta concluida</p>
-                              <p className="mt-1 text-sm font-semibold text-profit">Meta batida</p>
+                              <p className="mt-1 text-sm font-semibold text-profit">Meta batida pelo patrimonio global</p>
                             </div>
                           </div>
                         ) : monthlySuggestion.status === "expired" ? (
@@ -396,7 +383,7 @@ export default function GoalsPage() {
                             </div>
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">Prazo encerrado</p>
-                              <p className="mt-1 text-sm font-semibold text-expense">Revise o prazo ou aumente seus aportes.</p>
+                              <p className="mt-1 text-sm font-semibold text-expense">Revise o prazo ou aumente seus aportes globais.</p>
                             </div>
                           </div>
                         ) : (
@@ -424,53 +411,20 @@ export default function GoalsPage() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setContributionGoal(goal);
-                        setContributionAmount(0);
-                      }}
-                    >
-                      Adicionar aporte
-                    </Button>
-                    {goal.status !== "paused" ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          const { error } = await supabase.from("financial_goals").update(coerceMutation({ status: "paused" })).eq("id", goal.id);
-                          if (error) {
-                            toast.error("Erro ao pausar meta");
-                            return;
-                          }
-                          toast.success("Meta pausada");
-                          await fetchGoals();
-                        }}
-                      >
-                        <PauseCircle className="mr-1 h-4 w-4" />
-                        Pausar
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          const nextStatus: GoalStatus = goal.current_amount >= goal.target_amount ? "completed" : "active";
-                          const { error } = await supabase.from("financial_goals").update(coerceMutation({ status: nextStatus })).eq("id", goal.id);
-                          if (error) {
-                            toast.error("Erro ao retomar meta");
-                            return;
-                          }
-                          toast.success("Meta retomada");
-                          await fetchGoals();
-                        }}
-                      >
-                        Retomar
-                      </Button>
-                    )}
-                  </div>
+                  {metrics.status !== "completed" && (
+                    <div className="flex flex-wrap gap-2">
+                      {metrics.status !== "paused" ? (
+                        <Button size="sm" variant="outline" onClick={() => updateGoalStatus(goal, "paused")}>
+                          <PauseCircle className="mr-1 h-4 w-4" />
+                          Pausar
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => updateGoalStatus(goal, "active")}>
+                          Retomar
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -492,8 +446,8 @@ export default function GoalsPage() {
               <FormField label="Valor alvo" error={errors.target_amount} required>
                 <CurrencyInput value={form.target_amount} onChange={(value) => setForm((current) => ({ ...current, target_amount: value }))} error={errors.target_amount} />
               </FormField>
-              <FormField label="Ja guardado" error={errors.current_amount}>
-                <CurrencyInput value={form.current_amount} onChange={(value) => setForm((current) => ({ ...current, current_amount: value }))} error={errors.current_amount} />
+              <FormField label="Prazo">
+                <Input type="date" value={form.deadline ?? ""} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
               </FormField>
             </div>
 
@@ -513,23 +467,18 @@ export default function GoalsPage() {
                 </Select>
               </FormField>
 
-              <FormField label="Prazo">
-                <Input type="date" value={form.deadline ?? ""} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
+              <FormField label="Estado manual">
+                <Select value={form.status} onValueChange={(value) => setForm((current) => ({ ...current, status: value as GoalEditorState["status"] }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativa</SelectItem>
+                    <SelectItem value="paused">Pausada</SelectItem>
+                  </SelectContent>
+                </Select>
               </FormField>
             </div>
-
-            <FormField label="Status">
-              <Select value={form.status} onValueChange={(value) => setForm((current) => ({ ...current, status: value as GoalStatus }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativa</SelectItem>
-                  <SelectItem value="completed">Concluida</SelectItem>
-                  <SelectItem value="paused">Pausada</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
 
             <FormField label="Observacoes">
               <Textarea rows={3} value={form.notes ?? ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
@@ -547,38 +496,11 @@ export default function GoalsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={contributionGoal !== null} onOpenChange={(open) => !open && setContributionGoal(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar aporte</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border/70 bg-background/40 p-4">
-              <p className="font-semibold text-text-primary">{contributionGoal?.name}</p>
-              <p className="mt-1 text-sm text-text-secondary">
-                {contributionGoal ? `${formatCurrency(contributionGoal.current_amount)} de ${formatCurrency(contributionGoal.target_amount)}` : ""}
-              </p>
-            </div>
-            <FormField label="Valor do aporte" required>
-              <CurrencyInput value={contributionAmount} onChange={setContributionAmount} />
-            </FormField>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setContributionGoal(null)} disabled={contributing}>
-                Cancelar
-              </Button>
-              <Button onClick={handleContribution} loading={contributing}>
-                Confirmar aporte
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Excluir meta"
-        description="Voce perdera o historico de progresso desta meta."
+        description="A meta sera removida, mas o patrimonio global continua intacto."
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}

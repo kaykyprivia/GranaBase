@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PiggyBank, Plus, Search, Pencil, Trash2, TrendingUp } from "lucide-react";
+import { Calculator, Landmark, PiggyBank, Plus, Search, Pencil, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
 import { getMonthOptions, INVESTMENT_TYPES } from "@/lib/finance";
+import { buildFallbackMarketOverview, calculateCdb100CdiReturn, calculateTesouroSelicReturn, type MarketOverview } from "@/lib/market";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
-import type { Investment } from "@/types/database";
+import type { Investment, InvestmentContribution, InvestmentWallet } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 import {
   InvestmentsSubSidebar,
   investmentTabs,
@@ -187,9 +189,47 @@ function InvestmentsTable({
   );
 }
 
+function formatContributionDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
+}
+
+function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      <div className="hidden grid-cols-[140px_140px_1fr_140px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
+        <span>Tipo</span>
+        <span>Valor</span>
+        <span>Descricao</span>
+        <span>Data</span>
+      </div>
+      <div className="divide-y divide-border">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex flex-col gap-2 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[140px_140px_1fr_140px] sm:items-center"
+          >
+            <Badge variant={entry.type === "deposit" ? "default" : "expense"} className="w-fit">
+              {entry.type === "deposit" ? "Aporte" : "Retirada"}
+            </Badge>
+            <span className={entry.type === "deposit" ? "text-sm font-semibold text-profit" : "text-sm font-semibold text-expense"}>
+              {entry.type === "deposit" ? "+" : "-"}{formatCurrency(entry.amount)}
+            </span>
+            <span className="min-w-0 truncate text-sm text-text-primary">{entry.description ?? "Movimentacao da carteira"}</span>
+            <span className="text-sm text-text-secondary">{formatContributionDate(entry.created_at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function InvestmentsPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [entries, setEntries] = useState<Investment[]>([]);
+  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
+  const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
+  const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
+  const [simulationAmount, setSimulationAmount] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -225,25 +265,61 @@ export default function InvestmentsPage() {
     }
 
     setUserId(user.id);
-    const { data, error } = await supabase
-      .from("investments")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("invested_at", { ascending: false });
+    const [investmentsResponse, walletResponse, contributionsResponse] = await Promise.all([
+      supabase
+        .from("investments")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("invested_at", { ascending: false }),
+      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("investment_contributions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
-    if (error) {
+    if (investmentsResponse.error || walletResponse.error || contributionsResponse.error) {
       toast.error("Erro ao carregar investimentos");
       setLoading(false);
       return;
     }
 
-    setEntries(data ?? []);
+    setEntries(investmentsResponse.data ?? []);
+    setWallet(walletResponse.data ?? null);
+    setContributions(contributionsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
+
+  useEffect(() => {
+    window.addEventListener("wallet:changed", fetchEntries);
+    return () => window.removeEventListener("wallet:changed", fetchEntries);
+  }, [fetchEntries]);
+
+  useEffect(() => {
+    let alive = true;
+
+    fetch("/api/market/overview")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: MarketOverview | null) => {
+        if (alive && data) {
+          setMarketOverview(data);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setMarketOverview(buildFallbackMarketOverview());
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -336,14 +412,20 @@ export default function InvestmentsPage() {
   };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const monthlyTotal = entries
-    .filter((entry) => entry.invested_at.startsWith(currentMonth))
+  const monthlyDeposits = contributions
+    .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "deposit")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const totalAll = entries.reduce((sum, entry) => sum + entry.amount, 0);
+  const monthlyWithdrawals = contributions
+    .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "withdraw")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const monthlyTotal = monthlyDeposits - monthlyWithdrawals;
+  const totalAll = wallet?.total_balance ?? 0;
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
   const activeTabMeta = investmentCategoryMeta[activeTab];
   const ActiveTabIcon = activeTabItem.icon;
+  const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
+  const tesouroReturn = calculateTesouroSelicReturn(totalAll || simulationAmount, marketOverview.selic.annualizedValue);
 
   const filtered = useMemo(() => {
     return entries.filter((entry) => {
@@ -373,20 +455,120 @@ export default function InvestmentsPage() {
         icon={PiggyBank}
         iconTone="accent"
         title="Investimentos"
-        description="Registre aportes e acompanhe quanto ja esta trabalhando por voce."
+        description="Carteira global, aportes centralizados e uma base preparada para dados reais de mercado."
         actions={
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo investimento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <GlobalContributionButton />
+            <Button onClick={openCreate} variant="secondary" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Novo ativo
+            </Button>
+          </div>
         }
       />
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Investido no mes" value={formatCurrency(monthlyTotal)} icon={TrendingUp} variant="accent" loading={loading} />
-        <StatCard title="Investido total" value={formatCurrency(totalAll)} icon={PiggyBank} variant="profit" loading={loading} />
+        <StatCard title="Movimento no mes" value={formatCurrency(monthlyTotal)} icon={TrendingUp} variant={monthlyTotal >= 0 ? "accent" : "expense"} loading={loading} />
+        <StatCard title="Patrimonio total" value={formatCurrency(totalAll)} icon={Wallet} variant="profit" loading={loading} subtitle="Carteira global" />
         <StatCard title="Tipos ativos" value={String(uniqueTypes.length)} icon={PiggyBank} variant="default" loading={loading} />
-        <StatCard title="Registros" value={String(entries.length)} icon={TrendingUp} variant="warning" loading={loading} subtitle={`${filtered.length} exibindo`} />
+        <StatCard title="Movimentacoes" value={String(contributions.length)} icon={TrendingUp} variant="warning" loading={loading} subtitle={`${filtered.length} ativos exibindo`} />
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-profit/15 p-2.5 text-profit">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">CDB 100% CDI</CardTitle>
+                <CardDescription className="mt-1">CDI anualizado: {marketOverview.cdi.annualizedValue.toFixed(2)}%</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Diario</span>
+              <strong className="text-profit">{formatCurrency(cdiReturn.daily)}</strong>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Mensal</span>
+              <strong className="text-profit">{formatCurrency(cdiReturn.monthly)}</strong>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-accent/15 p-2.5 text-accent">
+                <Calculator className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Quanto renderia hoje</CardTitle>
+                <CardDescription className="mt-1">Simulacao bruta a 100% CDI</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <CurrencyInput value={simulationAmount} onChange={setSimulationAmount} />
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-secondary">Rendimento mensal</span>
+              <strong className="text-profit">{formatCurrency(cdiReturn.monthly)}</strong>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-warning/15 p-2.5 text-warning">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Tesouro Selic</CardTitle>
+                <CardDescription className="mt-1">Selic: {marketOverview.selic.annualizedValue.toFixed(2)}% a.a.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Base calculada</span>
+              <strong>{formatCurrency(tesouroReturn.principal)}</strong>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Rendimento diario</span>
+              <strong className="text-profit">{formatCurrency(tesouroReturn.daily)}</strong>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-accent/15 p-2.5 text-accent">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Ibovespa</CardTitle>
+                <CardDescription className="mt-1">Fonte: {marketOverview.ibovespa.source === "brapi" ? "BRAPI" : "fallback"}</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Pontos</span>
+              <strong>{marketOverview.ibovespa.price ? marketOverview.ibovespa.price.toLocaleString("pt-BR") : "Indisponivel"}</strong>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Variacao</span>
+              <strong className={(marketOverview.ibovespa.changePercent ?? 0) >= 0 ? "text-profit" : "text-expense"}>
+                {marketOverview.ibovespa.changePercent !== null ? `${marketOverview.ibovespa.changePercent.toFixed(2)}%` : "--"}
+              </strong>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="mb-5 flex flex-col gap-3 lg:flex-row">
@@ -436,6 +618,16 @@ export default function InvestmentsPage() {
                 <Skeleton key={index} className="h-16 w-full rounded-xl" />
               ))}
             </div>
+          ) : activeTab === "contributions" ? (
+            contributions.length === 0 ? (
+              <EmptyState
+                icon={PiggyBank}
+                title="Nenhuma movimentacao"
+                description="Use Novo aporte para registrar aportes e retiradas da carteira global."
+              />
+            ) : (
+              <ContributionsTable entries={contributions} />
+            )
           ) : isOverviewTab ? (
             filtered.length === 0 ? (
               <EmptyState
@@ -501,7 +693,7 @@ export default function InvestmentsPage() {
                   description={
                     unfilteredTabEntries.length > 0
                       ? "Os filtros atuais esconderam essa categoria. Ajuste mês, tipo ou busca para reencontrar os investimentos."
-                      : activeTab === "portfolio" || activeTab === "contributions" || hasFilterApplied
+                      : activeTab === "portfolio" || hasFilterApplied
                         ? "Ainda não há registros suficientes para compor esta visão com os filtros ativos."
                         : "Essa categoria já tem espaço reservado e pode receber dados assim que você começar a registrar esse tipo de investimento."
                   }

@@ -61,10 +61,15 @@ export const investmentSchema = z.object({
 export const goalSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   target_amount: z.number().positive("Valor alvo deve ser positivo"),
-  current_amount: z.number().min(0, "Valor atual não pode ser negativo").default(0),
   deadline: z.string().optional(),
   category: z.string().min(1, "Categoria é obrigatória"),
   notes: z.string().optional(),
+});
+
+export const walletContributionSchema = z.object({
+  amount: z.number().positive("Valor deve ser positivo"),
+  type: z.enum(["deposit", "withdraw"]),
+  description: z.string().optional(),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
@@ -75,3 +80,4 @@ export type BillFormData = z.infer<typeof billSchema>;
 export type InstallmentFormData = z.infer<typeof installmentSchema>;
 export type InvestmentFormData = z.infer<typeof investmentSchema>;
 export type GoalFormData = z.infer<typeof goalSchema>;
+export type WalletContributionFormData = z.infer<typeof walletContributionSchema>;

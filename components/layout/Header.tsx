@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -59,6 +60,9 @@ export function Header({ pageTitle }: HeaderProps) {
             {pageTitle && (
               <span className="text-sm font-medium text-text-secondary">{pageTitle}</span>
             )}
+            <GlobalContributionButton size="icon-sm" aria-label="Novo aporte">
+              <span className="sr-only">Novo aporte</span>
+            </GlobalContributionButton>
             <button className="p-2 rounded-lg text-text-secondary hover:bg-border transition-colors">
               <Bell className="h-4.5 w-4.5" style={{ height: "18px", width: "18px" }} />
             </button>
@@ -85,6 +89,9 @@ export function Header({ pageTitle }: HeaderProps) {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+              <div className="px-0 pb-3">
+                <GlobalContributionButton className="w-full" onClick={() => setMobileMenuOpen(false)} />
+              </div>
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (

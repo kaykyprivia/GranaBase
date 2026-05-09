@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import type { Bill, ExpenseEntry, IncomeEntry, Investment } from "@/types/database";
+import type { Bill, ExpenseEntry, IncomeEntry, InvestmentWallet } from "@/types/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageIntro } from "@/components/shared/PageIntro";
@@ -33,17 +33,17 @@ interface ReportsPayload {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   bills: Bill[];
-  investments: Investment[];
+  wallet: InvestmentWallet | null;
 }
 
 export default function ReportsPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<ReportsPayload>({
     income: [],
     expenses: [],
     bills: [],
-    investments: [],
+    wallet: null,
   });
 
   const fetchData = useCallback(async () => {
@@ -57,14 +57,14 @@ export default function ReportsPage() {
       return;
     }
 
-    const [incomeResponse, expenseResponse, billsResponse, investmentsResponse] = await Promise.all([
+    const [incomeResponse, expenseResponse, billsResponse, walletResponse] = await Promise.all([
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
-      supabase.from("investments").select("*").eq("user_id", user.id),
+      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
 
-    const error = incomeResponse.error || expenseResponse.error || billsResponse.error || investmentsResponse.error;
+    const error = incomeResponse.error || expenseResponse.error || billsResponse.error || walletResponse.error;
 
     if (error) {
       toast.error("Erro ao carregar relatorios");
@@ -76,7 +76,7 @@ export default function ReportsPage() {
       income: incomeResponse.data ?? [],
       expenses: expenseResponse.data ?? [],
       bills: billsResponse.data ?? [],
-      investments: investmentsResponse.data ?? [],
+      wallet: walletResponse.data ?? null,
     });
     setLoading(false);
   }, [supabase]);
@@ -108,15 +108,15 @@ export default function ReportsPage() {
     const pendingBills = payload.bills
       .filter((bill) => getEffectiveBillStatus(bill) !== "paid")
       .reduce((sum, bill) => sum + bill.amount, 0);
-    const invested = payload.investments.reduce((sum, investment) => sum + investment.amount, 0);
+    const invested = payload.wallet?.total_balance ?? 0;
 
     return [
       { label: "Saldo", value: totalIncome - totalExpenses, fill: "#38BDF8" },
       { label: "Despesas", value: totalExpenses, fill: "#EF4444" },
       { label: "Pendencias", value: pendingBills, fill: "#FACC15" },
-      { label: "Investido", value: invested, fill: "#22C55E" },
+      { label: "Patrimonio", value: invested, fill: "#22C55E" },
     ];
-  }, [payload.bills, payload.expenses, payload.income, payload.investments]);
+  }, [payload.bills, payload.expenses, payload.income, payload.wallet]);
 
   const topExpenses = useMemo(
     () => [...payload.expenses].sort((left, right) => right.amount - left.amount).slice(0, 5),
@@ -129,11 +129,11 @@ export default function ReportsPage() {
     const pendingBills = payload.bills
       .filter((bill) => getEffectiveBillStatus(bill) !== "paid")
       .reduce((sum, bill) => sum + bill.amount, 0);
-    const totalInvested = payload.investments.reduce((sum, investment) => sum + investment.amount, 0);
+    const totalInvested = payload.wallet?.total_balance ?? 0;
     const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
     return { totalIncome, totalExpenses, pendingBills, totalInvested, savingsRate };
-  }, [payload.bills, payload.expenses, payload.income, payload.investments]);
+  }, [payload.bills, payload.expenses, payload.income, payload.wallet]);
 
   return (
     <div className="page-container animate-fade-in">
@@ -148,7 +148,7 @@ export default function ReportsPage() {
         <StatCard title="Receita total" value={formatCurrency(kpis.totalIncome)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Despesas totais" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Pendencias" value={formatCurrency(kpis.pendingBills)} icon={FileWarning} variant="warning" loading={loading} />
-        <StatCard title="Investido" value={formatCurrency(kpis.totalInvested)} icon={PiggyBank} variant="accent" loading={loading} />
+        <StatCard title="Patrimonio" value={formatCurrency(kpis.totalInvested)} icon={PiggyBank} variant="accent" loading={loading} />
         <StatCard title="Taxa de folga" value={`${kpis.savingsRate.toFixed(0)}%`} icon={Wallet} variant={kpis.savingsRate >= 20 ? "profit" : kpis.savingsRate >= 0 ? "warning" : "expense"} loading={loading} />
       </div>
 

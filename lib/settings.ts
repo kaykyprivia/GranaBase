@@ -148,7 +148,7 @@ export function buildSettingsExportCsv({
       data: goal.deadline ?? "",
       status: goal.status,
       observacoes: goal.notes ?? "",
-      detalhe_1: `Acumulado: ${formatCurrency(goal.current_amount)}`,
+      detalhe_1: "Progresso calculado pelo patrimonio global",
       detalhe_2: "",
     })),
   ];

@@ -9,6 +9,7 @@ export type Json =
 type BillStatus = "pending" | "paid" | "overdue";
 export type InstallmentStatus = "pending" | "paid" | "paid_with_discount";
 type GoalStatus = "active" | "completed" | "paused";
+type InvestmentContributionType = "deposit" | "withdraw";
 
 export interface Database {
   public: {
@@ -357,13 +358,86 @@ export interface Database {
           },
         ];
       };
+      investment_wallets: {
+        Row: {
+          id: string;
+          user_id: string;
+          total_balance: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          total_balance?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          total_balance?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investment_wallets_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      investment_contributions: {
+        Row: {
+          id: string;
+          user_id: string;
+          wallet_id: string;
+          amount: number;
+          type: InvestmentContributionType;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          wallet_id: string;
+          amount: number;
+          type: InvestmentContributionType;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          wallet_id?: string;
+          amount?: number;
+          type?: InvestmentContributionType;
+          description?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investment_contributions_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "investment_contributions_wallet_id_fkey";
+            columns: ["wallet_id"];
+            referencedRelation: "investment_wallets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       financial_goals: {
         Row: {
           id: string;
           user_id: string;
           name: string;
           target_amount: number;
-          current_amount: number;
           deadline: string | null;
           status: GoalStatus;
           category: string;
@@ -376,7 +450,6 @@ export interface Database {
           user_id: string;
           name: string;
           target_amount: number;
-          current_amount?: number;
           deadline?: string | null;
           status?: GoalStatus;
           category: string;
@@ -389,7 +462,6 @@ export interface Database {
           user_id?: string;
           name?: string;
           target_amount?: number;
-          current_amount?: number;
           deadline?: string | null;
           status?: GoalStatus;
           category?: string;
@@ -413,6 +485,20 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: void;
       };
+      record_investment_contribution: {
+        Args: {
+          p_amount: number;
+          p_type: InvestmentContributionType;
+          p_description?: string | null;
+        };
+        Returns: string;
+      };
+      sync_financial_goals_with_wallet: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: void;
+      };
     };
     Enums: {};
     CompositeTypes: {};
@@ -434,6 +520,8 @@ export type Bill = Tables<"bills">;
 export type Installment = Tables<"installments">;
 export type InstallmentPayment = Tables<"installment_payments">;
 export type Investment = Tables<"investments">;
+export type InvestmentWallet = Tables<"investment_wallets">;
+export type InvestmentContribution = Tables<"investment_contributions">;
 export type FinancialGoal = Tables<"financial_goals">;
 
 export type InsertIncomeEntry = Inserts<"income_entries">;
@@ -442,6 +530,8 @@ export type InsertBill = Inserts<"bills">;
 export type InsertInstallment = Inserts<"installments">;
 export type InsertInstallmentPayment = Inserts<"installment_payments">;
 export type InsertInvestment = Inserts<"investments">;
+export type InsertInvestmentWallet = Inserts<"investment_wallets">;
+export type InsertInvestmentContribution = Inserts<"investment_contributions">;
 export type InsertFinancialGoal = Inserts<"financial_goals">;
 export type InsertUserSettings = Inserts<"user_settings">;
 export type UpdateProfile = Updates<"profiles">;

@@ -7,7 +7,7 @@ import { buildFinancialEvents, getCalendarMatrix, getEventTone, type FinancialEv
 import { getInstallmentStatusLabel, type EffectiveInstallmentStatus } from "@/lib/installments";
 import { cn, formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment } from "@/types/database";
+import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, InvestmentContribution } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,14 +21,14 @@ interface CalendarPayload {
   expenses: ExpenseEntry[];
   bills: Bill[];
   installmentPayments: InstallmentPayment[];
-  investments: Investment[];
+  investmentContributions: InvestmentContribution[];
   goals: FinancialGoal[];
 }
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
 
 export default function CalendarPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [referenceDate, setReferenceDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -37,7 +37,7 @@ export default function CalendarPage() {
     expenses: [],
     bills: [],
     installmentPayments: [],
-    investments: [],
+    investmentContributions: [],
     goals: [],
   });
 
@@ -57,18 +57,18 @@ export default function CalendarPage() {
       expenseResponse,
       billsResponse,
       installmentResponse,
-      investmentResponse,
+      contributionResponse,
       goalsResponse,
     ] = await Promise.all([
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
-      supabase.from("investments").select("*").eq("user_id", user.id),
+      supabase.from("investment_contributions").select("*").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id),
     ]);
 
-    const error = incomeResponse.error || expenseResponse.error || billsResponse.error || installmentResponse.error || investmentResponse.error || goalsResponse.error;
+    const error = incomeResponse.error || expenseResponse.error || billsResponse.error || installmentResponse.error || contributionResponse.error || goalsResponse.error;
 
     if (error) {
       toast.error("Erro ao carregar calendario financeiro");
@@ -81,7 +81,7 @@ export default function CalendarPage() {
       expenses: expenseResponse.data ?? [],
       bills: billsResponse.data ?? [],
       installmentPayments: installmentResponse.data ?? [],
-      investments: investmentResponse.data ?? [],
+      investmentContributions: contributionResponse.data ?? [],
       goals: goalsResponse.data ?? [],
     });
     setLoading(false);
@@ -92,7 +92,11 @@ export default function CalendarPage() {
   }, [fetchData]);
 
   const events = useMemo(
-    () => buildFinancialEvents(payload),
+    () => buildFinancialEvents({
+      ...payload,
+      investments: [],
+      investmentContributions: payload.investmentContributions,
+    }),
     [payload]
   );
 
@@ -120,7 +124,7 @@ export default function CalendarPage() {
           accumulator.outflow += event.amount;
         }
         if (event.type === "investment") {
-          accumulator.investments += event.amount;
+          accumulator.investments += event.status === "withdraw" ? -event.amount : event.amount;
         }
         if (event.type === "goal") {
           accumulator.goalDeadlines += 1;
@@ -143,6 +147,14 @@ export default function CalendarPage() {
       return getInstallmentStatusLabel(event.status as EffectiveInstallmentStatus);
     }
 
+    if (event.status === "deposit") {
+      return "Aporte";
+    }
+
+    if (event.status === "withdraw") {
+      return "Retirada";
+    }
+
     return event.status ?? event.type;
   };
 
@@ -153,6 +165,14 @@ export default function CalendarPage() {
 
     if (event.status === "paid" || event.status === "overdue" || event.status === "pending") {
       return event.status;
+    }
+
+    if (event.status === "deposit") {
+      return "profit" as const;
+    }
+
+    if (event.status === "withdraw") {
+      return "expense" as const;
     }
 
     return "secondary" as const;
@@ -170,7 +190,7 @@ export default function CalendarPage() {
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Entradas no mes" value={formatCurrency(stats.income)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Saidas previstas" value={formatCurrency(stats.outflow)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Aportes no mes" value={formatCurrency(stats.investments)} icon={PiggyBank} variant="accent" loading={loading} />
+        <StatCard title="Aportes liquidos" value={formatCurrency(stats.investments)} icon={PiggyBank} variant={stats.investments >= 0 ? "accent" : "expense"} loading={loading} />
         <StatCard title="Prazos de metas" value={String(stats.goalDeadlines)} icon={Target} variant="warning" loading={loading} />
       </div>
 
@@ -274,7 +294,14 @@ export default function CalendarPage() {
               />
             ) : (
               <div className="space-y-3">
-                {selectedEvents.map((event) => (
+                {selectedEvents.map((event) => {
+                  const sign = event.type === "income" || (event.type === "investment" && event.status === "deposit")
+                    ? "+"
+                    : event.type === "goal"
+                      ? ""
+                      : "-";
+
+                  return (
                   <div key={event.id} className="rounded-2xl border border-border/70 bg-background/40 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -283,8 +310,7 @@ export default function CalendarPage() {
                       </div>
                       <div className="text-right">
                         <p className={cn("text-sm font-semibold", getEventTone(event.type))}>
-                          {(event.type === "income" ? "+" : "-").replace("-", event.type === "goal" ? "" : "-")}
-                          {formatCurrency(event.amount)}
+                          {sign}{formatCurrency(event.amount)}
                         </p>
                         <Badge variant={getEventStatusVariant(event)} className="mt-2 text-[10px]">
                           {getEventStatusLabel(event)}
@@ -292,7 +318,8 @@ export default function CalendarPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

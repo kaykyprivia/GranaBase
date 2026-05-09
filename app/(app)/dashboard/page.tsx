@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
 import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
+import { calculateGoalMetrics } from "@/lib/goals";
 import { isInstallmentPaid } from "@/lib/installments";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -20,7 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
-import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, InstallmentPayment } from "@/types/database";
+import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, InstallmentPayment, InvestmentWallet } from "@/types/database";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 const AreaChart = dynamic(
   () => import("recharts").then((m) => ({
@@ -90,6 +92,7 @@ export default function DashboardPage() {
   const [upcomingBills, setUpcomingBills] = useState<Bill[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Array<IncomeEntry & { type: "income" } | ExpenseEntry & { type: "expense" }>>([]);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
   const [chartData, setChartData] = useState<ChartData[]>([]);
 
   const loadData = useCallback(async () => {
@@ -110,7 +113,7 @@ export default function DashboardPage() {
       { data: billsData },
       { data: upcomingBillsData },
       { data: installmentPaymentsData },
-      { data: investmentsData },
+      { data: walletData },
       { data: goalsData },
       { data: recentIncome },
       { data: recentExpenses },
@@ -120,8 +123,8 @@ export default function DashboardPage() {
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue", "paid"]),
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).lte("due_date", in7DaysStr).order("due_date"),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
-      supabase.from("investments").select("*").eq("user_id", user.id),
-      supabase.from("financial_goals").select("*").eq("user_id", user.id).eq("status", "active").limit(3),
+      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
       supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }).limit(5),
       supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }).limit(5),
     ]);
@@ -131,7 +134,7 @@ export default function DashboardPage() {
     const billRows = coerceData<Bill[]>(billsData ?? []);
     const upcomingBillRows = coerceData<Bill[]>(upcomingBillsData ?? []);
     const installmentPayments = coerceData<InstallmentPayment[]>(installmentPaymentsData ?? []);
-    const investmentRows = coerceData<Array<{ amount: number }>>(investmentsData ?? []);
+    const walletRow = coerceData<InvestmentWallet | null>(walletData ?? null);
     const goalRows = coerceData<FinancialGoal[]>(goalsData ?? []);
     const recentIncomeRows = coerceData<IncomeEntry[]>(recentIncome ?? []);
     const recentExpenseRows = coerceData<ExpenseEntry[]>(recentExpenses ?? []);
@@ -144,7 +147,7 @@ export default function DashboardPage() {
     const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
     const futureInstallments = installmentPayments.filter((payment) => !isInstallmentPaid(getEffectiveInstallmentStatus(payment)));
     const futureInstallmentsAmount = futureInstallments.reduce((sum, payment) => sum + payment.amount, 0);
-    const investedTotal = investmentRows.reduce((sum, entry) => sum + entry.amount, 0);
+    const investedTotal = walletRow?.total_balance ?? 0;
 
     setStats({
       totalIncome, totalExpenses,
@@ -175,6 +178,7 @@ export default function DashboardPage() {
     setRecentTransactions(combined);
 
     setGoals(goalRows);
+    setWallet(walletRow);
     setChartData(buildMonthSeries(incomeRows, expenseRows));
 
     setLoading(false);
@@ -182,14 +186,25 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    window.addEventListener("wallet:changed", loadData);
+    return () => window.removeEventListener("wallet:changed", loadData);
+  }, [loadData]);
+
   const currentBalance = stats.totalIncome - stats.totalExpenses;
+  const walletBalance = wallet?.total_balance ?? 0;
 
   return (
     <div className="page-container animate-fade-in">
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        <p className="text-text-secondary text-sm mt-0.5">Visão geral das suas finanças</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+            <p className="text-text-secondary text-sm mt-0.5">Visao geral das suas financas</p>
+          </div>
+          <GlobalContributionButton />
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -244,11 +259,12 @@ export default function DashboardPage() {
           subtitle={`${stats.futureInstallmentsCount} parcela${stats.futureInstallmentsCount !== 1 ? "s" : ""}`}
         />
         <StatCard
-          title="Investido Total"
+          title="Patrimonio"
           value={formatCurrency(stats.investedTotal)}
           icon={PiggyBank}
           variant="accent"
           loading={loading}
+          subtitle="Carteira global"
         />
         <StatCard
           title="Total Saídas"
@@ -422,22 +438,22 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {goals.map(goal => {
-                  const pct = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
-                  const color = pct >= 80 ? "#22C55E" : pct >= 40 ? "#FACC15" : "#EF4444";
+                  const metrics = calculateGoalMetrics(goal, walletBalance);
+                  const color = metrics.progress >= 80 ? "#22C55E" : metrics.progress >= 40 ? "#FACC15" : "#EF4444";
                   return (
                     <div key={goal.id}>
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-sm font-medium text-text-primary truncate max-w-[160px]">{goal.name}</p>
-                        <span className="text-xs font-semibold" style={{ color }}>{pct.toFixed(0)}%</span>
+                        <span className="text-xs font-semibold" style={{ color }}>{metrics.displayProgress}%</span>
                       </div>
                       <Progress
-                        value={pct}
+                        value={metrics.progress}
                         className="h-1.5"
                         indicatorClassName="transition-all"
                         style={{ "--indicator-color": color } as React.CSSProperties}
                       />
                       <p className="text-xs text-text-secondary mt-1">
-                        {formatCurrency(goal.current_amount)} de {formatCurrency(goal.target_amount)}
+                        {formatCurrency(metrics.walletBalance)} de {formatCurrency(goal.target_amount)}
                       </p>
                     </div>
                   );

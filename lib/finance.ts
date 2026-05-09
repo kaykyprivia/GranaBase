@@ -1,4 +1,4 @@
-import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment } from "@/types/database";
+import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution } from "@/types/database";
 import { getEffectiveInstallmentStatus } from "@/lib/installments";
 import { formatCurrency, getMonthYear, isOverdue } from "@/lib/utils";
 
@@ -77,6 +77,7 @@ export function buildFinancialEvents({
   bills,
   installmentPayments,
   investments,
+  investmentContributions = [],
   goals,
 }: {
   income: IncomeEntry[];
@@ -84,6 +85,7 @@ export function buildFinancialEvents({
   bills: Bill[];
   installmentPayments: InstallmentPayment[];
   investments: Investment[];
+  investmentContributions?: InvestmentContribution[];
   goals: FinancialGoal[];
 }) {
   const events: FinancialEvent[] = [
@@ -131,6 +133,15 @@ export function buildFinancialEvents({
       type: "investment" as const,
       subtitle: investment.investment_type,
     })),
+    ...investmentContributions.map((contribution) => ({
+      id: contribution.id,
+      date: contribution.created_at.slice(0, 10),
+      title: contribution.type === "deposit" ? "Aporte na carteira" : "Retirada da carteira",
+      amount: contribution.amount,
+      type: "investment" as const,
+      subtitle: contribution.description ?? "Patrimonio global",
+      status: contribution.type,
+    })),
     ...goals
       .filter((goal) => goal.deadline)
       .map((goal) => ({
@@ -139,7 +150,7 @@ export function buildFinancialEvents({
         title: goal.name,
         amount: goal.target_amount,
         type: "goal" as const,
-        subtitle: `${formatCurrency(goal.current_amount)} guardado`,
+        subtitle: `Meta de ${formatCurrency(goal.target_amount)}`,
         status: goal.status,
       })),
   ];

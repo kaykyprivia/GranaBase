@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -46,6 +47,10 @@ export function Sidebar() {
       {/* Logo */}
       <div className="shrink-0 flex items-center gap-2.5 px-5 py-5 border-b border-border">
         <BrandLogo className="h-14 rounded-xl" priority />
+      </div>
+
+      <div className="px-3 pt-4">
+        <GlobalContributionButton className="w-full" />
       </div>
 
       {/* Navigation */}
