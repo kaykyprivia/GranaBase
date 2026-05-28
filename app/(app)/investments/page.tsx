@@ -419,7 +419,7 @@ export default function InvestmentsPage() {
     .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "withdraw")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const monthlyTotal = monthlyDeposits - monthlyWithdrawals;
-  const totalAll = wallet?.total_balance ?? 0;
+  const totalAll = entries.reduce((sum, e) => sum + e.amount, 0);
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
   const activeTabMeta = investmentCategoryMeta[activeTab];
