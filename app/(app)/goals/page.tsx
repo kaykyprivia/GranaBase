@@ -9,7 +9,7 @@ import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
-import type { FinancialGoal, InvestmentWallet } from "@/types/database";
+import type { FinancialGoal } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,6 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
-import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 type GoalStatus = FinancialGoal["status"];
 
@@ -53,7 +52,7 @@ function getGoalStatusLabel(status: GoalStatus) {
 export default function GoalsPage() {
   const supabase = useMemo(() => createClient(), []);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
-  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -64,8 +63,6 @@ export default function GoalsPage() {
   const [form, setForm] = useState<GoalEditorState>(EMPTY_GOAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof GoalEditorState, string>>>({});
   const [statusFilter, setStatusFilter] = useState<"all" | GoalStatus>("all");
-
-  const walletBalance = wallet?.total_balance ?? 0;
 
   const fetchGoals = useCallback(async () => {
     const {
@@ -80,8 +77,8 @@ export default function GoalsPage() {
     setUserId(user.id);
     setLoading(true);
 
-    const [walletResponse, goalsResponse] = await Promise.all([
-      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+    const [investmentsResponse, goalsResponse] = await Promise.all([
+      supabase.from("investments").select("amount").eq("user_id", user.id),
       supabase
         .from("financial_goals")
         .select("*")
@@ -89,7 +86,7 @@ export default function GoalsPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    if (walletResponse.error) {
+    if (investmentsResponse.error) {
       toast.error("Erro ao carregar patrimonio");
       setLoading(false);
       return;
@@ -101,7 +98,7 @@ export default function GoalsPage() {
       return;
     }
 
-    setWallet(walletResponse.data ?? null);
+    setWalletBalance((investmentsResponse.data ?? []).reduce((sum, e) => sum + e.amount, 0));
     setGoals(goalsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
@@ -261,13 +258,10 @@ export default function GoalsPage() {
         title="Metas"
         description="Metas acompanham o mesmo patrimonio global. Aportes e retiradas acontecem na carteira, sem saldo duplicado por objetivo."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <GlobalContributionButton />
-            <Button onClick={openCreate} variant="secondary" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova meta
-            </Button>
-          </div>
+          <Button onClick={openCreate} variant="secondary" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova meta
+          </Button>
         }
       />
 
