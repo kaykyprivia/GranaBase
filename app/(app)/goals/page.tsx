@@ -78,7 +78,7 @@ export default function GoalsPage() {
     setLoading(true);
 
     const [investmentsResponse, goalsResponse] = await Promise.all([
-      supabase.from("investments").select("amount").eq("user_id", user.id),
+      supabase.from("investments").select("*").eq("user_id", user.id),
       supabase
         .from("financial_goals")
         .select("*")
