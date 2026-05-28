@@ -9,7 +9,7 @@ import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
-import type { FinancialGoal } from "@/types/database";
+import type { FinancialGoal, Investment } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,7 +98,8 @@ export default function GoalsPage() {
       return;
     }
 
-    setWalletBalance((investmentsResponse.data ?? []).reduce((sum, e) => sum + e.amount, 0));
+    const investmentData: Investment[] = investmentsResponse.data ?? [];
+    setWalletBalance(investmentData.reduce((sum, e) => sum + e.amount, 0));
     setGoals(goalsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
