@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TrendingUp, Plus, Search, Pencil, Trash2 } from "lucide-react";
@@ -154,15 +154,19 @@ export default function IncomePage() {
 
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthTotal = entries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
+  const effectiveMonth = monthFilter !== "all" ? monthFilter : currentMonth;
 
-  const filtered = entries.filter(e => {
+  const filtered = useMemo(() => entries.filter(e => {
     const matchMonth = monthFilter === "all" || e.received_at.startsWith(monthFilter);
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
     return matchMonth && matchCat && matchSearch;
-  });
+  }), [entries, monthFilter, categoryFilter, search]);
+
+  const monthTotal = filtered
+    .filter(e => e.received_at.startsWith(effectiveMonth))
+    .reduce((s, e) => s + e.amount, 0);
+  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
 
   return (
     <div className="page-container animate-fade-in">
