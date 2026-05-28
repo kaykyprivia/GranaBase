@@ -11,7 +11,7 @@ import { getMonthOptions, INVESTMENT_TYPES } from "@/lib/finance";
 import { buildFallbackMarketOverview, calculateCdb100CdiReturn, calculateTesouroSelicReturn, type MarketOverview } from "@/lib/market";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
-import type { Investment, InvestmentContribution, InvestmentWallet } from "@/types/database";
+import type { Investment, InvestmentContribution } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -226,7 +226,6 @@ function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) 
 export default function InvestmentsPage() {
   const supabase = useMemo(() => createClient(), []);
   const [entries, setEntries] = useState<Investment[]>([]);
-  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
   const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
   const [simulationAmount, setSimulationAmount] = useState(10000);
@@ -265,13 +264,12 @@ export default function InvestmentsPage() {
     }
 
     setUserId(user.id);
-    const [investmentsResponse, walletResponse, contributionsResponse] = await Promise.all([
+    const [investmentsResponse, contributionsResponse] = await Promise.all([
       supabase
         .from("investments")
         .select("*")
         .eq("user_id", user.id)
         .order("invested_at", { ascending: false }),
-      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("investment_contributions")
         .select("*")
@@ -279,14 +277,13 @@ export default function InvestmentsPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    if (investmentsResponse.error || walletResponse.error || contributionsResponse.error) {
+    if (investmentsResponse.error || contributionsResponse.error) {
       toast.error("Erro ao carregar investimentos");
       setLoading(false);
       return;
     }
 
     setEntries(investmentsResponse.data ?? []);
-    setWallet(walletResponse.data ?? null);
     setContributions(contributionsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
