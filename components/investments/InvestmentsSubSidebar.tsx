@@ -100,9 +100,10 @@ const NAV: NavItem[] = [
 interface InvestmentsSubSidebarProps {
   activeTab: InvestmentTabId;
   onTabChange: (tab: InvestmentTabId) => void;
+  embedded?: boolean;
 }
 
-export function InvestmentsSubSidebar({ activeTab, onTabChange }: InvestmentsSubSidebarProps) {
+export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false }: InvestmentsSubSidebarProps) {
   const initialOpen = NAV.reduce<Record<string, boolean>>((acc, item) => {
     if (item.kind === "group") {
       acc[item.groupId] = item.items.some((sub) => sub.id === activeTab);
@@ -115,22 +116,21 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange }: InvestmentsSub
   const toggle = (groupId: string) =>
     setOpen((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
 
-  return (
-    <aside className="w-full lg:w-64 lg:shrink-0">
-      <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
-        <div className="hidden border-b border-border/70 px-4 py-4 lg:block">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-secondary">
-            Central
-          </p>
-          <p className="mt-2 text-sm font-semibold text-text-primary">
-            Navegação de investimentos
-          </p>
-          <p className="mt-1 text-xs text-text-secondary">
-            Explore sua carteira por categoria sem sair da página.
-          </p>
-        </div>
+  const inner = (
+    <>
+      <div className={cn("px-4 py-4", embedded ? "border-b border-border/70" : "hidden border-b border-border/70 lg:block")}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-secondary">
+          Central
+        </p>
+        <p className="mt-2 text-sm font-semibold text-text-primary">
+          Navegação de investimentos
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Explore sua carteira por categoria sem sair da página.
+        </p>
+      </div>
 
-        <nav className="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-thin scrollbar-track-transparent lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-3 lg:py-3">
+      <nav className="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-thin scrollbar-track-transparent lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-3 lg:py-3">
           {NAV.map((item) => {
             if (item.kind === "single") {
               const Icon = item.icon;
@@ -225,6 +225,21 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange }: InvestmentsSub
             );
           })}
         </nav>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <aside className="w-full shrink-0 border-r border-border/70 lg:w-60">
+        {inner}
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="w-full lg:w-64 lg:shrink-0">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
+        {inner}
       </div>
     </aside>
   );

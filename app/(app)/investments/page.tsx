@@ -653,10 +653,11 @@ export default function InvestmentsPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
+        <div className="flex flex-col lg:flex-row lg:items-stretch">
+        <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} embedded />
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 flex-1 p-4 lg:p-5">
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -749,6 +750,7 @@ export default function InvestmentsPage() {
             </div>
           )}
         </main>
+        </div>
       </div>
 
       <Dialog open={modalOpen} onOpenChange={(open) => !open && setModalOpen(false)}>
