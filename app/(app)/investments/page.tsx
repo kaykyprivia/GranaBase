@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calculator, Landmark, PiggyBank, Plus, Search, Pencil, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { Calculator, PiggyBank, Pencil, Plus, Search, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
 import { getMonthOptions, INVESTMENT_TYPES } from "@/lib/finance";
-import { buildFallbackMarketOverview, calculateCdb100CdiReturn, calculateTesouroSelicReturn, type MarketOverview } from "@/lib/market";
+import {
+  buildFallbackMarketOverview,
+  calculateCdb100CdiReturn,
+  calculateTesouroSelicReturn,
+  type MarketOverview,
+} from "@/lib/market";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
 import type { Investment, InvestmentContribution } from "@/types/database";
@@ -32,6 +38,8 @@ import {
   investmentTabs,
   type InvestmentTabId,
 } from "@/components/investments/InvestmentsSubSidebar";
+import { MarketTicker } from "@/components/investments/MarketTicker";
+import { PortfolioAllocationChart } from "@/components/investments/PortfolioAllocationChart";
 
 interface InvestmentCategoryMeta {
   title: string;
@@ -45,7 +53,7 @@ const investmentCategoryMeta: Record<InvestmentTabId, InvestmentCategoryMeta> = 
   },
   portfolio: {
     title: "Carteira",
-    description: "Todos os registros que compõem a sua carteira atual, mantendo os filtros da página.",
+    description: "Todos os registros que compõem a sua carteira atual.",
   },
   stocks: {
     title: "Ações",
@@ -127,6 +135,60 @@ function matchesInvestmentTab(entry: Investment, tab: InvestmentTabId) {
     default:
       return false;
   }
+}
+
+function AssetCard({
+  entry,
+  portfolioTotal,
+  onEdit,
+  onDelete,
+}: {
+  entry: Investment;
+  portfolioTotal: number;
+  onEdit: (e: Investment) => void;
+  onDelete: (id: string) => void;
+}) {
+  const pct = portfolioTotal > 0 ? (entry.amount / portfolioTotal) * 100 : 0;
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl border border-border/60 bg-surface/60 p-4 transition-all hover:border-border hover:bg-border/20">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <Badge variant="default" className="text-[10px]">{entry.investment_type}</Badge>
+            <span className="text-[10px] text-text-secondary">{formatDate(entry.invested_at)}</span>
+          </div>
+          {entry.notes && (
+            <p className="mt-1 truncate text-[10px] text-text-secondary">{entry.notes}</p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-bold text-profit">{formatCurrency(entry.amount)}</p>
+          <p className="mt-0.5 text-[10px] text-text-secondary">{pct.toFixed(1)}% carteira</p>
+        </div>
+      </div>
+      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/30">
+        <div
+          className="h-full rounded-full bg-accent/60 transition-all duration-500"
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      <div className="absolute right-2 top-2 flex gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+        <Button variant="ghost" size="icon-sm" onClick={() => onEdit(entry)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onDelete(entry.id)}
+          className="hover:bg-expense/10 hover:text-expense"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function InvestmentsTable({
@@ -219,6 +281,22 @@ function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) 
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+interface MonthlyChartTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+function MonthlyChartTooltip({ active, payload, label }: MonthlyChartTooltipProps) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-border bg-surface px-3 py-2 shadow-xl">
+      <p className="text-xs text-text-secondary">{label}</p>
+      <p className="text-sm font-bold text-profit">{formatCurrency(payload[0].value)}</p>
     </div>
   );
 }
@@ -356,10 +434,7 @@ export default function InvestmentsPage() {
           }))
           .eq("id", editingEntry.id);
 
-        if (error) {
-          throw error;
-        }
-
+        if (error) throw error;
         toast.success("Investimento atualizado");
       } else {
         const { error } = await supabase.from("investments").insert(coerceMutation({
@@ -371,10 +446,7 @@ export default function InvestmentsPage() {
           notes: data.notes || null,
         }));
 
-        if (error) {
-          throw error;
-        }
-
+        if (error) throw error;
         toast.success("Investimento registrado");
       }
 
@@ -386,17 +458,12 @@ export default function InvestmentsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteId) {
-      return;
-    }
+    if (!deleteId) return;
 
     setDeleting(true);
     try {
       const { error } = await supabase.from("investments").delete().eq("id", deleteId);
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setEntries((current) => current.filter((entry) => entry.id !== deleteId));
       toast.success("Investimento excluido");
@@ -423,6 +490,25 @@ export default function InvestmentsPage() {
   const ActiveTabIcon = activeTabItem.icon;
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
   const tesouroReturn = calculateTesouroSelicReturn(portfolioTotal || simulationAmount, marketOverview.selic.annualizedValue);
+  const portfolioCdiMonthly = useMemo(
+    () => calculateCdb100CdiReturn(portfolioTotal, marketOverview.cdi.annualizedValue).monthly,
+    [portfolioTotal, marketOverview.cdi.annualizedValue]
+  );
+
+  const monthlyChartData = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (5 - i));
+      const key = d.toISOString().slice(0, 7);
+      const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
+      const value = contributions
+        .filter((c) => c.type === "deposit" && c.created_at.startsWith(key))
+        .reduce((s, c) => s + c.amount, 0);
+      return { month: label, value };
+    });
+  }, [contributions]);
+
+  const hasMonthlyData = monthlyChartData.some((d) => d.value > 0);
 
   const filtered = useMemo(() => {
     return entries.filter((entry) => {
@@ -444,6 +530,7 @@ export default function InvestmentsPage() {
   );
 
   const isOverviewTab = activeTab === "overview";
+  const isPortfolioTab = activeTab === "portfolio";
   const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
 
   return (
@@ -464,158 +551,47 @@ export default function InvestmentsPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Movimento no mes" value={formatCurrency(monthlyTotal)} icon={TrendingUp} variant={monthlyTotal >= 0 ? "accent" : "expense"} loading={loading} />
-        <StatCard title="Patrimonio total" value={formatCurrency(portfolioTotal)} icon={Wallet} variant="profit" loading={loading} subtitle="Soma dos ativos" />
-        <StatCard title="Tipos ativos" value={String(uniqueTypes.length)} icon={PiggyBank} variant="default" loading={loading} />
-        <StatCard title="Movimentacoes" value={String(contributions.length)} icon={TrendingUp} variant="warning" loading={loading} subtitle={`${filtered.length} ativos exibindo`} />
+      {/* Stat cards */}
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Patrimônio total"
+          value={formatCurrency(portfolioTotal)}
+          icon={Wallet}
+          variant="profit"
+          loading={loading}
+          subtitle={`${entries.length} ativo${entries.length !== 1 ? "s" : ""} cadastrado${entries.length !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          title="Aporte no mês"
+          value={formatCurrency(monthlyTotal)}
+          icon={TrendingUp}
+          variant={monthlyTotal >= 0 ? "accent" : "expense"}
+          loading={loading}
+        />
+        <StatCard
+          title="Tipos de ativo"
+          value={String(uniqueTypes.length)}
+          icon={PiggyBank}
+          variant="default"
+          loading={loading}
+          subtitle={uniqueTypes.join(", ") || "—"}
+        />
+        <StatCard
+          title="CDI mensal est."
+          value={formatCurrency(portfolioCdiMonthly)}
+          icon={Calculator}
+          variant="warning"
+          loading={loading}
+          subtitle="Rendimento simulado"
+        />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-profit/15 p-2.5 text-profit">
-                <Landmark className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">CDB 100% CDI</CardTitle>
-                <CardDescription className="mt-1">CDI anualizado: {marketOverview.cdi.annualizedValue.toFixed(2)}%</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Diario</span>
-              <strong className="text-profit">{formatCurrency(cdiReturn.daily)}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Mensal</span>
-              <strong className="text-profit">{formatCurrency(cdiReturn.monthly)}</strong>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-accent/15 p-2.5 text-accent">
-                <Calculator className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Quanto renderia hoje</CardTitle>
-                <CardDescription className="mt-1">Simulacao bruta a 100% CDI</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <CurrencyInput value={simulationAmount} onChange={setSimulationAmount} />
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">Rendimento mensal</span>
-              <strong className="text-profit">{formatCurrency(cdiReturn.monthly)}</strong>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-warning/15 p-2.5 text-warning">
-                <Landmark className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Tesouro Selic</CardTitle>
-                <CardDescription className="mt-1">Selic: {marketOverview.selic.annualizedValue.toFixed(2)}% a.a.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Base calculada</span>
-              <strong>{formatCurrency(portfolioTotal || simulationAmount)}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Rendimento diario</span>
-              <strong className="text-profit">{formatCurrency(tesouroReturn.daily)}</strong>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-accent/15 p-2.5 text-accent">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Ibovespa</CardTitle>
-                <CardDescription className="mt-1">Fonte: {marketOverview.ibovespa.source === "brapi" ? "BRAPI" : "fallback"}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Pontos</span>
-              <strong>{marketOverview.ibovespa.price ? marketOverview.ibovespa.price.toLocaleString("pt-BR") : "Indisponivel"}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Variacao</span>
-              <strong className={(marketOverview.ibovespa.changePercent ?? 0) >= 0 ? "text-profit" : "text-expense"}>
-                {marketOverview.ibovespa.changePercent !== null ? `${marketOverview.ibovespa.changePercent.toFixed(2)}%` : "--"}
-              </strong>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-warning/15 p-2.5 text-warning">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Câmbio</CardTitle>
-                <CardDescription className="mt-1">USD e EUR — AwesomeAPI</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">USD / BRL</span>
-              <strong>R$ {marketOverview.dolar.value.toFixed(2)}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">EUR / BRL</span>
-              <strong>R$ {marketOverview.euro.value.toFixed(2)}</strong>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-surface/90">
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-expense/15 p-2.5 text-expense">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-base">IPCA</CardTitle>
-                <CardDescription className="mt-1">Inflação — Banco Central</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Acumulado a.a.</span>
-              <strong className="text-expense">{marketOverview.ipca.annualizedValue.toFixed(2)}%</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-secondary">Fonte</span>
-              <strong>{marketOverview.ipca.source === "bcb" ? "BCB" : "estimativa"}</strong>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Market ticker */}
+      <div className="mb-6">
+        <MarketTicker data={marketOverview} />
       </div>
 
+      {/* Filters */}
       <div className="mb-5 flex flex-col gap-3 lg:flex-row">
         <Select value={monthFilter} onValueChange={setMonthFilter}>
           <SelectTrigger className="w-full lg:w-48">
@@ -653,103 +629,244 @@ export default function InvestmentsPage() {
         />
       </div>
 
+      {/* Main panel */}
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
         <div className="flex flex-col lg:flex-row lg:items-stretch">
-        <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} embedded />
+          <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} embedded />
 
-        <main className="min-w-0 flex-1 p-4 lg:p-5">
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-16 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : activeTab === "contributions" ? (
-            contributions.length === 0 ? (
-              <EmptyState
-                icon={PiggyBank}
-                title="Nenhuma movimentacao"
-                description="Use Novo aporte para registrar aportes e retiradas da carteira global."
-              />
-            ) : (
-              <ContributionsTable entries={contributions} />
-            )
-          ) : isOverviewTab ? (
-            filtered.length === 0 ? (
-              <EmptyState
-                icon={PiggyBank}
-                title="Nenhum investimento encontrado"
-                description={hasFilterApplied
-                  ? "Ajuste os filtros para encontrar seus registros."
-                  : "Comece registrando seu primeiro aporte."}
-                actionLabel={!hasFilterApplied ? "+ Novo investimento" : undefined}
-                onAction={!hasFilterApplied ? openCreate : undefined}
-              />
-            ) : (
-              <InvestmentsTable
-                entries={filtered}
-                onEdit={openEdit}
-                onDelete={setDeleteId}
-              />
-            )
-          ) : (
-            <div className="space-y-4">
-              <Card className="border-border/70 bg-surface/90">
-                <CardHeader>
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-xl bg-accent/12 p-2.5 text-accent">
-                      <ActiveTabIcon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle>{activeTabMeta.title}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {activeTabMeta.description}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                {tabEntries.length > 0 && (
-                  <CardContent>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-                      <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
-                        {tabEntries.length} registro{tabEntries.length !== 1 ? "s" : ""} visível{tabEntries.length !== 1 ? "is" : ""}
-                      </span>
-                      <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
-                        Total filtrado: {formatCurrency(tabEntries.reduce((sum, entry) => sum + entry.amount, 0))}
-                      </span>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
+          <main className="min-w-0 flex-1 p-4 lg:p-5">
+            {loading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Skeleton key={index} className="h-16 w-full rounded-xl" />
+                ))}
+              </div>
 
-              {tabEntries.length > 0 ? (
-                <InvestmentsTable
-                  entries={tabEntries}
-                  onEdit={openEdit}
-                  onDelete={setDeleteId}
+            ) : activeTab === "contributions" ? (
+              contributions.length === 0 ? (
+                <EmptyState
+                  icon={PiggyBank}
+                  title="Nenhuma movimentacao"
+                  description="Use Novo aporte para registrar aportes e retiradas da carteira global."
                 />
               ) : (
-                <EmptyState
-                  icon={activeTabItem.icon}
-                  title={
-                    unfilteredTabEntries.length > 0
-                      ? `Nenhum registro visível em ${activeTabMeta.title}`
-                      : `${activeTabMeta.title} em preparação`
-                  }
-                  description={
-                    unfilteredTabEntries.length > 0
-                      ? "Os filtros atuais esconderam essa categoria. Ajuste mês, tipo ou busca para reencontrar os investimentos."
-                      : activeTab === "portfolio" || hasFilterApplied
-                        ? "Ainda não há registros suficientes para compor esta visão com os filtros ativos."
-                        : "Essa categoria já tem espaço reservado e pode receber dados assim que você começar a registrar esse tipo de investimento."
-                  }
-                  actionLabel={!hasFilterApplied && activeTab !== "dividends" && activeTab !== "earnings" && activeTab !== "profitability" && activeTab !== "reports" ? "+ Novo investimento" : undefined}
-                  onAction={!hasFilterApplied && activeTab !== "dividends" && activeTab !== "earnings" && activeTab !== "profitability" && activeTab !== "reports" ? openCreate : undefined}
-                />
-              )}
-            </div>
-          )}
-        </main>
+                <ContributionsTable entries={contributions} />
+              )
+
+            ) : isOverviewTab ? (
+              <div className="space-y-4">
+                {filtered.length > 0 && (
+                  <>
+                    {/* Allocation chart + Simulator */}
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5 lg:col-span-2">
+                        <p className="mb-4 text-sm font-semibold text-text-primary">Distribuição da carteira</p>
+                        <PortfolioAllocationChart investments={filtered} />
+                      </div>
+
+                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
+                        <p className="mb-4 text-sm font-semibold text-text-primary">Simulador CDI / SELIC</p>
+                        <div className="space-y-3">
+                          <CurrencyInput value={simulationAmount} onChange={setSimulationAmount} />
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">Diário</span>
+                              <strong className="text-profit">{formatCurrency(cdiReturn.daily)}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">Mensal</span>
+                              <strong className="text-profit">{formatCurrency(cdiReturn.monthly)}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">Anual</span>
+                              <strong className="text-profit">{formatCurrency(cdiReturn.annual)}</strong>
+                            </div>
+                          </div>
+                          <div className="border-t border-border/40 pt-3 space-y-1.5 text-xs text-text-secondary">
+                            <div className="flex justify-between">
+                              <span>CDI a.a.</span>
+                              <span className="font-medium text-profit">{marketOverview.cdi.annualizedValue.toFixed(2)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>SELIC a.a.</span>
+                              <span className="font-medium text-profit">{marketOverview.selic.annualizedValue.toFixed(2)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>IPCA a.a.</span>
+                              <span className="font-medium text-expense">{marketOverview.ipca.annualizedValue.toFixed(2)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Carteira / CDI mês</span>
+                              <strong className="text-profit">{formatCurrency(tesouroReturn.monthly)}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Monthly contributions bar chart */}
+                    {hasMonthlyData && (
+                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
+                        <p className="mb-4 text-sm font-semibold text-text-primary">Aportes mensais</p>
+                        <ResponsiveContainer width="100%" height={110}>
+                          <BarChart data={monthlyChartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                            <XAxis
+                              dataKey="month"
+                              tick={{ fontSize: 11, fill: "#94A3B8" }}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                            <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {filtered.length === 0 ? (
+                  <EmptyState
+                    icon={PiggyBank}
+                    title="Nenhum investimento encontrado"
+                    description={hasFilterApplied
+                      ? "Ajuste os filtros para encontrar seus registros."
+                      : "Comece registrando seu primeiro aporte."}
+                    actionLabel={!hasFilterApplied ? "+ Novo investimento" : undefined}
+                    onAction={!hasFilterApplied ? openCreate : undefined}
+                  />
+                ) : (
+                  <InvestmentsTable
+                    entries={filtered}
+                    onEdit={openEdit}
+                    onDelete={setDeleteId}
+                  />
+                )}
+              </div>
+
+            ) : isPortfolioTab ? (
+              <div className="space-y-4">
+                {tabEntries.length === 0 ? (
+                  <EmptyState
+                    icon={Wallet}
+                    title="Carteira vazia"
+                    description={hasFilterApplied
+                      ? "Ajuste os filtros para ver seus ativos."
+                      : "Registre seu primeiro investimento para compor a carteira."}
+                    actionLabel={!hasFilterApplied ? "+ Novo investimento" : undefined}
+                    onAction={!hasFilterApplied ? openCreate : undefined}
+                  />
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-text-secondary">
+                        {tabEntries.length} ativo{tabEntries.length !== 1 ? "s" : ""} ·{" "}
+                        <span className="font-semibold text-profit">
+                          {formatCurrency(tabEntries.reduce((s, e) => s + e.amount, 0))}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {tabEntries.map((entry) => (
+                        <AssetCard
+                          key={entry.id}
+                          entry={entry}
+                          portfolioTotal={portfolioTotal}
+                          onEdit={openEdit}
+                          onDelete={setDeleteId}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+            ) : (
+              <div className="space-y-4">
+                <Card className="border-border/70 bg-surface/90">
+                  <CardHeader>
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl bg-accent/12 p-2.5 text-accent">
+                        <ActiveTabIcon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <CardTitle>{activeTabMeta.title}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {activeTabMeta.description}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {tabEntries.length > 0 && (
+                    <CardContent>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
+                          {tabEntries.length} registro{tabEntries.length !== 1 ? "s" : ""}
+                        </span>
+                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
+                          {formatCurrency(tabEntries.reduce((sum, entry) => sum + entry.amount, 0))}
+                        </span>
+                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
+                          {portfolioTotal > 0
+                            ? `${((tabEntries.reduce((s, e) => s + e.amount, 0) / portfolioTotal) * 100).toFixed(1)}% carteira`
+                            : "0% carteira"
+                          }
+                        </span>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+
+                {tabEntries.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {tabEntries.map((entry) => (
+                      <AssetCard
+                        key={entry.id}
+                        entry={entry}
+                        portfolioTotal={portfolioTotal}
+                        onEdit={openEdit}
+                        onDelete={setDeleteId}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={activeTabItem.icon}
+                    title={
+                      unfilteredTabEntries.length > 0
+                        ? `Nenhum registro visível em ${activeTabMeta.title}`
+                        : `${activeTabMeta.title} em preparação`
+                    }
+                    description={
+                      unfilteredTabEntries.length > 0
+                        ? "Os filtros atuais esconderam essa categoria. Ajuste mês, tipo ou busca para reencontrar os investimentos."
+                        : hasFilterApplied
+                          ? "Ainda não há registros suficientes para compor esta visão com os filtros ativos."
+                          : "Essa categoria já tem espaço reservado e pode receber dados assim que você começar a registrar esse tipo de investimento."
+                    }
+                    actionLabel={
+                      !hasFilterApplied
+                      && activeTab !== "dividends"
+                      && activeTab !== "earnings"
+                      && activeTab !== "profitability"
+                      && activeTab !== "reports"
+                        ? "+ Novo investimento"
+                        : undefined
+                    }
+                    onAction={
+                      !hasFilterApplied
+                      && activeTab !== "dividends"
+                      && activeTab !== "earnings"
+                      && activeTab !== "profitability"
+                      && activeTab !== "reports"
+                        ? openCreate
+                        : undefined
+                    }
+                  />
+                )}
+              </div>
+            )}
+          </main>
         </div>
       </div>
 
