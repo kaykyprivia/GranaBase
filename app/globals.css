@@ -48,107 +48,16 @@
     @apply bg-surface/80 backdrop-blur-md border border-border/50;
   }
 
-  .glass-deep {
-    background: rgba(15, 23, 42, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(30, 41, 59, 0.6);
-  }
-
-  .cockpit-card {
-    background: linear-gradient(135deg, rgba(17, 24, 39, 0.9) 0%, rgba(10, 15, 30, 0.95) 100%);
-    border: 1px solid rgba(30, 41, 59, 0.8);
-    border-radius: 16px;
-    backdrop-filter: blur(12px);
-    transition: all 0.25s ease;
-  }
-
-  .cockpit-card:hover {
-    border-color: rgba(56, 189, 248, 0.2);
-    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
-  }
-
-  .hero-card {
-    background: linear-gradient(135deg, #0F172A 0%, #1a1f3a 50%, #0F172A 100%);
-    border: 1px solid rgba(56, 189, 248, 0.15);
-    border-radius: 20px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hero-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.05) 0%, transparent 60%),
-                radial-gradient(circle at 70% 70%, rgba(167, 139, 250, 0.04) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
   .glow-profit {
-    box-shadow: 0 0 24px rgba(34, 197, 94, 0.18);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
   }
 
   .glow-expense {
-    box-shadow: 0 0 24px rgba(239, 68, 68, 0.18);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
   }
 
   .glow-accent {
-    box-shadow: 0 0 24px rgba(56, 189, 248, 0.18);
-  }
-
-  .glow-growth {
-    box-shadow: 0 0 24px rgba(167, 139, 250, 0.18);
-  }
-
-  .glow-warning {
-    box-shadow: 0 0 24px rgba(250, 204, 21, 0.18);
-  }
-
-  .pressure-bar-track {
-    background: rgba(30, 41, 59, 0.6);
-    border-radius: 100px;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .pressure-bar-fill-healthy {
-    background: linear-gradient(90deg, #16A34A, #22C55E);
-    box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
-  }
-
-  .pressure-bar-fill-attention {
-    background: linear-gradient(90deg, #EAB308, #FACC15);
-    box-shadow: 0 0 12px rgba(250, 204, 21, 0.4);
-  }
-
-  .pressure-bar-fill-critical {
-    background: linear-gradient(90deg, #DC2626, #EF4444);
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-    animation: pulse-glow 1.5s ease-in-out infinite;
-  }
-
-  .insight-card-critical {
-    border-color: rgba(239, 68, 68, 0.3);
-    background: rgba(239, 68, 68, 0.05);
-  }
-
-  .insight-card-warning {
-    border-color: rgba(250, 204, 21, 0.25);
-    background: rgba(250, 204, 21, 0.04);
-  }
-
-  .insight-card-positive {
-    border-color: rgba(34, 197, 94, 0.25);
-    background: rgba(34, 197, 94, 0.04);
-  }
-
-  .insight-card-info {
-    border-color: rgba(56, 189, 248, 0.2);
-    background: rgba(56, 189, 248, 0.04);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
   }
 
   .stat-card {
@@ -159,10 +68,6 @@
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
   }
 
-  .cockpit-container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4;
-  }
-
   .section-title {
     @apply text-xl font-semibold text-text-primary;
   }
@@ -170,63 +75,12 @@
   .gradient-text {
     @apply bg-gradient-to-r from-accent to-profit bg-clip-text text-transparent;
   }
-
-  .gradient-text-growth {
-    @apply bg-gradient-to-r from-growth to-accent bg-clip-text text-transparent;
-  }
-
-  .tag-healthy {
-    @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-profit/15 text-profit border border-profit/20;
-  }
-
-  .tag-attention {
-    @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20;
-  }
-
-  .tag-critical {
-    @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-expense/15 text-expense border border-expense/20;
-  }
-
-  .timeline-day-safe {
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-  }
-
-  .timeline-day-warning {
-    background: rgba(250, 204, 21, 0.1);
-    border: 1px solid rgba(250, 204, 21, 0.2);
-  }
-
-  .timeline-day-critical {
-    background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
 }
 
 @layer utilities {
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
-
-  .animate-fade-up {
-    animation: fade-up 0.5s ease-out both;
-  }
-
-  .animate-scale-in {
-    animation: scale-in 0.25s ease-out both;
-  }
-
-  .animate-count-up {
-    animation: count-up 0.4s ease-out both;
-  }
-
-  .delay-100 { animation-delay: 100ms; }
-  .delay-150 { animation-delay: 150ms; }
-  .delay-200 { animation-delay: 200ms; }
-  .delay-300 { animation-delay: 300ms; }
-  .delay-400 { animation-delay: 400ms; }
-  .delay-500 { animation-delay: 500ms; }
 
   .text-balance {
     text-wrap: balance;

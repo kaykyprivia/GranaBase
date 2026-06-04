@@ -1,265 +1,468 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
-  TrendingUp,
-  TrendingDown,
-  ChevronRight,
-  Target,
-  Calendar,
-  Wallet,
-  Zap,
-  RefreshCw,
+  Wallet, TrendingUp, TrendingDown, FileText,
+  PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight,
+  AlertCircle, ChevronRight, Target,
 } from "lucide-react";
-import { useCockpitData } from "@/hooks/useCockpitData";
-import { getContextualMessage } from "@/lib/projection-engine";
-import { ContextualHeader } from "@/components/cockpit/ContextualHeader";
-import { ExecutiveMode } from "@/components/cockpit/ExecutiveMode";
-import { RealMoneyCard } from "@/components/cockpit/RealMoneyCard";
-import { PressureGauge } from "@/components/cockpit/PressureGauge";
-import { MiniTimeline } from "@/components/cockpit/MiniTimeline";
-import { InsightGrid } from "@/components/cockpit/InsightCard";
-import { FinancialRadar } from "@/components/cockpit/FinancialRadar";
-import { RecurringIncomeCard } from "@/components/cockpit/RecurringIncomeCard";
+import { createClient } from "@/lib/supabase/client";
+import { coerceData } from "@/lib/supabase/casts";
+import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
+import { calculateGoalMetrics } from "@/lib/goals";
+import { isInstallmentPaid } from "@/lib/installments";
+import { StatCard } from "@/components/shared/StatCard";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
+import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, InstallmentPayment, InvestmentWallet } from "@/types/database";
 import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
-import { formatCurrency, cn } from "@/lib/utils";
 
-function QuickStat({
-  label,
-  value,
-  positive,
-  loading,
-}: {
-  label: string;
-  value: number;
-  positive: boolean;
-  loading: boolean;
-}) {
-  return (
-    <div className="cockpit-card px-4 py-3 flex items-center gap-3">
-      <div className={cn("p-2 rounded-lg shrink-0", positive ? "bg-profit/10" : "bg-expense/10")}>
-        {positive
-          ? <TrendingUp className="h-4 w-4 text-profit" />
-          : <TrendingDown className="h-4 w-4 text-expense" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-text-muted">{label}</p>
-        {loading ? (
-          <div className="h-5 w-24 bg-border/40 rounded animate-pulse mt-0.5" />
-        ) : (
-          <p className={cn("text-sm font-bold tabular-nums", positive ? "text-profit" : "text-expense")}>
-            {formatCurrency(value)}
-          </p>
-        )}
-      </div>
-    </div>
-  );
+const AreaChart = dynamic(
+  () => import("recharts").then((m) => ({
+    default: ({
+      data, income, expenses,
+    }: {
+      data: ChartData[];
+      income: string;
+      expenses: string;
+    }) => {
+      const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = m;
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+            <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#111827", border: "1px solid #1F2937", borderRadius: "8px", color: "#F8FAFC" }}
+              formatter={(v: number) => [formatCurrency(v), ""]}
+            />
+            <Area type="monotone" dataKey={income} name="Entradas" stroke="#22C55E" strokeWidth={2} fill="url(#colorIncome)" />
+            <Area type="monotone" dataKey={expenses} name="Saídas" stroke="#EF4444" strokeWidth={2} fill="url(#colorExpense)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    },
+  })),
+  { ssr: false }
+);
+
+interface ChartData {
+  month: string;
+  income: number;
+  expenses: number;
 }
 
-function SectionHeader({ title, subtitle, href }: { title: string; subtitle?: string; href?: string }) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <div>
-        <h2 className="text-base font-bold text-text-primary">{title}</h2>
-        {subtitle && <p className="text-xs text-text-muted mt-0.5">{subtitle}</p>}
-      </div>
-      {href && (
-        <Link
-          href={href}
-          className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors font-medium"
-        >
-          Ver tudo <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function RiskDateBanner({ date }: { date: string }) {
-  const d = new Date(date + "T00:00:00");
-  const months = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  return (
-    <div className="flex items-center gap-3 p-4 rounded-xl border border-expense/30 bg-expense/8 animate-scale-in">
-      <span className="text-2xl shrink-0">🚨</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-expense">Risco financeiro projetado</p>
-        <p className="text-xs text-text-secondary">
-          Saldo negativo previsto dia{" "}
-          <span className="text-expense font-semibold">
-            {d.getDate()} de {months[d.getMonth()]}
-          </span>
-        </p>
-      </div>
-      <Link href="/timeline" className="text-xs text-expense hover:underline font-semibold whitespace-nowrap shrink-0">
-        Ver timeline →
-      </Link>
-    </div>
-  );
+interface DashboardStats {
+  totalIncome: number;
+  totalExpenses: number;
+  monthIncome: number;
+  monthExpenses: number;
+  pendingBills: number;
+  pendingBillsAmount: number;
+  futureInstallmentsAmount: number;
+  futureInstallmentsCount: number;
+  investedTotal: number;
+  freeEstimate: number;
 }
 
 export default function DashboardPage() {
-  const { projection, insights, loading, refreshing } = useCockpitData();
-  const contextMessage = getContextualMessage(projection);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalIncome: 0, totalExpenses: 0, monthIncome: 0, monthExpenses: 0,
+    pendingBills: 0, pendingBillsAmount: 0, futureInstallmentsAmount: 0, futureInstallmentsCount: 0, investedTotal: 0, freeEstimate: 0,
+  });
+  const [upcomingBills, setUpcomingBills] = useState<Bill[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<Array<IncomeEntry & { type: "income" } | ExpenseEntry & { type: "expense" }>>([]);
+  const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [wallet, setWallet] = useState<InvestmentWallet | null>(null);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+
+  const loadData = useCallback(async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setLoading(true);
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const in7Days = new Date(now);
+    in7Days.setDate(in7Days.getDate() + 7);
+    const in7DaysStr = in7Days.toISOString().split("T")[0];
+
+    const [
+      { data: allIncome },
+      { data: allExpenses },
+      { data: billsData },
+      { data: upcomingBillsData },
+      { data: installmentPaymentsData },
+      { data: walletData },
+      { data: goalsData },
+      { data: recentIncome },
+      { data: recentExpenses },
+    ] = await Promise.all([
+      supabase.from("income_entries").select("*").eq("user_id", user.id),
+      supabase.from("expense_entries").select("*").eq("user_id", user.id),
+      supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue", "paid"]),
+      supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).lte("due_date", in7DaysStr).order("due_date"),
+      supabase.from("installment_payments").select("*").eq("user_id", user.id),
+      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
+      supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }).limit(5),
+      supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }).limit(5),
+    ]);
+
+    const incomeRows = coerceData<IncomeEntry[]>(allIncome ?? []);
+    const expenseRows = coerceData<ExpenseEntry[]>(allExpenses ?? []);
+    const billRows = coerceData<Bill[]>(billsData ?? []);
+    const upcomingBillRows = coerceData<Bill[]>(upcomingBillsData ?? []);
+    const installmentPayments = coerceData<InstallmentPayment[]>(installmentPaymentsData ?? []);
+    const walletRow = coerceData<InvestmentWallet | null>(walletData ?? null);
+    const goalRows = coerceData<FinancialGoal[]>(goalsData ?? []);
+    const recentIncomeRows = coerceData<IncomeEntry[]>(recentIncome ?? []);
+    const recentExpenseRows = coerceData<ExpenseEntry[]>(recentExpenses ?? []);
+
+    const totalIncome = incomeRows.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalExpenses = expenseRows.reduce((sum, entry) => sum + entry.amount, 0);
+    const monthIncome = incomeRows.filter((entry) => entry.received_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
+    const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
+    const openBills = billRows.filter((bill) => bill.status !== "paid");
+    const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
+    const futureInstallments = installmentPayments.filter((payment) => !isInstallmentPaid(getEffectiveInstallmentStatus(payment)));
+    const futureInstallmentsAmount = futureInstallments.reduce((sum, payment) => sum + payment.amount, 0);
+    const investedTotal = walletRow?.total_balance ?? 0;
+
+    setStats({
+      totalIncome, totalExpenses,
+      monthIncome, monthExpenses,
+      pendingBills: openBills.length,
+      pendingBillsAmount,
+      futureInstallmentsAmount,
+      futureInstallmentsCount: futureInstallments.length,
+      investedTotal,
+      freeEstimate: monthIncome - pendingBillsAmount - futureInstallmentsAmount,
+    });
+
+    setUpcomingBills(
+      upcomingBillRows.filter(b =>
+        b.status !== "paid" && (isOverdue(b.due_date) || getDaysUntilDue(b.due_date) <= 7)
+      )
+    );
+
+    const inc = recentIncomeRows.map(e => ({ ...e, type: "income" as const }));
+    const exp = recentExpenseRows.map(e => ({ ...e, type: "expense" as const }));
+    const combined = [...inc, ...exp]
+      .sort((a, b) => {
+        const dateA = "received_at" in a ? a.received_at : a.spent_at;
+        const dateB = "received_at" in b ? b.received_at : b.spent_at;
+        return dateB.localeCompare(dateA);
+      })
+      .slice(0, 7);
+    setRecentTransactions(combined);
+
+    setGoals(goalRows);
+    setWallet(walletRow);
+    setChartData(buildMonthSeries(incomeRows, expenseRows));
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    window.addEventListener("wallet:changed", loadData);
+    return () => window.removeEventListener("wallet:changed", loadData);
+  }, [loadData]);
+
+  const currentBalance = stats.totalIncome - stats.totalExpenses;
+  const walletBalance = wallet?.total_balance ?? 0;
 
   return (
-    <div className="cockpit-container animate-fade-in">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-black text-text-primary tracking-tight">
-            Cockpit <span className="gradient-text">Financeiro</span>
-          </h1>
-          <p className="text-xs text-text-muted mt-0.5">
-            Sistema Operacional da sua vida financeira
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {refreshing && (
-            <RefreshCw className="h-3.5 w-3.5 text-text-muted animate-spin" aria-label="Atualizando..." />
-          )}
+    <div className="page-container animate-fade-in">
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+            <p className="text-text-secondary text-sm mt-0.5">Visao geral das suas financas</p>
+          </div>
           <GlobalContributionButton />
         </div>
       </div>
 
-      {/* Executive mode — compact daily status */}
-      <div className="mb-3">
-        <ExecutiveMode projection={projection} loading={loading} />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          title="Saldo Atual"
+          value={formatCurrency(currentBalance)}
+          icon={Wallet}
+          variant={currentBalance >= 0 ? "profit" : "expense"}
+          loading={loading}
+          subtitle="Entradas - Saídas"
+        />
+        <StatCard
+          title="Entradas do Mês"
+          value={formatCurrency(stats.monthIncome)}
+          icon={TrendingUp}
+          variant="profit"
+          loading={loading}
+        />
+        <StatCard
+          title="Saídas do Mês"
+          value={formatCurrency(stats.monthExpenses)}
+          icon={TrendingDown}
+          variant="expense"
+          loading={loading}
+        />
+        <StatCard
+          title="Livre Estimado"
+          value={formatCurrency(stats.freeEstimate)}
+          icon={DollarSign}
+          variant={stats.freeEstimate >= 0 ? "profit" : "expense"}
+          loading={loading}
+          subtitle="Entradas - Pendências"
+        />
       </div>
 
-      {/* Status banner */}
-      <div className="mb-4">
-        <ContextualHeader
-          message={contextMessage}
-          pressureLevel={projection.pressureLevel}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <StatCard
+          title="Contas Pendentes"
+          value={formatCurrency(stats.pendingBillsAmount)}
+          icon={FileText}
+          variant="warning"
+          loading={loading}
+          subtitle={`${stats.pendingBills} conta${stats.pendingBills !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          title="Parcelas Futuras"
+          value={formatCurrency(stats.futureInstallmentsAmount)}
+          icon={DollarSign}
+          variant="accent"
+          loading={loading}
+          subtitle={`${stats.futureInstallmentsCount} parcela${stats.futureInstallmentsCount !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          title="Patrimonio"
+          value={formatCurrency(stats.investedTotal)}
+          icon={PiggyBank}
+          variant="accent"
+          loading={loading}
+          subtitle="Carteira global"
+        />
+        <StatCard
+          title="Total Saídas"
+          value={formatCurrency(stats.totalExpenses)}
+          icon={ArrowDownRight}
+          variant="default"
           loading={loading}
         />
       </div>
 
-      {/* Risk alert */}
-      {!loading && projection.nextRiskDate && (
-        <div className="mb-4">
-          <RiskDateBanner date={projection.nextRiskDate} />
-        </div>
-      )}
-
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <QuickStat label="Entradas do mês" value={projection.monthIncome} positive loading={loading} />
-        <QuickStat label="Saídas do mês" value={projection.monthExpenses} positive={false} loading={loading} />
-      </div>
-
-      {/* Hero card */}
-      <div className="mb-4">
-        <RealMoneyCard projection={projection} loading={loading} />
-      </div>
-
-      {/* Pressure + Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <PressureGauge
-          score={projection.pressureScore}
-          level={projection.pressureLevel}
-          committedAmount={projection.committedNext30Days}
-          avgMonthlyIncome={projection.avgMonthlyIncome}
-          projectedIncomeNext30={projection.projectedIncomeNext30}
-          loading={loading}
-        />
-        <MiniTimeline days={projection.days} loading={loading} />
-      </div>
-
-      {/* Recurring income — shown only when patterns are detected */}
-      {(loading || projection.recurringIncome.length > 0) && (
-        <div className="mb-4">
-          <RecurringIncomeCard
-            patterns={projection.recurringIncome}
-            projectedNext30={projection.projectedIncomeNext30}
-            loading={loading}
-          />
-        </div>
-      )}
-
-      {/* Insights */}
-      <div className="mb-4">
-        <SectionHeader
-          title="Inteligência Financeira"
-          subtitle="Análise automática do comportamento"
-          href="/intelligence"
-        />
-        <InsightGrid insights={insights} loading={loading} limit={4} />
-      </div>
-
-      {/* Radar + Nav shortcuts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <FinancialRadar dimensions={projection.radar} loading={loading} />
-
-        <div className="space-y-2">
-          <SectionHeader title="Navegação Rápida" />
-          {[
-            { href: "/timeline",     icon: Calendar,   label: "Timeline Financeira",    desc: "Projeção dos próximos 30 dias",  color: "text-accent"  },
-            { href: "/investments",  icon: TrendingUp,  label: "Patrimônio & Carteira", desc: "Investimentos e crescimento",    color: "text-growth"  },
-            { href: "/intelligence", icon: Zap,         label: "Inteligência",           desc: "Insights e análise financeira",  color: "text-warning" },
-            { href: "/goals",        icon: Target,      label: "Metas",                  desc: "Progresso das suas metas",       color: "text-profit"  },
-            { href: "/bills",        icon: Wallet,      label: "Contas & Parcelas",      desc: "Obrigações pendentes",           color: "text-expense" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href}>
-              <div className="cockpit-card px-4 py-3 flex items-center gap-3 cursor-pointer">
-                <div className="p-2 rounded-lg bg-border/40 shrink-0">
-                  <item.icon className={cn("h-4 w-4", item.color)} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">{item.label}</p>
-                  <p className="text-xs text-text-muted truncate">{item.desc}</p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-text-muted shrink-0" />
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Chart — spans 2 cols */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Evolução nos últimos 6 meses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[220px] w-full" />
+            ) : chartData.some(d => d.income > 0 || d.expenses > 0) ? (
+              <AreaChart data={chartData} income="income" expenses="expenses" />
+            ) : (
+              <EmptyState
+                icon={TrendingUp}
+                title="Sem dados ainda"
+                description="Registre entradas e gastos para ver sua evolução"
+              />
+            )}
+            <div className="flex items-center gap-4 mt-3 justify-end">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-profit" />
+                <span className="text-xs text-text-secondary">Entradas</span>
               </div>
-            </Link>
-          ))}
-        </div>
-      </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-expense" />
+                <span className="text-xs text-text-secondary">Saídas</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Surplus projection */}
-      {!loading && (
-        <div className="cockpit-card p-5 animate-fade-up delay-300">
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
-            Projeção de Sobra — próximos 30 dias
-          </p>
-          <div className="flex items-end justify-between">
-            <div>
-              <p className={cn(
-                "text-3xl font-black tabular-nums",
-                projection.surplusProjected >= 0 ? "text-profit" : "text-expense"
-              )}>
-                {formatCurrency(projection.surplusProjected)}
-              </p>
-              <p className="text-xs text-text-muted mt-1">
-                {projection.projectedIncomeNext30 > 0
-                  ? "Renda recorrente esperada menos obrigações 30d"
-                  : "Renda média menos obrigações dos próximos 30 dias"}
-              </p>
-            </div>
-            <div className="text-right space-y-1">
-              {projection.projectedIncomeNext30 > 0 ? (
-                <>
-                  <p className="text-xs text-text-muted">Renda projetada (30d)</p>
-                  <p className="text-sm font-semibold text-profit tabular-nums">
-                    {formatCurrency(projection.projectedIncomeNext30)}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-text-muted">Renda média (3 meses)</p>
-                  <p className="text-sm font-semibold text-text-primary tabular-nums">
-                    {formatCurrency(projection.avgMonthlyIncome)}
-                  </p>
-                </>
-              )}
-              <p className="text-xs text-text-muted">Obrigações 30d</p>
-              <p className="text-sm font-semibold text-expense tabular-nums">
-                -{formatCurrency(projection.committedNext30Days)}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Upcoming Bills */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base">Contas Vencendo</CardTitle>
+            <Link href="/bills">
+              <Button variant="ghost" size="icon-sm">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="px-5 space-y-3 pb-4">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            ) : upcomingBills.length === 0 ? (
+              <EmptyState
+                icon={AlertCircle}
+                title="Sem contas urgentes"
+                description="Nenhuma conta vence nos próximos 7 dias"
+              />
+            ) : (
+              <div className="divide-y divide-border">
+                {upcomingBills.slice(0, 4).map(bill => {
+                  const overdue = isOverdue(bill.due_date);
+                  const days = getDaysUntilDue(bill.due_date);
+                  return (
+                    <div key={bill.id} className="px-5 py-3 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{bill.name}</p>
+                        <p className={cn("text-xs", overdue ? "text-expense" : "text-warning")}>
+                          {overdue
+                            ? `Atrasada ${Math.abs(days)} dia${Math.abs(days) !== 1 ? "s" : ""}`
+                            : days === 0 ? "Vence hoje"
+                            : `Vence em ${days} dia${days !== 1 ? "s" : ""}`}
+                        </p>
+                      </div>
+                      <div className="text-right ml-2 shrink-0">
+                        <p className={cn("text-sm font-semibold", overdue ? "text-expense" : "text-warning")}>
+                          {formatCurrency(bill.amount)}
+                        </p>
+                        <Badge variant={overdue ? "overdue" : "pending"} className="text-[10px]">
+                          {overdue ? "Atrasada" : "Pendente"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Transactions */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base">Últimas movimentações</CardTitle>
+            <Link href="/income">
+              <Button variant="ghost" size="icon-sm">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="px-5 space-y-3 pb-4">
+                {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : recentTransactions.length === 0 ? (
+              <EmptyState
+                icon={TrendingUp}
+                title="Sem movimentações"
+                description="Registre sua primeira entrada ou gasto"
+              />
+            ) : (
+              <div className="divide-y divide-border">
+                {recentTransactions.map(tx => {
+                  const isIncome = tx.type === "income";
+                  const date = isIncome ? (tx as IncomeEntry).received_at : (tx as ExpenseEntry).spent_at;
+                  return (
+                    <div key={tx.id} className="px-5 py-3 flex items-center gap-3 hover:bg-border/20 transition-colors">
+                      <div className={cn(
+                        "p-1.5 rounded-lg shrink-0",
+                        isIncome ? "bg-profit/10" : "bg-expense/10"
+                      )}>
+                        {isIncome
+                          ? <ArrowUpRight className="h-4 w-4 text-profit" />
+                          : <ArrowDownRight className="h-4 w-4 text-expense" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{tx.description}</p>
+                        <p className="text-xs text-text-secondary">{tx.category}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={cn("text-sm font-semibold", isIncome ? "text-profit" : "text-expense")}>
+                          {isIncome ? "+" : "-"}{formatCurrency(tx.amount)}
+                        </p>
+                        <p className="text-xs text-text-secondary">{formatDate(date)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Goals Progress */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base">Metas</CardTitle>
+            <Link href="/goals">
+              <Button variant="ghost" size="icon-sm">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : goals.length === 0 ? (
+              <EmptyState
+                icon={Target}
+                title="Sem metas"
+                description="Defina uma meta financeira"
+              />
+            ) : (
+              <div className="space-y-4">
+                {goals.map(goal => {
+                  const metrics = calculateGoalMetrics(goal, walletBalance);
+                  const color = metrics.progress >= 80 ? "#22C55E" : metrics.progress >= 40 ? "#FACC15" : "#EF4444";
+                  return (
+                    <div key={goal.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-text-primary truncate max-w-[160px]">{goal.name}</p>
+                        <span className="text-xs font-semibold" style={{ color }}>{metrics.displayProgress}%</span>
+                      </div>
+                      <Progress
+                        value={metrics.progress}
+                        className="h-1.5"
+                        indicatorClassName="transition-all"
+                        style={{ "--indicator-color": color } as React.CSSProperties}
+                      />
+                      <p className="text-xs text-text-secondary mt-1">
+                        {formatCurrency(metrics.walletBalance)} de {formatCurrency(goal.target_amount)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
