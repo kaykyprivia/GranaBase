@@ -24,12 +24,18 @@ export interface MarketQuote {
 export interface MarketOverview {
   cdi: MarketRate;
   selic: MarketRate;
+  ipca: MarketRate;
+  dolar: MarketRate;
+  euro: MarketRate;
   ibovespa: MarketQuote;
   requestedAt: string;
 }
 
 export const FALLBACK_CDI_ANNUAL_PERCENT = 14;
 export const FALLBACK_SELIC_ANNUAL_PERCENT = 14.25;
+export const FALLBACK_IPCA_ANNUAL_PERCENT = 5.06;
+export const FALLBACK_DOLAR_BRL = 5.75;
+export const FALLBACK_EURO_BRL = 6.25;
 
 export function roundMarketMoney(value: number) {
   if (!Number.isFinite(value)) {
@@ -83,6 +89,24 @@ export function buildFallbackMarketOverview(): MarketOverview {
     selic: {
       value: FALLBACK_SELIC_ANNUAL_PERCENT,
       annualizedValue: FALLBACK_SELIC_ANNUAL_PERCENT,
+      date: null,
+      source: "fallback",
+    },
+    ipca: {
+      value: FALLBACK_IPCA_ANNUAL_PERCENT,
+      annualizedValue: FALLBACK_IPCA_ANNUAL_PERCENT,
+      date: null,
+      source: "fallback",
+    },
+    dolar: {
+      value: FALLBACK_DOLAR_BRL,
+      annualizedValue: FALLBACK_DOLAR_BRL,
+      date: null,
+      source: "fallback",
+    },
+    euro: {
+      value: FALLBACK_EURO_BRL,
+      annualizedValue: FALLBACK_EURO_BRL,
       date: null,
       source: "fallback",
     },

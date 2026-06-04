@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import {
   FALLBACK_CDI_ANNUAL_PERCENT,
+  FALLBACK_DOLAR_BRL,
+  FALLBACK_EURO_BRL,
+  FALLBACK_IPCA_ANNUAL_PERCENT,
   FALLBACK_SELIC_ANNUAL_PERCENT,
   annualizeDailyRate,
   buildFallbackMarketOverview,
@@ -93,6 +96,33 @@ async function fetchBrapiSelic(): Promise<MarketRate | null> {
   };
 }
 
+interface AwesomeApiQuote {
+  bid?: string;
+  ask?: string;
+  varBid?: string;
+  create_date?: string;
+}
+
+async function fetchAwesomeApiRate(pair: string, fallbackValue: number): Promise<MarketRate> {
+  const data = await fetchJson<Record<string, AwesomeApiQuote>>(
+    `https://economia.awesomeapi.com.br/json/last/${pair}`
+  );
+  const key = pair.replace("-", "");
+  const quote = data?.[key];
+  const value = quote?.bid ? Number(quote.bid) : 0;
+
+  if (!value || !Number.isFinite(value)) {
+    return { value: fallbackValue, annualizedValue: fallbackValue, date: null, source: "fallback" };
+  }
+
+  return {
+    value,
+    annualizedValue: value,
+    date: quote?.create_date ?? null,
+    source: "brapi",
+  };
+}
+
 async function fetchBrapiIbovespa(): Promise<MarketQuote> {
   const token = process.env.BRAPI_TOKEN ?? process.env.BRAPI_API_KEY;
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -116,16 +146,22 @@ async function fetchBrapiIbovespa(): Promise<MarketQuote> {
 }
 
 export async function GET() {
-  const [cdi, brapiSelic, bcbSelic, ibovespa] = await Promise.all([
+  const [cdi, brapiSelic, bcbSelic, ipca, dolar, euro, ibovespa] = await Promise.all([
     fetchBcbDailyRate(12, FALLBACK_CDI_ANNUAL_PERCENT),
     fetchBrapiSelic(),
     fetchBcbDailyRate(11, FALLBACK_SELIC_ANNUAL_PERCENT),
+    fetchBcbDailyRate(433, FALLBACK_IPCA_ANNUAL_PERCENT),
+    fetchAwesomeApiRate("USD-BRL", FALLBACK_DOLAR_BRL),
+    fetchAwesomeApiRate("EUR-BRL", FALLBACK_EURO_BRL),
     fetchBrapiIbovespa(),
   ]);
 
   const payload: MarketOverview = {
     cdi,
     selic: brapiSelic ?? bcbSelic,
+    ipca,
+    dolar,
+    euro,
     ibovespa,
     requestedAt: new Date().toISOString(),
   };

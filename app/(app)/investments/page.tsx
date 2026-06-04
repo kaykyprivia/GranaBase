@@ -477,7 +477,7 @@ export default function InvestmentsPage() {
         <StatCard title="Movimentacoes" value={String(contributions.length)} icon={TrendingUp} variant="warning" loading={loading} subtitle={`${filtered.length} ativos exibindo`} />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border/70 bg-surface/90">
           <CardHeader>
             <div className="flex items-start gap-3">
@@ -569,6 +569,54 @@ export default function InvestmentsPage() {
               <strong className={(marketOverview.ibovespa.changePercent ?? 0) >= 0 ? "text-profit" : "text-expense"}>
                 {marketOverview.ibovespa.changePercent !== null ? `${marketOverview.ibovespa.changePercent.toFixed(2)}%` : "--"}
               </strong>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-warning/15 p-2.5 text-warning">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Câmbio</CardTitle>
+                <CardDescription className="mt-1">USD e EUR — AwesomeAPI</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">USD / BRL</span>
+              <strong>R$ {marketOverview.dolar.value.toFixed(2)}</strong>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">EUR / BRL</span>
+              <strong>R$ {marketOverview.euro.value.toFixed(2)}</strong>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-surface/90">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-expense/15 p-2.5 text-expense">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">IPCA</CardTitle>
+                <CardDescription className="mt-1">Inflação — Banco Central</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Acumulado a.a.</span>
+              <strong className="text-expense">{marketOverview.ipca.annualizedValue.toFixed(2)}%</strong>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-secondary">Fonte</span>
+              <strong>{marketOverview.ipca.source === "bcb" ? "BCB" : "estimativa"}</strong>
             </div>
           </CardContent>
         </Card>

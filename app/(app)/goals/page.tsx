@@ -259,19 +259,36 @@ export default function GoalsPage() {
         title="Metas"
         description="Metas acompanham o mesmo patrimonio global. Aportes e retiradas acontecem na carteira, sem saldo duplicado por objetivo."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <GlobalContributionButton />
-            <Button onClick={openCreate} variant="secondary" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova meta
-            </Button>
-          </div>
+          <Button onClick={openCreate} variant="secondary" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova meta
+          </Button>
         }
       />
 
+      <Card className="mb-6 border-profit/20 bg-gradient-to-r from-profit/5 to-transparent">
+        <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="rounded-2xl bg-profit/15 p-3 text-profit">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">Patrimônio Atual</p>
+              {loading ? (
+                <Skeleton className="mt-1 h-9 w-48" />
+              ) : (
+                <p className="text-3xl font-bold text-profit">{formatCurrency(walletBalance)}</p>
+              )}
+              <p className="mt-1 text-xs text-text-secondary">Saldo único — alimenta todas as suas metas</p>
+            </div>
+          </div>
+          <GlobalContributionButton className="shrink-0" />
+        </CardContent>
+      </Card>
+
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Valor planejado" value={formatCurrency(totals.target)} icon={Target} variant="accent" loading={loading} />
-        <StatCard title="Ja acumulado" value={formatCurrency(totals.walletBalance)} icon={Wallet} variant="profit" loading={loading} subtitle="Patrimonio unico" />
+        <StatCard title="Patrimônio Atual" value={formatCurrency(totals.walletBalance)} icon={Wallet} variant="profit" loading={loading} subtitle="Saldo único" />
         <StatCard title="Metas ativas" value={String(totals.active)} icon={Target} variant="warning" loading={loading} />
         <StatCard title="Concluidas" value={String(totals.completed)} icon={CheckCircle2} variant="profit" loading={loading} />
       </div>
@@ -336,8 +353,8 @@ export default function GoalsPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border/70 bg-background/40 p-4">
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-text-secondary">Acumulado</p>
-                      <p className="mt-1 text-lg font-semibold text-profit">{formatCurrency(metrics.walletBalance)}</p>
+                      <p className="text-xs uppercase tracking-wide text-text-secondary">Meta</p>
+                      <p className="mt-1 text-lg font-semibold text-text-primary">{formatCurrency(metrics.targetAmount)}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-text-secondary">Faltando</p>
