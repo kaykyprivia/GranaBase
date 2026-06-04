@@ -32,7 +32,6 @@ import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 import {
   InvestmentsSubSidebar,
   investmentTabs,
@@ -541,13 +540,10 @@ export default function InvestmentsPage() {
         title="Investimentos"
         description="Carteira global, aportes centralizados e uma base preparada para dados reais de mercado."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <GlobalContributionButton />
-            <Button onClick={openCreate} variant="secondary" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo ativo
-            </Button>
-          </div>
+          <Button onClick={openCreate} variant="secondary" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo ativo
+          </Button>
         }
       />
 
