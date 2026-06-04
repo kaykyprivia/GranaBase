@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Calculator, Landmark, PiggyBank, Plus, Search, Pencil, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
+import { coerceMutation, coerceData } from "@/lib/supabase/casts";
 import { getMonthOptions, INVESTMENT_TYPES } from "@/lib/finance";
 import { buildFallbackMarketOverview, calculateCdb100CdiReturn, calculateTesouroSelicReturn, type MarketOverview } from "@/lib/market";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -227,6 +227,7 @@ export default function InvestmentsPage() {
   const supabase = useMemo(() => createClient(), []);
   const [entries, setEntries] = useState<Investment[]>([]);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
   const [simulationAmount, setSimulationAmount] = useState(10000);
   const [loading, setLoading] = useState(true);
@@ -264,7 +265,7 @@ export default function InvestmentsPage() {
     }
 
     setUserId(user.id);
-    const [investmentsResponse, contributionsResponse] = await Promise.all([
+    const [investmentsResponse, contributionsResponse, walletResponse] = await Promise.all([
       supabase
         .from("investments")
         .select("*")
@@ -275,9 +276,14 @@ export default function InvestmentsPage() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("investment_wallets")
+        .select("total_balance")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
 
-    if (investmentsResponse.error || contributionsResponse.error) {
+    if (investmentsResponse.error || contributionsResponse.error || walletResponse.error) {
       toast.error("Erro ao carregar investimentos");
       setLoading(false);
       return;
@@ -285,6 +291,7 @@ export default function InvestmentsPage() {
 
     setEntries(investmentsResponse.data ?? []);
     setContributions(contributionsResponse.data ?? []);
+    setWalletBalance(coerceData<{ total_balance: number } | null>(walletResponse.data)?.total_balance ?? 0);
     setLoading(false);
   }, [supabase]);
 
@@ -416,13 +423,12 @@ export default function InvestmentsPage() {
     .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "withdraw")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const monthlyTotal = monthlyDeposits - monthlyWithdrawals;
-  const totalAll = entries.reduce((sum, e) => sum + e.amount, 0);
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
   const activeTabMeta = investmentCategoryMeta[activeTab];
   const ActiveTabIcon = activeTabItem.icon;
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
-  const tesouroReturn = calculateTesouroSelicReturn(totalAll || simulationAmount, marketOverview.selic.annualizedValue);
+  const tesouroReturn = calculateTesouroSelicReturn(walletBalance || simulationAmount, marketOverview.selic.annualizedValue);
 
   const filtered = useMemo(() => {
     return entries.filter((entry) => {
@@ -466,7 +472,7 @@ export default function InvestmentsPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Movimento no mes" value={formatCurrency(monthlyTotal)} icon={TrendingUp} variant={monthlyTotal >= 0 ? "accent" : "expense"} loading={loading} />
-        <StatCard title="Patrimonio total" value={formatCurrency(totalAll)} icon={Wallet} variant="profit" loading={loading} subtitle="Carteira global" />
+        <StatCard title="Patrimonio total" value={formatCurrency(walletBalance)} icon={Wallet} variant="profit" loading={loading} subtitle="Carteira global" />
         <StatCard title="Tipos ativos" value={String(uniqueTypes.length)} icon={PiggyBank} variant="default" loading={loading} />
         <StatCard title="Movimentacoes" value={String(contributions.length)} icon={TrendingUp} variant="warning" loading={loading} subtitle={`${filtered.length} ativos exibindo`} />
       </div>
@@ -532,7 +538,7 @@ export default function InvestmentsPage() {
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between gap-3">
               <span className="text-text-secondary">Base calculada</span>
-              <strong>{formatCurrency(tesouroReturn.principal)}</strong>
+              <strong>{formatCurrency(walletBalance || simulationAmount)}</strong>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-text-secondary">Rendimento diario</span>

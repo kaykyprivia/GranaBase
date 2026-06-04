@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Target, Plus, Pencil, Trash2, Wallet, PauseCircle, CheckCircle2, Lightbulb, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
+import { coerceMutation, coerceData } from "@/lib/supabase/casts";
 import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
-import type { FinancialGoal, Investment } from "@/types/database";
+import type { FinancialGoal } from "@/types/database";
+import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,8 +78,8 @@ export default function GoalsPage() {
     setUserId(user.id);
     setLoading(true);
 
-    const [investmentsResponse, goalsResponse] = await Promise.all([
-      supabase.from("investments").select("*").eq("user_id", user.id),
+    const [walletResponse, goalsResponse] = await Promise.all([
+      supabase.from("investment_wallets").select("total_balance").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("financial_goals")
         .select("*")
@@ -86,7 +87,7 @@ export default function GoalsPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    if (investmentsResponse.error) {
+    if (walletResponse.error) {
       toast.error("Erro ao carregar patrimonio");
       setLoading(false);
       return;
@@ -98,8 +99,7 @@ export default function GoalsPage() {
       return;
     }
 
-    const investmentData: Investment[] = investmentsResponse.data ?? [];
-    setWalletBalance(investmentData.reduce((sum, e) => sum + e.amount, 0));
+    setWalletBalance(coerceData<{ total_balance: number } | null>(walletResponse.data)?.total_balance ?? 0);
     setGoals(goalsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
@@ -259,10 +259,13 @@ export default function GoalsPage() {
         title="Metas"
         description="Metas acompanham o mesmo patrimonio global. Aportes e retiradas acontecem na carteira, sem saldo duplicado por objetivo."
         actions={
-          <Button onClick={openCreate} variant="secondary" className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nova meta
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <GlobalContributionButton />
+            <Button onClick={openCreate} variant="secondary" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nova meta
+            </Button>
+          </div>
         }
       />
 
