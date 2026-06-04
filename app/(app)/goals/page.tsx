@@ -9,7 +9,7 @@ import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
-import type { FinancialGoal } from "@/types/database";
+import type { FinancialGoal, Investment } from "@/types/database";
 import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,8 +78,8 @@ export default function GoalsPage() {
     setUserId(user.id);
     setLoading(true);
 
-    const [walletResponse, goalsResponse] = await Promise.all([
-      supabase.from("investment_wallets").select("total_balance").eq("user_id", user.id).maybeSingle(),
+    const [investmentsResponse, goalsResponse] = await Promise.all([
+      supabase.from("investments").select("*").eq("user_id", user.id),
       supabase
         .from("financial_goals")
         .select("*")
@@ -87,7 +87,7 @@ export default function GoalsPage() {
         .order("created_at", { ascending: false }),
     ]);
 
-    if (walletResponse.error) {
+    if (investmentsResponse.error) {
       toast.error("Erro ao carregar patrimonio");
       setLoading(false);
       return;
@@ -99,7 +99,8 @@ export default function GoalsPage() {
       return;
     }
 
-    setWalletBalance(coerceData<{ total_balance: number } | null>(walletResponse.data)?.total_balance ?? 0);
+    const totalInvested = coerceData<Investment[]>(investmentsResponse.data ?? []).reduce((sum, row) => sum + row.amount, 0);
+    setWalletBalance(totalInvested);
     setGoals(goalsResponse.data ?? []);
     setLoading(false);
   }, [supabase]);
