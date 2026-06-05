@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   Wallet, TrendingUp, TrendingDown, FileText,
   PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight,
-  AlertCircle, ChevronRight, Target,
+  AlertCircle, ChevronRight, Target, Plus, Heart,
+  CalendarClock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
@@ -119,7 +120,7 @@ export default function DashboardPage() {
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue", "paid"]),
-      supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).lte("due_date", in7DaysStr).order("due_date"),
+      supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).order("due_date").limit(6),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
       supabase.from("investments").select("amount").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
@@ -198,8 +199,73 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
             <p className="text-text-secondary text-sm mt-0.5">Visao geral das suas financas</p>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/income">
+              <Button variant="outline" size="sm" className="gap-1.5 text-profit border-profit/30 hover:bg-profit/10">
+                <Plus className="h-3.5 w-3.5" />
+                Entrada
+              </Button>
+            </Link>
+            <Link href="/expenses">
+              <Button variant="outline" size="sm" className="gap-1.5 text-expense border-expense/30 hover:bg-expense/10">
+                <Plus className="h-3.5 w-3.5" />
+                Gasto
+              </Button>
+            </Link>
+            <Link href="/investments">
+              <Button variant="outline" size="sm" className="gap-1.5 text-accent border-accent/30 hover:bg-accent/10">
+                <Plus className="h-3.5 w-3.5" />
+                Ativo
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Financial Health Card */}
+      {!loading && stats.monthIncome > 0 && (() => {
+        const spendingRatio = Math.min((stats.monthExpenses / stats.monthIncome) * 100, 100);
+        const savingsRate = Math.max(0, 100 - spendingRatio);
+        const isGreat = savingsRate >= 30;
+        const isOk = savingsRate >= 10;
+        const color = isGreat ? "#22C55E" : isOk ? "#FACC15" : "#EF4444";
+        const label = isGreat ? "Ótimo" : isOk ? "Atenção" : "Cuidado";
+        const sublabel = isGreat
+          ? `Você está economizando ${savingsRate.toFixed(0)}% da sua renda este mês`
+          : isOk
+          ? `Você gastou ${spendingRatio.toFixed(0)}% da renda — ainda dá pra economizar mais`
+          : `Você gastou ${spendingRatio.toFixed(0)}% da renda — revise seus gastos este mês`;
+        return (
+          <div className="mb-6 overflow-hidden rounded-2xl border border-border/60 bg-surface/60 px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: `${color}18` }}>
+                  <Heart className="h-4.5 w-4.5" style={{ color }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-primary">Saúde financeira do mês</p>
+                  <p className="truncate text-xs text-text-secondary">{sublabel}</p>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: `${color}18`, color }}>
+                  {label}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-border/40">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${spendingRatio}%`, background: color }}
+              />
+            </div>
+            <div className="mt-1.5 flex justify-between text-[10px] text-text-secondary">
+              <span>Gastos: {formatCurrency(stats.monthExpenses)}</span>
+              <span>Renda: {formatCurrency(stats.monthIncome)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -304,7 +370,10 @@ export default function DashboardPage() {
         {/* Upcoming Bills */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">Contas Vencendo</CardTitle>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-text-secondary" />
+              <CardTitle className="text-base">Contas Pendentes</CardTitle>
+            </div>
             <Link href="/bills">
               <Button variant="ghost" size="icon-sm">
                 <ChevronRight className="h-4 w-4" />
@@ -319,17 +388,23 @@ export default function DashboardPage() {
             ) : upcomingBills.length === 0 ? (
               <EmptyState
                 icon={AlertCircle}
-                title="Sem contas urgentes"
-                description="Nenhuma conta vence nos próximos 7 dias"
+                title="Sem contas pendentes"
+                description="Nenhuma conta pendente no momento"
               />
             ) : (
               <div className="divide-y divide-border">
-                {upcomingBills.slice(0, 4).map(bill => {
+                {upcomingBills.map(bill => {
                   const overdue = isOverdue(bill.due_date);
                   const days = getDaysUntilDue(bill.due_date);
                   return (
-                    <div key={bill.id} className="px-5 py-3 flex items-center justify-between">
-                      <div className="min-w-0">
+                    <div key={bill.id} className="px-4 py-3 flex items-center gap-3">
+                      <div className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                        overdue ? "bg-expense/15" : "bg-warning/15"
+                      )}>
+                        <AlertCircle className={cn("h-4 w-4", overdue ? "text-expense" : "text-warning")} />
+                      </div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-text-primary truncate">{bill.name}</p>
                         <p className={cn("text-xs", overdue ? "text-expense" : "text-warning")}>
                           {overdue
@@ -338,7 +413,7 @@ export default function DashboardPage() {
                             : `Vence em ${days} dia${days !== 1 ? "s" : ""}`}
                         </p>
                       </div>
-                      <div className="text-right ml-2 shrink-0">
+                      <div className="text-right shrink-0">
                         <p className={cn("text-sm font-semibold", overdue ? "text-expense" : "text-warning")}>
                           {formatCurrency(bill.amount)}
                         </p>
