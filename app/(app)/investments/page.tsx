@@ -475,13 +475,12 @@ export default function InvestmentsPage() {
   };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const monthlyDeposits = contributions
-    .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "deposit")
-    .reduce((sum, entry) => sum + entry.amount, 0);
-  const monthlyWithdrawals = contributions
-    .filter((entry) => entry.created_at.startsWith(currentMonth) && entry.type === "withdraw")
-    .reduce((sum, entry) => sum + entry.amount, 0);
-  const monthlyTotal = monthlyDeposits - monthlyWithdrawals;
+  const monthlyTotal = useMemo(
+    () => entries
+      .filter((entry) => entry.invested_at.startsWith(currentMonth))
+      .reduce((sum, entry) => sum + entry.amount, 0),
+    [entries, currentMonth]
+  );
   const portfolioTotal = useMemo(() => entries.reduce((sum, entry) => sum + entry.amount, 0), [entries]);
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
@@ -500,12 +499,12 @@ export default function InvestmentsPage() {
       d.setMonth(d.getMonth() - (5 - i));
       const key = d.toISOString().slice(0, 7);
       const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
-      const value = contributions
-        .filter((c) => c.type === "deposit" && c.created_at.startsWith(key))
-        .reduce((s, c) => s + c.amount, 0);
+      const value = entries
+        .filter((e) => e.invested_at.startsWith(key))
+        .reduce((s, e) => s + e.amount, 0);
       return { month: label, value };
     });
-  }, [contributions]);
+  }, [entries]);
 
   const hasMonthlyData = monthlyChartData.some((d) => d.value > 0);
 
