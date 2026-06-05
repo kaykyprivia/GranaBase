@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Bill, ExpenseEntry, IncomeEntry, InvestmentWallet } from "@/types/database";
+import type { Bill, ExpenseEntry, IncomeEntry, Investment } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -45,7 +45,7 @@ interface ReportsPayload {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   bills: Bill[];
-  wallet: InvestmentWallet | null;
+  investments: Investment[];
 }
 
 function formatMonthLabel(monthKey: string) {
@@ -83,7 +83,7 @@ export default function ReportsPage() {
     income: [],
     expenses: [],
     bills: [],
-    wallet: null,
+    investments: [],
   });
   const [period, setPeriod] = useState<PeriodKey>("6m");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -97,14 +97,14 @@ export default function ReportsPage() {
       return;
     }
 
-    const [incomeRes, expenseRes, billsRes, walletRes] = await Promise.all([
+    const [incomeRes, expenseRes, billsRes, investmentsRes] = await Promise.all([
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
-      supabase.from("investment_wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("investments").select("*").eq("user_id", user.id),
     ]);
 
-    if (incomeRes.error || expenseRes.error || billsRes.error || walletRes.error) {
+    if (incomeRes.error || expenseRes.error || billsRes.error || investmentsRes.error) {
       toast.error("Erro ao carregar relatórios");
       setLoading(false);
       return;
@@ -114,7 +114,7 @@ export default function ReportsPage() {
       income: incomeRes.data ?? [],
       expenses: expenseRes.data ?? [],
       bills: billsRes.data ?? [],
-      wallet: walletRes.data ?? null,
+      investments: investmentsRes.data ?? [],
     });
     setLoading(false);
   }, [supabase]);
@@ -222,10 +222,10 @@ export default function ReportsPage() {
     const pendingBills = payload.bills
       .filter((b) => getEffectiveBillStatus(b) !== "paid")
       .reduce((s, b) => s + b.amount, 0);
-    const totalInvested = payload.wallet?.total_balance ?? 0;
+    const totalInvested = payload.investments.reduce((s, inv) => s + inv.amount, 0);
     const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
     return { totalIncome, totalExpenses, pendingBills, totalInvested, savingsRate };
-  }, [periodIncome, filteredExpenses, payload.bills, payload.wallet]);
+  }, [periodIncome, filteredExpenses, payload.bills, payload.investments]);
 
   const totalCategoryExpenses = expenseByCategory.reduce((s, e) => s + e.value, 0);
 
