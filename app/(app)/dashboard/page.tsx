@@ -7,7 +7,9 @@ import {
   Wallet, TrendingUp, TrendingDown, FileText,
   PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight,
   AlertCircle, ChevronRight, Target, Plus, Heart,
-  CalendarClock,
+  CalendarClock, Car, UtensilsCrossed, Gamepad2,
+  Home, ShoppingCart, HeartPulse, GraduationCap,
+  Zap, MoreHorizontal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
@@ -68,6 +70,22 @@ interface ChartData {
   month: string;
   income: number;
   expenses: number;
+}
+
+const CATEGORY_META: Record<string, { icon: React.ElementType; color: string }> = {
+  Transporte:   { icon: Car,              color: "#F97316" },
+  Alimentação:  { icon: UtensilsCrossed,  color: "#22C55E" },
+  Lazer:        { icon: Gamepad2,         color: "#A78BFA" },
+  Moradia:      { icon: Home,             color: "#38BDF8" },
+  Mercado:      { icon: ShoppingCart,     color: "#14B8A6" },
+  Saúde:        { icon: HeartPulse,       color: "#EF4444" },
+  Educação:     { icon: GraduationCap,    color: "#FACC15" },
+  Emergência:   { icon: Zap,              color: "#FB923C" },
+  Internet:     { icon: Zap,              color: "#6366F1" },
+};
+
+function getCategoryMeta(category: string): { icon: React.ElementType; color: string } {
+  return CATEGORY_META[category] ?? { icon: MoreHorizontal, color: "#94A3B8" };
 }
 
 interface DashboardStats {
@@ -431,7 +449,7 @@ export default function DashboardPage() {
 
         {/* Recent Transactions */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Últimas movimentações</CardTitle>
             <Link href="/income">
               <Button variant="ghost" size="icon-sm">
@@ -439,6 +457,27 @@ export default function DashboardPage() {
               </Button>
             </Link>
           </CardHeader>
+
+          {/* Este mês em números */}
+          {!loading && (stats.monthIncome > 0 || stats.monthExpenses > 0) && (
+            <div className="mx-5 mb-3 grid grid-cols-3 gap-2 rounded-xl bg-border/20 p-3">
+              <div className="text-center">
+                <p className="text-[10px] text-text-secondary">Entradas</p>
+                <p className="text-sm font-bold text-profit">{formatCurrency(stats.monthIncome)}</p>
+              </div>
+              <div className="text-center border-x border-border/40">
+                <p className="text-[10px] text-text-secondary">Gastos</p>
+                <p className="text-sm font-bold text-expense">{formatCurrency(stats.monthExpenses)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-text-secondary">Saldo</p>
+                <p className={cn("text-sm font-bold", stats.freeEstimate >= 0 ? "text-profit" : "text-expense")}>
+                  {formatCurrency(stats.freeEstimate)}
+                </p>
+              </div>
+            </div>
+          )}
+
           <CardContent className="p-0">
             {loading ? (
               <div className="px-5 space-y-3 pb-4">
@@ -455,19 +494,27 @@ export default function DashboardPage() {
                 {recentTransactions.map(tx => {
                   const isIncome = tx.type === "income";
                   const date = isIncome ? (tx as IncomeEntry).received_at : (tx as ExpenseEntry).spent_at;
+                  const catMeta = isIncome
+                    ? { icon: ArrowUpRight, color: "#22C55E" }
+                    : getCategoryMeta(tx.category);
+                  const CatIcon = catMeta.icon;
                   return (
-                    <div key={tx.id} className="px-5 py-3 flex items-center gap-3 hover:bg-border/20 transition-colors">
-                      <div className={cn(
-                        "p-1.5 rounded-lg shrink-0",
-                        isIncome ? "bg-profit/10" : "bg-expense/10"
-                      )}>
-                        {isIncome
-                          ? <ArrowUpRight className="h-4 w-4 text-profit" />
-                          : <ArrowDownRight className="h-4 w-4 text-expense" />}
+                    <div key={tx.id} className="px-4 py-3 flex items-center gap-3 hover:bg-border/20 transition-colors">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                        style={{ background: `${catMeta.color}18` }}
+                      >
+                        <CatIcon className="h-4 w-4" style={{ color: catMeta.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">{tx.description}</p>
-                        <p className="text-xs text-text-secondary">{tx.category}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+                            style={{ background: catMeta.color }}
+                          />
+                          <p className="text-xs text-text-secondary">{tx.category}</p>
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
                         <p className={cn("text-sm font-semibold", isIncome ? "text-profit" : "text-expense")}>
