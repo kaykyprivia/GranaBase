@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Calendar, Check, FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Calendar, Check, FileText, Pencil, Plus, RefreshCw, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -311,7 +311,7 @@ export default function BillsPage() {
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-28 w-full rounded-xl" />
+                <Skeleton key={index} className="h-20 w-full rounded-xl" />
               ))}
             </div>
           ) : filteredBills.length === 0 ? (
@@ -322,83 +322,103 @@ export default function BillsPage() {
               actionLabel={statusFilter === "all" ? "+ Nova Conta" : undefined}
               onAction={statusFilter === "all" ? openCreate : undefined}
             />
-          ) : (
-            <div className="space-y-3">
-              {filteredBills.map((bill) => {
-                const effective = getEffectiveStatus(bill);
-                const daysUntil = getDaysUntilDue(bill.due_date);
+          ) : (() => {
+            const overdue = filteredBills.filter(b => getEffectiveStatus(b) === "overdue");
+            const today = filteredBills.filter(b => getEffectiveStatus(b) === "pending" && getDaysUntilDue(b.due_date) === 0);
+            const week = filteredBills.filter(b => getEffectiveStatus(b) === "pending" && getDaysUntilDue(b.due_date) > 0 && getDaysUntilDue(b.due_date) <= 7);
+            const upcoming = filteredBills.filter(b => getEffectiveStatus(b) === "pending" && getDaysUntilDue(b.due_date) > 7);
+            const paid = filteredBills.filter(b => getEffectiveStatus(b) === "paid");
 
-                return (
-                  <Card key={bill.id} className={cn("transition-all duration-200 hover:border-accent/40", effective === "overdue" && "border-expense/30")}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-text-primary">{bill.name}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {bill.category}
-                            </Badge>
-                            {bill.is_recurring && (
-                              <span title="Recorrente">
-                                <RefreshCw className="h-3.5 w-3.5 text-accent" />
-                              </span>
-                            )}
-                          </div>
-                          <p className="mb-2 text-xl font-bold text-text-primary">{formatCurrency(bill.amount)}</p>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span>{formatDate(bill.due_date)}</span>
-                            </div>
-                            <Badge variant={effective}>{effective === "pending" ? "Pendente" : effective === "overdue" ? "Atrasada" : "Paga"}</Badge>
-                          </div>
-                          {effective === "overdue" && (
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <AlertCircle className="h-3.5 w-3.5 text-expense" />
-                              <span className="text-xs font-medium text-expense">
-                                {Math.abs(daysUntil)} {Math.abs(daysUntil) === 1 ? "dia" : "dias"} de atraso
-                              </span>
-                            </div>
-                          )}
-                          {effective === "pending" && daysUntil <= 3 && daysUntil >= 0 && (
-                            <p className="mt-1 text-xs text-warning">
-                              {daysUntil === 0 ? "Vence hoje!" : `Vence em ${daysUntil} ${daysUntil === 1 ? "dia" : "dias"}`}
-                            </p>
-                          )}
-                        </div>
+            const BillCard = ({ bill }: { bill: Bill }) => {
+              const effective = getEffectiveStatus(bill);
+              const daysUntil = getDaysUntilDue(bill.due_date);
+              return (
+                <div className={cn(
+                  "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-border/20",
+                  effective === "overdue" ? "border-expense/30 bg-expense/5" : "border-border/50"
+                )}>
+                  <div className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                    effective === "overdue" ? "bg-expense/15" : effective === "paid" ? "bg-profit/15" : "bg-warning/15"
+                  )}>
+                    {effective === "paid"
+                      ? <CheckCircle2 className="h-4 w-4 text-profit" />
+                      : effective === "overdue"
+                      ? <AlertCircle className="h-4 w-4 text-expense" />
+                      : <Clock className="h-4 w-4 text-warning" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-semibold text-text-primary">{bill.name}</span>
+                      {bill.is_recurring && <RefreshCw className="h-3 w-3 text-accent" />}
+                      <Badge variant="secondary" className="text-[10px]">{bill.category}</Badge>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />{formatDate(bill.due_date)}
+                      </span>
+                      {effective === "overdue" && (
+                        <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>
+                      )}
+                      {effective === "pending" && daysUntil === 0 && <span className="font-medium text-warning">Vence hoje!</span>}
+                      {effective === "pending" && daysUntil > 0 && daysUntil <= 7 && (
+                        <span className="font-medium text-warning">Vence em {daysUntil} dia{daysUntil !== 1 ? "s" : ""}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={cn("text-sm font-bold",
+                      effective === "overdue" ? "text-expense" : effective === "paid" ? "text-profit" : "text-warning"
+                    )}>{formatCurrency(bill.amount)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {(effective === "pending" || effective === "overdue") && (
+                      <Button variant="ghost" size="icon-sm" onClick={() => handleMarkPaid(bill.id)}
+                        disabled={markingPaidId === bill.id} className="text-profit hover:bg-profit/10 hover:text-profit" title="Marcar como paga">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(bill)} className="text-text-secondary hover:text-text-primary">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(bill.id)} className="text-text-secondary hover:bg-expense/10 hover:text-expense">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            };
 
-                        <div className="flex shrink-0 items-center gap-1">
-                          {(effective === "pending" || effective === "overdue") && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => handleMarkPaid(bill.id)}
-                              disabled={markingPaidId === bill.id}
-                              className="text-profit hover:bg-profit/10 hover:text-profit"
-                              title="Marcar como paga"
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(bill)} className="text-text-secondary hover:text-text-primary">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => setDeleteId(bill.id)}
-                            className="text-text-secondary hover:bg-expense/10 hover:text-expense"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+            const Section = ({ title, color, bills: sectionBills }: { title: string; color: string; bills: Bill[] }) => {
+              if (sectionBills.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>
+                      {title}
+                    </p>
+                    <span className="text-xs text-text-secondary">({sectionBills.length})</span>
+                    <div className="h-px flex-1 bg-border/40" />
+                    <span className="text-xs font-semibold" style={{ color }}>
+                      {formatCurrency(sectionBills.reduce((s, b) => s + b.amount, 0))}
+                    </span>
+                  </div>
+                  {sectionBills.map(b => <BillCard key={b.id} bill={b} />)}
+                </div>
+              );
+            };
+
+            return (
+              <div className="space-y-5">
+                <Section title="Atrasadas" color="#EF4444" bills={overdue} />
+                <Section title="Vence hoje" color="#FACC15" bills={today} />
+                <Section title="Vence esta semana" color="#F97316" bills={week} />
+                <Section title="Próximas" color="#38BDF8" bills={upcoming} />
+                <Section title="Pagas" color="#22C55E" bills={paid} />
+              </div>
+            );
+          })()}
         </>
       ) : (
         <InstallmentsPanel ref={installmentsPanelRef} />
