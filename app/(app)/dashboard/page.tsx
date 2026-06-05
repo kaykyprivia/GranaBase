@@ -120,9 +120,6 @@ export default function DashboardPage() {
     setLoading(true);
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const in7Days = new Date(now);
-    in7Days.setDate(in7Days.getDate() + 7);
-    const in7DaysStr = in7Days.toISOString().split("T")[0];
 
     const [
       { data: allIncome },
