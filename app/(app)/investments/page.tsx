@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
-import { Calculator, PiggyBank, Pencil, Plus, Search, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from "recharts";
+import { Calculator, PiggyBank, Pencil, Plus, Search, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -140,11 +140,13 @@ function AssetCard({
   entry,
   portfolioTotal,
   onEdit,
+  onSell,
   onDelete,
 }: {
   entry: Investment;
   portfolioTotal: number;
   onEdit: (e: Investment) => void;
+  onSell: (e: Investment) => void;
   onDelete: (id: string) => void;
 }) {
   const pct = portfolioTotal > 0 ? (entry.amount / portfolioTotal) * 100 : 0;
@@ -180,6 +182,15 @@ function AssetCard({
         <Button
           variant="ghost"
           size="icon-sm"
+          onClick={() => onSell(entry)}
+          className="hover:bg-profit/10 hover:text-profit"
+          title="Vender ativo"
+        >
+          <TrendingDown className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => onDelete(entry.id)}
           className="hover:bg-expense/10 hover:text-expense"
         >
@@ -193,15 +204,17 @@ function AssetCard({
 function InvestmentsTable({
   entries,
   onEdit,
+  onSell,
   onDelete,
 }: {
   entries: Investment[];
   onEdit: (entry: Investment) => void;
+  onSell: (entry: Investment) => void;
   onDelete: (id: string) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border">
-      <div className="hidden grid-cols-[1fr_180px_140px_110px_88px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
+      <div className="hidden grid-cols-[1fr_180px_140px_110px_112px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
         <span>Investimento</span>
         <span>Tipo</span>
         <span>Valor</span>
@@ -212,7 +225,7 @@ function InvestmentsTable({
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_88px]"
+            className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_112px]"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
@@ -233,6 +246,15 @@ function InvestmentsTable({
               <span className="mr-2 text-sm font-semibold text-accent sm:hidden">{formatCurrency(entry.amount)}</span>
               <Button variant="ghost" size="icon-sm" onClick={() => onEdit(entry)}>
                 <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onSell(entry)}
+                className="hover:bg-profit/10 hover:text-profit"
+                title="Vender ativo"
+              >
+                <TrendingDown className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
@@ -312,6 +334,8 @@ export default function InvestmentsPage() {
   const [editingEntry, setEditingEntry] = useState<Investment | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sellingEntry, setSellingEntry] = useState<Investment | null>(null);
+  const [selling, setSelling] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -471,6 +495,24 @@ export default function InvestmentsPage() {
     } finally {
       setDeleting(false);
       setDeleteId(null);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!sellingEntry) return;
+
+    setSelling(true);
+    try {
+      const { error } = await supabase.from("investments").delete().eq("id", sellingEntry.id);
+      if (error) throw error;
+
+      setEntries((current) => current.filter((entry) => entry.id !== sellingEntry.id));
+      toast.success(`${sellingEntry.name} vendido e removido da carteira`);
+    } catch {
+      toast.error("Erro ao registrar venda");
+    } finally {
+      setSelling(false);
+      setSellingEntry(null);
     }
   };
 
@@ -703,8 +745,8 @@ export default function InvestmentsPage() {
                     {hasMonthlyData && (
                       <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
                         <p className="mb-4 text-sm font-semibold text-text-primary">Aportes mensais</p>
-                        <ResponsiveContainer width="100%" height={110}>
-                          <BarChart data={monthlyChartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height={140}>
+                          <BarChart data={monthlyChartData} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
                             <XAxis
                               dataKey="month"
                               tick={{ fontSize: 11, fill: "#94A3B8" }}
@@ -712,7 +754,14 @@ export default function InvestmentsPage() {
                               tickLine={false}
                             />
                             <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                            <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44} />
+                            <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                              <LabelList
+                                dataKey="value"
+                                position="top"
+                                formatter={(v: number) => v > 0 ? `R$${(v / 1000).toFixed(1)}k` : ""}
+                                style={{ fontSize: 10, fill: "#94A3B8" }}
+                              />
+                            </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -734,6 +783,7 @@ export default function InvestmentsPage() {
                   <InvestmentsTable
                     entries={filtered}
                     onEdit={openEdit}
+                    onSell={setSellingEntry}
                     onDelete={setDeleteId}
                   />
                 )}
@@ -768,6 +818,7 @@ export default function InvestmentsPage() {
                           entry={entry}
                           portfolioTotal={portfolioTotal}
                           onEdit={openEdit}
+                          onSell={setSellingEntry}
                           onDelete={setDeleteId}
                         />
                       ))}
@@ -820,6 +871,7 @@ export default function InvestmentsPage() {
                         entry={entry}
                         portfolioTotal={portfolioTotal}
                         onEdit={openEdit}
+                        onSell={setSellingEntry}
                         onDelete={setDeleteId}
                       />
                     ))}
@@ -935,6 +987,16 @@ export default function InvestmentsPage() {
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}
+      />
+
+      <ConfirmDialog
+        open={sellingEntry !== null}
+        onOpenChange={(open) => !open && setSellingEntry(null)}
+        title="Vender ativo"
+        description={sellingEntry ? `Confirmar venda de "${sellingEntry.name}" (${formatCurrency(sellingEntry.amount)})? O ativo será removido da carteira.` : ""}
+        confirmLabel="Confirmar venda"
+        onConfirm={handleSell}
+        loading={selling}
       />
     </div>
   );
