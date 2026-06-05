@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, FileWarning, Filter, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, ChevronDown, FileWarning, Filter, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
@@ -87,6 +87,7 @@ export default function ReportsPage() {
   });
   const [period, setPeriod] = useState<PeriodKey>("6m");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -228,6 +229,25 @@ export default function ReportsPage() {
   }, [periodIncome, filteredExpenses, payload.bills, payload.investments]);
 
   const totalCategoryExpenses = expenseByCategory.reduce((s, e) => s + e.value, 0);
+
+  // Auto-open the most recent month when data loads
+  useEffect(() => {
+    if (expensesByMonth.length > 0) {
+      setOpenMonths(new Set([expensesByMonth[0].month]));
+    }
+  }, [expensesByMonth.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleMonth = (month: string) => {
+    setOpenMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(month)) {
+        next.delete(month);
+      } else {
+        next.add(month);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -498,44 +518,65 @@ export default function ReportsPage() {
               description="Ajuste o filtro de período ou categoria para ver os lançamentos."
             />
           ) : (
-            <div className="space-y-6">
-              {expensesByMonth.map(({ month, label, expenses, total }) => (
-                <div key={month}>
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-border/50" />
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                      <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold text-expense">{formatCurrency(total)}</span>
-                    </div>
-                    <div className="h-px flex-1 bg-border/50" />
-                  </div>
+            <div className="space-y-2">
+              {expensesByMonth.map(({ month, label, expenses, total }) => {
+                const isOpen = openMonths.has(month);
+                return (
+                  <div key={month} className="overflow-hidden rounded-2xl border border-border/50">
+                    {/* Month header — clickable */}
+                    <button
+                      type="button"
+                      onClick={() => toggleMonth(month)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20"
+                    >
+                      <div className="flex flex-1 flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
+                        <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold text-expense">{formatCurrency(total)}</span>
+                        <span className="text-[10px] text-text-secondary">{expenses.length} item{expenses.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300",
+                          isOpen ? "rotate-180" : "rotate-0"
+                        )}
+                      />
+                    </button>
 
-                  <div className="space-y-1.5">
-                    {expenses.map((expense) => (
-                      <div
-                        key={expense.id}
-                        className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/40 px-4 py-3 transition-colors hover:bg-border/20"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-text-primary">{expense.description}</p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                            <Badge variant="default" className="text-[10px]">{expense.category}</Badge>
-                            {expense.payment_method && (
-                              <span className="text-[10px] text-text-secondary">{expense.payment_method}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold text-expense">{formatCurrency(expense.amount)}</p>
-                          <p className="mt-0.5 text-[10px] text-text-secondary">
-                            {new Intl.DateTimeFormat("pt-BR").format(new Date(expense.spent_at + "T12:00:00"))}
-                          </p>
+                    {/* Collapsible list */}
+                    <div className={cn(
+                      "grid transition-all duration-300 ease-in-out",
+                      isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    )}>
+                      <div className="overflow-hidden">
+                        <div className="space-y-1 border-t border-border/40 px-3 pb-3 pt-2">
+                          {expenses.map((expense) => (
+                            <div
+                              key={expense.id}
+                              className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-border/20"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-text-primary">{expense.description}</p>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="default" className="text-[10px]">{expense.category}</Badge>
+                                  {expense.payment_method && (
+                                    <span className="text-[10px] text-text-secondary">{expense.payment_method}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-sm font-semibold text-expense">{formatCurrency(expense.amount)}</p>
+                                <p className="mt-0.5 text-[10px] text-text-secondary">
+                                  {new Intl.DateTimeFormat("pt-BR").format(new Date(expense.spent_at + "T12:00:00"))}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
