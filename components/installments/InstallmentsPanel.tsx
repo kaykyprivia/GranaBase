@@ -527,7 +527,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       ) : (
         <div className="space-y-3">
           {filteredItems.map((item) => {
-            const { paidCount, paidAmount, progress, remainingCount, remainingAmount, nextPayment } = summarizeInstallmentPayments(
+            const { paidCount, paidAmount, progress, remainingAmount, nextPayment } = summarizeInstallmentPayments(
               item.payments,
               item.installment_count,
               item.total_amount
