@@ -436,7 +436,7 @@ export default function ReportsPage() {
                           label={label}
                           payload={payload
                             ?.filter((p) => (p.value as number) > 0)
-                            .map((p, i) => ({
+                            .map((p) => ({
                               name: p.dataKey as string,
                               value: p.value as number,
                               color: PIE_COLORS[topCategories.indexOf(p.dataKey as string) % PIE_COLORS.length],
