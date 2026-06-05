@@ -22,7 +22,6 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
 import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, InstallmentPayment, InvestmentWallet } from "@/types/database";
-import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
 
 const AreaChart = dynamic(
   () => import("recharts").then((m) => ({
@@ -203,7 +202,6 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
             <p className="text-text-secondary text-sm mt-0.5">Visao geral das suas financas</p>
           </div>
-          <GlobalContributionButton />
         </div>
       </div>
 
