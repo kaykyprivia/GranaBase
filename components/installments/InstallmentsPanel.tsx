@@ -14,7 +14,6 @@ import {
   normalizeInstallmentStatus,
   summarizeInstallmentPayments,
   toggleDiscountStatus,
-  togglePaidStatus,
 } from "@/lib/installments";
 import { addMonths, cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
