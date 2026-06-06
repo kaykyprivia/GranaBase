@@ -73,19 +73,21 @@ export function buildMonthSeries(
 
 export function buildDaySeries(
   income: Pick<IncomeEntry, "amount" | "received_at">[],
-  expenses: Pick<ExpenseEntry, "amount" | "spent_at">[]
+  expenses: Pick<ExpenseEntry, "amount" | "spent_at">[],
+  days: number
 ) {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  return Array.from({ length: daysInMonth }, (_, index) => {
-    const day = index + 1;
-    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(now);
+    date.setDate(now.getDate() - (days - index - 1));
+    const key = date.toISOString().slice(0, 10);
+    const label = days <= 31
+      ? String(date.getDate())
+      : `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
 
     return {
-      month: String(day),
+      month: label,
       income: income.filter((e) => e.received_at === key).reduce((sum, e) => sum + e.amount, 0),
       expenses: expenses.filter((e) => e.spent_at === key).reduce((sum, e) => sum + e.amount, 0),
     };

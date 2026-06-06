@@ -155,12 +155,11 @@ export default function ReportsPage() {
 
   const chartMonths = Math.min(currentPeriod.months, 12);
 
-  const chartData = useMemo(
-    () => period === "1m"
-      ? buildDaySeries(periodIncome, periodExpenses)
-      : buildMonthSeries(periodIncome, periodExpenses, chartMonths),
-    [period, periodIncome, periodExpenses, chartMonths]
-  );
+  const chartData = useMemo(() => {
+    if (period === "1m") return buildDaySeries(periodIncome, periodExpenses, 30);
+    if (period === "3m") return buildDaySeries(periodIncome, periodExpenses, 90);
+    return buildMonthSeries(periodIncome, periodExpenses, chartMonths);
+  }, [period, periodIncome, periodExpenses, chartMonths]);
 
   const expenseByCategory = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -334,7 +333,7 @@ export default function ReportsPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="#1F2937" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} interval={period === "1m" ? 4 : 0} />
+                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} interval={period === "1m" ? 4 : period === "3m" ? 14 : 0} />
                 <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
                 <Tooltip
                   content={({ active, payload, label }) => (
