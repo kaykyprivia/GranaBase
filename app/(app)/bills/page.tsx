@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Calendar, Check, FileText, Pencil, Plus, RefreshCw, Trash2, Clock, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Calendar, Check, ChevronDown, FileText, Pencil, Plus, RefreshCw, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate, getDaysUntilDue, isOverdue } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, getDaysUntilDue, isOverdue } from "@/lib/utils";
 import { billSchema, type BillFormData } from "@/lib/validations";
 import type { Bill } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ export default function BillsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [paidSectionOpen, setPaidSectionOpen] = useState(false);
 
   const activeTab: ActiveTab = searchParams.get("tab") === "installments" ? "installments" : "bills";
 
@@ -165,12 +166,32 @@ export default function BillsPage() {
   const handleMarkPaid = async (id: string) => {
     setMarkingPaidId(id);
     try {
+      const bill = bills.find((b) => b.id === id);
+
       const { error } = await supabase
         .from("bills")
         .update(coerceMutation({ status: "paid" as const, paid_at: new Date().toISOString() }))
         .eq("id", id);
       if (error) throw error;
-      toast.success("Conta marcada como paga!");
+
+      if (bill?.is_recurring) {
+        const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
+        const nextDueDateStr = nextDate.toISOString().slice(0, 10);
+        await supabase.from("bills").insert(coerceMutation({
+          user_id: userId,
+          name: bill.name,
+          amount: bill.amount,
+          due_date: nextDueDateStr,
+          status: "pending" as const,
+          category: bill.category,
+          is_recurring: true,
+          notes: bill.notes ?? null,
+        }));
+        toast.success("Conta paga! Próximo mês já gerado automaticamente.");
+      } else {
+        toast.success("Conta marcada como paga!");
+      }
+
       await fetchBills();
     } catch {
       toast.error("Erro ao marcar conta");
@@ -363,6 +384,12 @@ export default function BillsPage() {
                       {effective === "pending" && daysUntil > 0 && daysUntil <= 7 && (
                         <span className="font-medium text-warning">Vence em {daysUntil} dia{daysUntil !== 1 ? "s" : ""}</span>
                       )}
+                      {bill.is_recurring && effective !== "paid" && (
+                        <span className="flex items-center gap-1 text-accent">
+                          <RefreshCw className="h-3 w-3" />
+                          Próximo: {formatDate(addMonths(new Date(bill.due_date + "T00:00:00"), 1).toISOString().slice(0, 10))}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -394,9 +421,7 @@ export default function BillsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
-                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>
-                      {title}
-                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{title}</p>
                     <span className="text-xs text-text-secondary">({sectionBills.length})</span>
                     <div className="h-px flex-1 bg-border/40" />
                     <span className="text-xs font-semibold" style={{ color }}>
@@ -408,13 +433,41 @@ export default function BillsPage() {
               );
             };
 
+            const PaidSection = ({ bills: sectionBills }: { bills: Bill[] }) => {
+              if (sectionBills.length === 0) return null;
+              const total = sectionBills.reduce((s, b) => s + b.amount, 0);
+              return (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaidSectionOpen((o) => !o)}
+                    className="flex w-full items-center gap-2 text-left"
+                  >
+                    <span className="h-2 w-2 rounded-full shrink-0 bg-profit" />
+                    <p className="text-xs font-semibold uppercase tracking-wider text-profit">Pagas</p>
+                    <span className="text-xs text-text-secondary">({sectionBills.length})</span>
+                    <div className="h-px flex-1 bg-border/40" />
+                    <span className="text-xs font-semibold text-profit">{formatCurrency(total)}</span>
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-text-secondary transition-transform duration-200", paidSectionOpen && "rotate-180")} />
+                  </button>
+                  <div className={cn("grid transition-all duration-300 ease-in-out", paidSectionOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                    <div className="overflow-hidden">
+                      <div className="space-y-2 pt-1">
+                        {sectionBills.map(b => <BillCard key={b.id} bill={b} />)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            };
+
             return (
               <div className="space-y-5">
                 <Section title="Atrasadas" color="#EF4444" bills={overdue} />
                 <Section title="Vence hoje" color="#FACC15" bills={today} />
                 <Section title="Vence esta semana" color="#F97316" bills={week} />
                 <Section title="Próximas" color="#38BDF8" bills={upcoming} />
-                <Section title="Pagas" color="#22C55E" bills={paid} />
+                <PaidSection bills={paid} />
               </div>
             );
           })()}
