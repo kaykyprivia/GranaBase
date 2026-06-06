@@ -277,6 +277,7 @@ export interface Database {
           installment_number: number;
           due_date: string;
           amount: number;
+          paid_amount: number | null;
           status: InstallmentStatus;
           paid_at: string | null;
           created_at: string;
@@ -288,6 +289,7 @@ export interface Database {
           installment_number: number;
           due_date: string;
           amount: number;
+          paid_amount?: number | null;
           status?: InstallmentStatus;
           paid_at?: string | null;
           created_at?: string;
@@ -299,6 +301,7 @@ export interface Database {
           installment_number?: number;
           due_date?: string;
           amount?: number;
+          paid_amount?: number | null;
           status?: InstallmentStatus;
           paid_at?: string | null;
           created_at?: string;

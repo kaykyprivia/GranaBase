@@ -98,6 +98,7 @@ export function summarizeInstallmentPayments(
 export function buildInstallmentStatusUpdate(
   payment: Pick<InstallmentPayment, "status" | "paid_at">,
   nextStatus: InstallmentStatus,
+  paidAmount?: number | null,
   now = new Date().toISOString()
 ) {
   const shouldBePaid = isInstallmentPaid(nextStatus);
@@ -105,6 +106,7 @@ export function buildInstallmentStatusUpdate(
   return {
     status: nextStatus,
     paid_at: shouldBePaid ? payment.paid_at ?? now : null,
+    paid_amount: shouldBePaid ? (paidAmount ?? null) : null,
   };
 }
 

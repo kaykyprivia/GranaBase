@@ -94,6 +94,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<EditingPaymentState | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<InstallmentStatus>("pending");
+  const [paymentPaidAmount, setPaymentPaidAmount] = useState<number>(0);
 
   const installmentCount = Number(installmentCountInput);
   const isValidInstallmentCount = Number.isInteger(installmentCount) && installmentCount > 0;
@@ -123,6 +124,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     setPaymentDialogOpen(false);
     setEditingPayment(null);
     setPaymentStatus("pending");
+    setPaymentPaidAmount(0);
   };
 
   useImperativeHandle(ref, () => ({
@@ -193,6 +195,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const openPaymentEditModal = (item: InstallmentWithPayments, payment: InstallmentPayment) => {
     setEditingPayment({ installmentDescription: item.description, payment });
     setPaymentStatus(normalizeInstallmentStatus(payment.status));
+    setPaymentPaidAmount(payment.paid_amount ?? payment.amount);
     setPaymentDialogOpen(true);
   };
 
@@ -361,16 +364,16 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     await handleCreate(values);
   };
 
-  const updatePaymentStatus = async (payment: InstallmentPayment, nextStatus: InstallmentStatus, successMessage: string) => {
+  const updatePaymentStatus = async (payment: InstallmentPayment, nextStatus: InstallmentStatus, successMessage: string, paidAmount?: number | null) => {
     const currentStatus = normalizeInstallmentStatus(payment.status);
 
-    if (currentStatus === nextStatus) {
+    if (currentStatus === nextStatus && paidAmount === undefined) {
       return true;
     }
 
     setUpdatingPaymentId(payment.id);
     try {
-      const payload = buildInstallmentStatusUpdate(payment, nextStatus);
+      const payload = buildInstallmentStatusUpdate(payment, nextStatus, paidAmount);
       const { error } = await supabase
         .from("installment_payments")
         .update(coerceMutation(payload))
@@ -417,7 +420,8 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       return;
     }
 
-    const saved = await updatePaymentStatus(editingPayment.payment, paymentStatus, "Parcela atualizada");
+    const paidAmount = paymentStatus === "paid_with_discount" ? paymentPaidAmount : null;
+    const saved = await updatePaymentStatus(editingPayment.payment, paymentStatus, "Parcela atualizada", paidAmount);
 
     if (saved) {
       closePaymentDialog();
@@ -617,21 +621,37 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                         const paidActionLabel = isPaid ? "Voltar para pendente" : "Marcar como pago";
                         const discountActionLabel = isDiscount ? "Remover desconto" : "Marcar como pago com desconto";
 
+                        const displayAmount = isDiscount && payment.paid_amount != null
+                          ? payment.paid_amount
+                          : payment.amount;
+
                         return (
-                          <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/50 px-3 py-2">
-                            <div className="min-w-0 flex items-center gap-3">
-                              <span className="w-14 text-xs font-medium text-text-secondary">
-                                {payment.installment_number}/{item.installment_count}
+                          <div key={payment.id} className="grid grid-cols-[2rem_1fr_auto] gap-x-2 rounded-lg bg-background/50 px-3 py-2">
+                            {/* Installment number — spans both rows */}
+                            <span className="row-span-2 self-center text-xs font-medium text-text-secondary">
+                              {payment.installment_number}/{item.installment_count}
+                            </span>
+
+                            {/* Row 1: date + amount */}
+                            <span className="text-sm text-text-primary">{formatDate(payment.due_date)}</span>
+                            <div className="flex items-center justify-end gap-1">
+                              {isDiscount && payment.paid_amount != null && payment.paid_amount !== payment.amount && (
+                                <span className="text-xs text-text-secondary line-through">
+                                  {formatCurrency(payment.amount)}
+                                </span>
+                              )}
+                              <span className={cn("text-sm font-semibold", isPaid ? "text-profit" : "text-text-primary")}>
+                                {formatCurrency(displayAmount)}
                               </span>
-                              <span className="text-sm text-text-primary">{formatDate(payment.due_date)}</span>
+                            </div>
+
+                            {/* Row 2: badge + action buttons */}
+                            <div className="mt-1">
                               <Badge variant={effectiveStatus} className="text-[10px]">
                                 {getInstallmentStatusLabel(effectiveStatus)}
                               </Badge>
                             </div>
-                            <div className="flex shrink-0 items-center gap-1.5">
-                              <span className={cn("mr-1 text-sm font-semibold", isPaid ? "text-profit" : "text-text-primary")}>
-                                {formatCurrency(payment.amount)}
-                              </span>
+                            <div className="flex items-center justify-end gap-0.5">
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -807,7 +827,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                   Parcela {editingPayment.payment.installment_number}
                 </p>
                 <p className="mt-1 text-text-secondary">
-                  Valor: {formatCurrency(editingPayment.payment.amount)}
+                  Valor original: {formatCurrency(editingPayment.payment.amount)}
                 </p>
               </div>
             )}
@@ -820,17 +840,27 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                 <SelectContent>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="paid_with_discount">Pago com desconto</SelectItem>
+                  <SelectItem value="paid_with_discount">Pago com desconto / antecipação</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
+
+            {paymentStatus === "paid_with_discount" && (
+              <FormField label="Valor efetivamente pago" required>
+                <CurrencyInput
+                  value={paymentPaidAmount}
+                  onChange={setPaymentPaidAmount}
+                  placeholder="0,00"
+                />
+              </FormField>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closePaymentDialog} disabled={updatingPaymentId !== null}>
                 Cancelar
               </Button>
               <Button type="submit" loading={editingPayment !== null && updatingPaymentId === editingPayment.payment.id}>
-                Salvar status
+                Salvar
               </Button>
             </DialogFooter>
           </form>

@@ -17,6 +17,7 @@ function makePayment(overrides: Partial<InstallmentPayment> = {}): InstallmentPa
     installment_number: 1,
     due_date: "2026-06-04",
     amount: 100,
+    paid_amount: null,
     status: "pending",
     paid_at: null,
     created_at: "2026-04-30T00:00:00.000Z",
@@ -51,31 +52,32 @@ describe("installment status helpers", () => {
   it("builds paid_at transitions without losing an existing settlement date", () => {
     const now = "2026-04-30T12:00:00.000Z";
 
-    expect(buildInstallmentStatusUpdate(makePayment(), "paid", now)).toEqual({
+    expect(buildInstallmentStatusUpdate(makePayment(), "paid", null, now)).toEqual({
       status: "paid",
       paid_at: now,
+      paid_amount: null,
     });
 
-    expect(buildInstallmentStatusUpdate(makePayment({ status: "paid", paid_at: now }), "pending", now)).toEqual({
+    expect(buildInstallmentStatusUpdate(makePayment({ status: "paid", paid_at: now }), "pending", null, now)).toEqual({
       status: "pending",
       paid_at: null,
+      paid_amount: null,
     });
 
-    expect(buildInstallmentStatusUpdate(makePayment({ status: "paid", paid_at: now }), "paid_with_discount", "2026-05-01T09:00:00.000Z")).toEqual({
+    expect(buildInstallmentStatusUpdate(makePayment({ status: "paid", paid_at: now }), "paid_with_discount", 80, "2026-05-01T09:00:00.000Z")).toEqual({
       status: "paid_with_discount",
       paid_at: now,
+      paid_amount: 80,
     });
   });
 
   it("recalculates paid, remaining and progress using discounted payments as settled", () => {
-    const discountedPayment = {
-      ...makePayment({
-        id: "payment-2",
-        installment_number: 2,
-        status: "paid_with_discount",
-      }),
+    const discountedPayment = makePayment({
+      id: "payment-2",
+      installment_number: 2,
+      status: "paid_with_discount",
       paid_amount: 80,
-    } as InstallmentPayment & { paid_amount: number };
+    });
 
     const summary = summarizeInstallmentPayments(
       [
