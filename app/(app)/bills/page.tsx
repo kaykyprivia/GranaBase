@@ -75,7 +75,45 @@ export default function BillsPage() {
       return;
     }
 
-    setBills(data ?? []);
+    const allBills: Bill[] = data ?? [];
+
+    // Backfill: for each paid recurring bill, if no future pending bill
+    // with the same name+category exists, auto-create next month's bill.
+    const paidRecurring = allBills.filter((b) => b.is_recurring && b.status === "paid");
+    const activeBills = allBills.filter((b) => b.status === "pending");
+
+    const seen = new Set<string>();
+    const toCreate: Array<Parameters<typeof coerceMutation>[0]> = [];
+
+    for (const bill of [...paidRecurring].sort((a, b) => b.due_date.localeCompare(a.due_date))) {
+      const key = `${bill.name}|${bill.category}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const hasPending = activeBills.some((b) => b.name === bill.name && b.category === bill.category);
+      if (!hasPending) {
+        const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
+        toCreate.push({
+          user_id: user.id,
+          name: bill.name,
+          amount: bill.amount,
+          due_date: nextDate.toISOString().slice(0, 10),
+          status: "pending" as const,
+          category: bill.category,
+          is_recurring: true,
+          notes: bill.notes ?? null,
+        });
+      }
+    }
+
+    if (toCreate.length > 0) {
+      await supabase.from("bills").insert(toCreate.map((b) => coerceMutation(b)));
+      const { data: refreshed } = await supabase.from("bills").select("*").eq("user_id", user.id).order("due_date");
+      setBills(refreshed ?? []);
+    } else {
+      setBills(allBills);
+    }
+
     setLoading(false);
   }, [supabase]);
 
