@@ -95,6 +95,9 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
   const [editingPayment, setEditingPayment] = useState<EditingPaymentState | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<InstallmentStatus>("pending");
   const [paymentPaidAmount, setPaymentPaidAmount] = useState<number>(0);
+  const [confirmPayOpen, setConfirmPayOpen] = useState(false);
+  const [confirmPayContext, setConfirmPayContext] = useState<{ item: InstallmentWithPayments; payment: InstallmentPayment } | null>(null);
+  const [confirmPayAmount, setConfirmPayAmount] = useState<number>(0);
 
   const installmentCount = Number(installmentCountInput);
   const isValidInstallmentCount = Number.isInteger(installmentCount) && installmentCount > 0;
@@ -395,12 +398,31 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     }
   };
 
-  const handleTogglePaid = async (payment: InstallmentPayment) => {
+  const handleTogglePaid = (item: InstallmentWithPayments, payment: InstallmentPayment) => {
     const currentStatus = normalizeInstallmentStatus(payment.status);
-    const nextStatus = togglePaidStatus(currentStatus);
-    const successMessage = isInstallmentPaid(currentStatus) ? "Parcela voltou para pendente" : "Parcela marcada como paga";
+    if (isInstallmentPaid(currentStatus)) {
+      void updatePaymentStatus(payment, "pending", "Parcela voltou para pendente");
+    } else {
+      setConfirmPayContext({ item, payment });
+      setConfirmPayAmount(payment.amount);
+      setConfirmPayOpen(true);
+    }
+  };
 
-    await updatePaymentStatus(payment, nextStatus, successMessage);
+  const handleConfirmPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!confirmPayContext) return;
+
+    const { payment } = confirmPayContext;
+    const isDiscounted = confirmPayAmount > 0 && confirmPayAmount < payment.amount;
+    const nextStatus: InstallmentStatus = isDiscounted ? "paid_with_discount" : "paid";
+    const paidAmount = isDiscounted ? confirmPayAmount : null;
+
+    const saved = await updatePaymentStatus(payment, nextStatus, "Parcela marcada como paga", paidAmount);
+    if (saved) {
+      setConfirmPayOpen(false);
+      setConfirmPayContext(null);
+    }
   };
 
   const handleToggleDiscount = async (payment: InstallmentPayment) => {
@@ -696,7 +718,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => handleTogglePaid(payment)}
+                                onClick={() => handleTogglePaid(item, payment)}
                                 disabled={isUpdating}
                                 className={cn(
                                   "rounded-full",
@@ -872,6 +894,47 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
               </Button>
               <Button type="submit" loading={editingPayment !== null && updatingPaymentId === editingPayment.payment.id}>
                 Salvar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm payment dialog — triggered by the ✓ button on unpaid rows */}
+      <Dialog open={confirmPayOpen} onOpenChange={(open) => { if (!open) { setConfirmPayOpen(false); setConfirmPayContext(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar pagamento</DialogTitle>
+            <DialogDescription>
+              {confirmPayContext
+                ? `${confirmPayContext.item.description} · Parcela ${confirmPayContext.payment.installment_number}/${confirmPayContext.item.installment_count}`
+                : "Confirme o valor pago."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmPayment} className="space-y-4">
+            {confirmPayContext && (
+              <div className="rounded-lg border border-border/70 bg-background/40 px-3 py-2 text-sm text-text-secondary">
+                Valor original: <span className="font-semibold text-text-primary">{formatCurrency(confirmPayContext.payment.amount)}</span>
+              </div>
+            )}
+
+            <FormField label="Valor efetivamente pago" required>
+              <CurrencyInput value={confirmPayAmount} onChange={setConfirmPayAmount} placeholder="0,00" />
+            </FormField>
+
+            {confirmPayContext && confirmPayAmount > 0 && confirmPayAmount < confirmPayContext.payment.amount && (
+              <p className="text-xs text-accent">
+                Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(confirmPayContext.payment.amount - confirmPayAmount)}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setConfirmPayOpen(false); setConfirmPayContext(null); }} disabled={updatingPaymentId !== null}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={confirmPayContext !== null && updatingPaymentId === confirmPayContext.payment.id}>
+                Confirmar pagamento
               </Button>
             </DialogFooter>
           </form>
