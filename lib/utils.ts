@@ -17,6 +17,11 @@ export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat("pt-BR").format(d);
 }
 
+export function formatTime(timestamp: string | Date): string {
+  const d = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(d);
+}
+
 export function formatDateShort(date: string | Date): string {
   const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(d);

@@ -16,7 +16,7 @@ import {
   toggleDiscountStatus,
   togglePaidStatus,
 } from "@/lib/installments";
-import { addMonths, cn, formatCurrency, formatDate } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
 import type { Installment, InstallmentPayment, InstallmentStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -645,11 +645,14 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                               </span>
                             </div>
 
-                            {/* Row 2: badge + action buttons */}
-                            <div className="mt-1">
+                            {/* Row 2: badge (+ paid time) + action buttons */}
+                            <div className="mt-1 flex items-center gap-1.5">
                               <Badge variant={effectiveStatus} className="text-[10px]">
                                 {getInstallmentStatusLabel(effectiveStatus)}
                               </Badge>
+                              {isPaid && payment.paid_at && (
+                                <span className="text-[10px] text-text-secondary">{formatTime(payment.paid_at)}</span>
+                              )}
                             </div>
                             <div className="flex items-center justify-end gap-0.5">
                               <Button
