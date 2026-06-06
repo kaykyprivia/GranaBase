@@ -612,7 +612,15 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
                 {expanded && (
                   <CardContent className="pt-0">
                     <div className="space-y-2 border-t border-border pt-3">
-                      {item.payments.map((payment) => {
+                      {(statusFilter === "all"
+                        ? item.payments
+                        : item.payments.filter((payment) => {
+                            if (statusFilter === "paid") return isInstallmentPaid(payment.status);
+                            if (statusFilter === "pending") return !isInstallmentPaid(payment.status) && !isPaymentOverdue(payment);
+                            if (statusFilter === "overdue") return isPaymentOverdue(payment);
+                            return true;
+                          })
+                      ).map((payment) => {
                         const effectiveStatus = getEffectiveInstallmentStatus(payment);
                         const normalizedStatus = normalizeInstallmentStatus(payment.status);
                         const isPaid = isInstallmentPaid(normalizedStatus);
