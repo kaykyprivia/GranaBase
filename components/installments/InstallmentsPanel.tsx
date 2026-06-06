@@ -477,7 +477,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     }
 
     if (statusFilter === "paid") {
-      return payments.length > 0 && payments.every((payment) => isInstallmentPaid(payment.status));
+      return payments.some((payment) => isInstallmentPaid(payment.status));
     }
 
     return true;
@@ -487,7 +487,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       ? "Nenhum parcelamento com parcelas pendentes no momento."
       : statusFilter === "overdue"
         ? "Nenhum parcelamento com parcelas atrasadas no momento."
-        : "Nenhum parcelamento totalmente pago no momento.";
+        : "Nenhum parcelamento com parcelas pagas no momento.";
 
   return (
     <>
