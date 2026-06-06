@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { BarChart3, ChevronDown, FileWarning, Filter, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
+import { buildDaySeries, buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Bill, ExpenseEntry, IncomeEntry, Investment } from "@/types/database";
@@ -156,8 +156,10 @@ export default function ReportsPage() {
   const chartMonths = Math.min(currentPeriod.months, 12);
 
   const chartData = useMemo(
-    () => buildMonthSeries(periodIncome, periodExpenses, chartMonths),
-    [periodIncome, periodExpenses, chartMonths]
+    () => period === "1m"
+      ? buildDaySeries(periodIncome, periodExpenses)
+      : buildMonthSeries(periodIncome, periodExpenses, chartMonths),
+    [period, periodIncome, periodExpenses, chartMonths]
   );
 
   const expenseByCategory = useMemo(() => {
@@ -332,7 +334,7 @@ export default function ReportsPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="#1F2937" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} interval={period === "1m" ? 4 : 0} />
                 <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
                 <Tooltip
                   content={({ active, payload, label }) => (
