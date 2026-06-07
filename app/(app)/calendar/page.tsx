@@ -300,6 +300,8 @@ export default function CalendarPage() {
                     const outflowTotal = dayEvents
                       .filter((e) => e.type === "expense" || e.type === "bill" || e.type === "installment")
                       .reduce((sum, e) => sum + e.amount, 0);
+                    const net = incomeTotal - outflowTotal;
+                    const hasNet = incomeTotal > 0 || outflowTotal > 0;
 
                     return (
                       <button
@@ -307,13 +309,23 @@ export default function CalendarPage() {
                         type="button"
                         onClick={() => setSelectedDate(isoDate)}
                         className={cn(
-                          "min-h-[3.5rem] sm:min-h-28 rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all",
+                          "relative min-h-[3.5rem] sm:min-h-28 rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all overflow-hidden",
                           currentMonth
                             ? "border-border bg-surface/60 hover:border-accent/40"
                             : "border-border/40 bg-background/20 text-text-secondary/60",
                           isSelected && "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,189,248,0.3)]"
                         )}
                       >
+                        {/* Mobile net indicator bar at bottom */}
+                        {hasNet && (
+                          <span
+                            className={cn(
+                              "absolute bottom-0 left-0 right-0 h-0.5 sm:hidden",
+                              net > 0 ? "bg-profit/60" : "bg-expense/60"
+                            )}
+                          />
+                        )}
+
                         {/* Day number + badge */}
                         <div className="flex items-start justify-between gap-0.5">
                           <span
@@ -334,8 +346,8 @@ export default function CalendarPage() {
                           )}
                         </div>
 
-                        {/* Amounts: sm+ only */}
-                        <div className="hidden sm:block mt-2 space-y-1">
+                        {/* Amounts + net: sm+ only */}
+                        <div className="hidden sm:block mt-2 space-y-0.5">
                           {incomeTotal > 0 && (
                             <p className="truncate text-[11px] font-medium text-profit">
                               + {formatCurrency(incomeTotal)}
@@ -344,6 +356,14 @@ export default function CalendarPage() {
                           {outflowTotal > 0 && (
                             <p className="truncate text-[11px] font-medium text-expense">
                               - {formatCurrency(outflowTotal)}
+                            </p>
+                          )}
+                          {hasNet && (
+                            <p className={cn(
+                              "truncate text-[10px] font-bold border-t border-border/30 pt-0.5",
+                              net >= 0 ? "text-profit" : "text-expense"
+                            )}>
+                              = {net >= 0 ? "+" : ""}{formatCurrency(net)}
                             </p>
                           )}
                         </div>
