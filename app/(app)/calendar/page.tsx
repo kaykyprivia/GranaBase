@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Landmark, PiggyBank, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { buildFinancialEvents, getCalendarMatrix, getEventTone, type FinancialEvent } from "@/lib/finance";
-import { getInstallmentStatusLabel, type EffectiveInstallmentStatus } from "@/lib/installments";
+import { getEffectiveInstallmentStatus, getInstallmentStatusLabel, type EffectiveInstallmentStatus } from "@/lib/installments";
 import { cn, formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, InvestmentContribution } from "@/types/database";
@@ -16,11 +16,15 @@ import { PageIntro } from "@/components/shared/PageIntro";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared/StatCard";
 
+type InstallmentPaymentWithName = InstallmentPayment & {
+  installments: { description: string; installment_count: number } | null;
+};
+
 interface CalendarPayload {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   bills: Bill[];
-  installmentPayments: InstallmentPayment[];
+  installmentPayments: InstallmentPaymentWithName[];
   investmentContributions: InvestmentContribution[];
   goals: FinancialGoal[];
 }
@@ -69,7 +73,7 @@ export default function CalendarPage() {
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
-      supabase.from("installment_payments").select("*").eq("user_id", user.id),
+      supabase.from("installment_payments").select("*, installments(description, installment_count)").eq("user_id", user.id),
       supabase.from("investment_contributions").select("*").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id),
     ]);
@@ -92,7 +96,7 @@ export default function CalendarPage() {
       income: incomeResponse.data ?? [],
       expenses: expenseResponse.data ?? [],
       bills: billsResponse.data ?? [],
-      installmentPayments: installmentResponse.data ?? [],
+      installmentPayments: (installmentResponse.data ?? []) as InstallmentPaymentWithName[],
       investmentContributions: contributionResponse.data ?? [],
       goals: goalsResponse.data ?? [],
     });
@@ -103,15 +107,26 @@ export default function CalendarPage() {
     fetchData();
   }, [fetchData]);
 
-  const events = useMemo(
-    () =>
-      buildFinancialEvents({
-        ...payload,
-        investments: [],
-        investmentContributions: payload.investmentContributions,
-      }),
-    [payload]
-  );
+  const events = useMemo(() => {
+    const installmentEvents: FinancialEvent[] = payload.installmentPayments.map((payment) => ({
+      id: payment.id,
+      date: payment.due_date,
+      title: payment.installments?.description ?? `Parcela ${payment.installment_number}`,
+      amount: payment.amount,
+      type: "installment" as const,
+      subtitle: `Parcela ${payment.installment_number}${payment.installments ? `/${payment.installments.installment_count}` : ""}`,
+      status: getEffectiveInstallmentStatus(payment),
+    }));
+
+    const baseEvents = buildFinancialEvents({
+      ...payload,
+      installmentPayments: [],
+      investments: [],
+      investmentContributions: payload.investmentContributions,
+    });
+
+    return [...baseEvents, ...installmentEvents].sort((a, b) => a.date.localeCompare(b.date));
+  }, [payload]);
 
   const monthKey = getMonthYear(referenceDate);
   const monthLabel = referenceDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
