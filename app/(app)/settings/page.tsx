@@ -329,38 +329,28 @@ export default function SettingsPage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !userId) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Selecione uma imagem.");
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("A foto deve ter no maximo 15MB.");
-      return;
-    }
+    if (!file) return;
 
     const toastId = toast.loading("Enviando foto...");
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `${userId}/avatar.${ext}`;
+      const form = new FormData();
+      form.append("file", file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
+      const res = await fetch("/api/avatar/upload", { method: "POST", body: form });
+      const json = await res.json() as { url?: string; error?: string };
 
-      if (uploadError) throw uploadError;
+      if (!res.ok || !json.url) {
+        throw new Error(json.error ?? "Erro ao enviar foto.");
+      }
 
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      await supabase.auth.updateUser({ data: { avatar_url: json.url } });
+      await updateUserSettings({ avatar_url: json.url });
 
-      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
-      await updateUserSettings({ avatar_url: publicUrl });
-
-      setProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
-      setInitialProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
+      setProfileForm((prev) => ({ ...prev, avatarUrl: json.url! }));
+      setInitialProfileForm((prev) => ({ ...prev, avatarUrl: json.url! }));
       toast.success("Foto atualizada.", { id: toastId });
     } catch (err) {
-      toast.error(getSupabaseErrorMessage(err), { id: toastId });
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar foto.", { id: toastId });
     }
   };
 
