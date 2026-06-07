@@ -215,7 +215,7 @@ export default function IncomePage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-text-primary">Entradas</h1>
-            <p className="text-sm text-text-secondary">Controle todas as suas receitas</p>
+            <p className="text-sm text-text-secondary">Controle suas receitas</p>
           </div>
         </div>
         <Button onClick={openCreate} size="sm" variant="profit" className="gap-1.5 shrink-0">
@@ -287,7 +287,7 @@ export default function IncomePage() {
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
                   <div className="flex flex-1 flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                    <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold text-profit">{formatCurrency(total)}</span>
+                    <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-profit">{formatCurrency(total)}</span>
                     <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
                   </div>
                   <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
@@ -310,8 +310,8 @@ export default function IncomePage() {
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold text-profit">{formatCurrency(entry.amount)}</p>
-                            <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)} · {formatTime(entry.created_at)}</p>
+                            <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount)}</p>
+                            <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button variant="ghost" size="icon-sm" onClick={() => openEdit(entry)} className="text-text-secondary hover:text-text-primary">

@@ -281,7 +281,7 @@ export default function BillsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-text-primary">Contas</h1>
-            <p className="text-sm text-text-secondary">Gerencie contas, recorrencias e parcelamentos.</p>
+            <p className="text-sm text-text-secondary">Contas, recorrências e parcelamentos.</p>
           </div>
         </div>
 
@@ -331,7 +331,7 @@ export default function BillsPage() {
         {activeTab === "bills" && (
           <div className="flex flex-col gap-3 sm:flex-row">
             <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-              <TabsList>
+              <TabsList className="w-full sm:w-auto">
                 <TabsTrigger value="all">Todas</TabsTrigger>
                 <TabsTrigger value="pending">Pendentes</TabsTrigger>
                 <TabsTrigger value="overdue">Atrasadas</TabsTrigger>
@@ -406,10 +406,10 @@ export default function BillsPage() {
                       : <Clock className="h-4 w-4 text-warning" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-sm font-semibold text-text-primary">{bill.name}</span>
-                      {bill.is_recurring && <RefreshCw className="h-3 w-3 text-accent" />}
-                      <Badge variant="secondary" className="text-[10px]">{bill.category}</Badge>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-text-primary">{bill.name}</span>
+                      {bill.is_recurring && <RefreshCw className="h-3 w-3 shrink-0 text-accent" />}
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">{bill.category}</Badge>
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                       <span className="flex items-center gap-1">
@@ -430,8 +430,8 @@ export default function BillsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className={cn("text-sm font-bold",
+                  <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-1">
+                    <p className={cn("text-sm font-bold tabular-nums",
                       effective === "overdue" ? "text-expense" : effective === "paid" ? "text-profit" : "text-warning"
                     )}>{formatCurrency(bill.amount)}</p>
                   </div>

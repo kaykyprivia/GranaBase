@@ -556,7 +556,7 @@ export default function DashboardPage() {
                   return (
                     <div key={goal.id}>
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-text-primary truncate max-w-[160px]">{goal.name}</p>
+                        <p className="truncate text-sm font-medium text-text-primary">{goal.name}</p>
                         <span className="text-xs font-semibold" style={{ color }}>{metrics.displayProgress}%</span>
                       </div>
                       <Progress

@@ -336,11 +336,11 @@ export default function GoalsPage() {
               <Card key={goal.id} className="overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-lg">{goal.name}</CardTitle>
-                      <p className="mt-1 text-sm text-text-secondary">{goal.category}</p>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="truncate text-base">{goal.name}</CardTitle>
+                      <p className="mt-1 truncate text-sm text-text-secondary">{goal.category}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <Badge variant={metrics.status}>{getGoalStatusLabel(metrics.status)}</Badge>
                       <Button variant="ghost" size="icon-sm" onClick={() => openEdit(goal)} aria-label="Editar meta">
                         <Pencil className="h-4 w-4" />
