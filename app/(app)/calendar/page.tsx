@@ -8,7 +8,7 @@ import { getEffectiveInstallmentStatus, getInstallmentStatusLabel, type Effectiv
 import { cn, formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, InvestmentContribution } from "@/types/database";
+import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,7 @@ interface CalendarPayload {
   expenses: ExpenseEntry[];
   bills: Bill[];
   installmentPayments: InstallmentPaymentWithName[];
+  investments: Investment[];
   investmentContributions: InvestmentContribution[];
   goals: FinancialGoal[];
 }
@@ -69,6 +70,7 @@ export default function CalendarPage() {
     expenses: [],
     bills: [],
     installmentPayments: [],
+    investments: [],
     investmentContributions: [],
     goals: [],
   });
@@ -89,6 +91,7 @@ export default function CalendarPage() {
       expenseResponse,
       billsResponse,
       installmentResponse,
+      investmentsResponse,
       contributionResponse,
       goalsResponse,
     ] = await Promise.all([
@@ -96,6 +99,7 @@ export default function CalendarPage() {
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
       supabase.from("installment_payments").select("*, installments(description, installment_count)").eq("user_id", user.id),
+      supabase.from("investments").select("*").eq("user_id", user.id),
       supabase.from("investment_contributions").select("*").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id),
     ]);
@@ -105,6 +109,7 @@ export default function CalendarPage() {
       expenseResponse.error ||
       billsResponse.error ||
       installmentResponse.error ||
+      investmentsResponse.error ||
       contributionResponse.error ||
       goalsResponse.error;
 
@@ -119,6 +124,7 @@ export default function CalendarPage() {
       expenses: expenseResponse.data ?? [],
       bills: billsResponse.data ?? [],
       installmentPayments: (installmentResponse.data ?? []) as InstallmentPaymentWithName[],
+      investments: investmentsResponse.data ?? [],
       investmentContributions: contributionResponse.data ?? [],
       goals: goalsResponse.data ?? [],
     });
@@ -143,7 +149,7 @@ export default function CalendarPage() {
     const baseEvents = buildFinancialEvents({
       ...payload,
       installmentPayments: [],
-      investments: [],
+      investments: payload.investments,
       investmentContributions: payload.investmentContributions,
     });
 
@@ -298,10 +304,10 @@ export default function CalendarPage() {
 
       {/* Stat cards — 2 cols on mobile, 4 on xl */}
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <StatCard title="Entradas no mes" value={formatCurrency(stats.income)} icon={TrendingUp} variant="profit" loading={loading} />
-        <StatCard title="Saidas previstas" value={formatCurrency(stats.outflow)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Aportes liquidos" value={formatCurrency(stats.investments)} icon={PiggyBank} variant={stats.investments >= 0 ? "accent" : "expense"} loading={loading} />
-        <StatCard title="Prazos de metas" value={String(stats.goalDeadlines)} icon={Target} variant="warning" loading={loading} />
+        <StatCard title="Entradas" value={formatCurrency(stats.income)} icon={TrendingUp} variant="profit" loading={loading} />
+        <StatCard title="Saídas" value={formatCurrency(stats.outflow)} icon={TrendingDown} variant="expense" loading={loading} />
+        <StatCard title="Aportes" value={formatCurrency(stats.investments)} icon={PiggyBank} variant={stats.investments >= 0 ? "accent" : "expense"} loading={loading} />
+        <StatCard title="Metas" value={String(stats.goalDeadlines)} icon={Target} variant="warning" loading={loading} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
