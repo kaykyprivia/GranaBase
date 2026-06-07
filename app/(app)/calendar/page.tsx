@@ -27,6 +27,12 @@ interface CalendarPayload {
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
 
+function getSign(event: FinancialEvent) {
+  if (event.type === "income" || (event.type === "investment" && event.status === "deposit")) return "+";
+  if (event.type === "goal") return "";
+  return "-";
+}
+
 export default function CalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -68,7 +74,13 @@ export default function CalendarPage() {
       supabase.from("financial_goals").select("*").eq("user_id", user.id),
     ]);
 
-    const error = incomeResponse.error || expenseResponse.error || billsResponse.error || installmentResponse.error || contributionResponse.error || goalsResponse.error;
+    const error =
+      incomeResponse.error ||
+      expenseResponse.error ||
+      billsResponse.error ||
+      installmentResponse.error ||
+      contributionResponse.error ||
+      goalsResponse.error;
 
     if (error) {
       toast.error("Erro ao carregar calendario financeiro");
@@ -92,11 +104,12 @@ export default function CalendarPage() {
   }, [fetchData]);
 
   const events = useMemo(
-    () => buildFinancialEvents({
-      ...payload,
-      investments: [],
-      investmentContributions: payload.investmentContributions,
-    }),
+    () =>
+      buildFinancialEvents({
+        ...payload,
+        investments: [],
+        investmentContributions: payload.investmentContributions,
+      }),
     [payload]
   );
 
@@ -146,37 +159,23 @@ export default function CalendarPage() {
     if (event.type === "installment" && event.status) {
       return getInstallmentStatusLabel(event.status as EffectiveInstallmentStatus);
     }
-
-    if (event.status === "deposit") {
-      return "Aporte";
-    }
-
-    if (event.status === "withdraw") {
-      return "Retirada";
-    }
-
+    if (event.status === "deposit") return "Aporte";
+    if (event.status === "withdraw") return "Retirada";
     return event.status ?? event.type;
   };
 
   const getEventStatusVariant = (event: FinancialEvent) => {
-    if (event.status === "paid_with_discount") {
-      return "paid_with_discount" as const;
-    }
-
-    if (event.status === "paid" || event.status === "overdue" || event.status === "pending") {
-      return event.status;
-    }
-
-    if (event.status === "deposit") {
-      return "profit" as const;
-    }
-
-    if (event.status === "withdraw") {
-      return "expense" as const;
-    }
-
+    if (event.status === "paid_with_discount") return "paid_with_discount" as const;
+    if (event.status === "paid" || event.status === "overdue" || event.status === "pending") return event.status;
+    if (event.status === "deposit") return "profit" as const;
+    if (event.status === "withdraw") return "expense" as const;
     return "secondary" as const;
   };
+
+  const navigatePrev = () =>
+    setReferenceDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const navigateNext = () =>
+    setReferenceDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
   return (
     <div className="page-container animate-fade-in">
@@ -187,7 +186,8 @@ export default function CalendarPage() {
         description="Veja vencimentos, aportes, entradas e gastos organizados por data."
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Stat cards — 2 cols on mobile, 4 on xl */}
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard title="Entradas no mes" value={formatCurrency(stats.income)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Saidas previstas" value={formatCurrency(stats.outflow)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Aportes liquidos" value={formatCurrency(stats.investments)} icon={PiggyBank} variant={stats.investments >= 0 ? "accent" : "expense"} loading={loading} />
@@ -195,152 +195,230 @@ export default function CalendarPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+        {/* Calendar card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="capitalize">{monthLabel}</CardTitle>
-              <p className="mt-1 text-sm text-text-secondary">Clique em um dia para ver a agenda financeira.</p>
+              <p className="mt-1 text-sm text-text-secondary">Toque em um dia para ver os eventos.</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon-sm" onClick={() => setReferenceDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}>
+              <Button variant="outline" size="icon-sm" onClick={navigatePrev}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon-sm" onClick={() => setReferenceDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}>
+              <Button variant="outline" size="icon-sm" onClick={navigateNext}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-3 grid grid-cols-7 gap-2">
+            {/* Weekday headers */}
+            <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
               {WEEKDAYS.map((day) => (
-                <div key={day} className="px-2 py-1 text-center text-xs font-medium uppercase tracking-wide text-text-secondary">
-                  {day}
+                <div
+                  key={day}
+                  className="py-1 text-center text-[10px] sm:text-xs font-medium uppercase tracking-wide text-text-secondary"
+                >
+                  {day.slice(0, 3)}
                 </div>
               ))}
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2">
                 {Array.from({ length: 35 }).map((_, index) => (
-                  <Skeleton key={index} className="h-28 rounded-2xl" />
+                  <Skeleton key={index} className="h-14 sm:h-28 rounded-xl sm:rounded-2xl" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-7 gap-2">
-                {monthMatrix.map(({ date, currentMonth }) => {
-                  const isoDate = date.toISOString().split("T")[0];
-                  const dayEvents = dailyGroups[isoDate] ?? [];
-                  const isSelected = isoDate === selectedDate;
-                  const incomeTotal = dayEvents.filter((event) => event.type === "income").reduce((sum, event) => sum + event.amount, 0);
-                  const outflowTotal = dayEvents
-                    .filter((event) => event.type === "expense" || event.type === "bill" || event.type === "installment")
-                    .reduce((sum, event) => sum + event.amount, 0);
+              <>
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {monthMatrix.map(({ date, currentMonth }) => {
+                    const isoDate = date.toISOString().split("T")[0];
+                    const dayEvents = dailyGroups[isoDate] ?? [];
+                    const isSelected = isoDate === selectedDate;
+                    const incomeTotal = dayEvents
+                      .filter((e) => e.type === "income")
+                      .reduce((sum, e) => sum + e.amount, 0);
+                    const outflowTotal = dayEvents
+                      .filter((e) => e.type === "expense" || e.type === "bill" || e.type === "installment")
+                      .reduce((sum, e) => sum + e.amount, 0);
 
-                  return (
-                    <button
-                      key={isoDate}
-                      type="button"
-                      onClick={() => setSelectedDate(isoDate)}
-                      className={cn(
-                        "min-h-28 rounded-2xl border p-3 text-left transition-all",
-                        currentMonth ? "border-border bg-surface/60 hover:border-accent/40" : "border-border/40 bg-background/20 text-text-secondary/60",
-                        isSelected && "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,189,248,0.3)]"
-                      )}
-                    >
-                      <div className="mb-3 flex items-center justify-between">
-                        <span className={cn("text-sm font-semibold", currentMonth ? "text-text-primary" : "text-text-secondary/60")}>
-                          {date.getDate()}
-                        </span>
-                        {dayEvents.length > 0 && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            {dayEvents.length}
-                          </Badge>
+                    return (
+                      <button
+                        key={isoDate}
+                        type="button"
+                        onClick={() => setSelectedDate(isoDate)}
+                        className={cn(
+                          "min-h-[3.5rem] sm:min-h-28 rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all",
+                          currentMonth
+                            ? "border-border bg-surface/60 hover:border-accent/40"
+                            : "border-border/40 bg-background/20 text-text-secondary/60",
+                          isSelected && "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,189,248,0.3)]"
                         )}
-                      </div>
-                      <div className="space-y-1">
-                        {incomeTotal > 0 && <p className="truncate text-[11px] font-medium text-profit">+ {formatCurrency(incomeTotal)}</p>}
-                        {outflowTotal > 0 && <p className="truncate text-[11px] font-medium text-expense">- {formatCurrency(outflowTotal)}</p>}
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {dayEvents.slice(0, 3).map((event) => (
-                            <span key={event.id} className={cn("h-1.5 w-1.5 rounded-full", getEventTone(event.type).replace("text-", "bg-"))} />
+                      >
+                        {/* Day number + badge */}
+                        <div className="flex items-start justify-between gap-0.5">
+                          <span
+                            className={cn(
+                              "text-xs sm:text-sm font-semibold leading-none",
+                              currentMonth ? "text-text-primary" : "text-text-secondary/60"
+                            )}
+                          >
+                            {date.getDate()}
+                          </span>
+                          {dayEvents.length > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="hidden sm:inline-flex h-4 px-1 py-0 text-[10px]"
+                            >
+                              {dayEvents.length}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Amounts: sm+ only */}
+                        <div className="hidden sm:block mt-2 space-y-1">
+                          {incomeTotal > 0 && (
+                            <p className="truncate text-[11px] font-medium text-profit">
+                              + {formatCurrency(incomeTotal)}
+                            </p>
+                          )}
+                          {outflowTotal > 0 && (
+                            <p className="truncate text-[11px] font-medium text-expense">
+                              - {formatCurrency(outflowTotal)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Event dots */}
+                        <div className="mt-1 flex flex-wrap gap-0.5 sm:gap-1">
+                          {dayEvents.slice(0, 4).map((event) => (
+                            <span
+                              key={event.id}
+                              className={cn(
+                                "h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full",
+                                getEventTone(event.type).replace("text-", "bg-")
+                              )}
+                            />
                           ))}
                         </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile day detail accordion (hidden on xl where side panel takes over) */}
+                <div className="mt-4 xl:hidden rounded-2xl border border-border/70 bg-background/40 p-4">
+                  <p className="mb-3 font-semibold text-text-primary">{formatDate(selectedDate)}</p>
+                  {selectedEvents.length === 0 ? (
+                    <EmptyState
+                      icon={Landmark}
+                      title="Sem eventos neste dia"
+                      description="Selecione outro dia no calendario acima."
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="rounded-xl border border-border/70 bg-background/40 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-text-primary">{event.title}</p>
+                              {event.subtitle && (
+                                <p className="mt-0.5 truncate text-xs text-text-secondary">{event.subtitle}</p>
+                              )}
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className={cn("text-sm font-semibold", getEventTone(event.type))}>
+                                {getSign(event)}{formatCurrency(event.amount)}
+                              </p>
+                              <Badge variant={getEventStatusVariant(event)} className="mt-1 text-[10px]">
+                                {getEventStatusLabel(event)}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{formatDate(selectedDate)}</CardTitle>
-            <p className="text-sm text-text-secondary">Detalhamento do dia selecionado.</p>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <Skeleton key={index} className="h-16 rounded-xl" />
-                ))}
-              </div>
-            ) : selectedEvents.length === 0 ? (
-              <EmptyState
-                icon={Landmark}
-                title="Sem eventos neste dia"
-                description="Selecione outra data ou registre movimentacoes para preencher a agenda."
-              />
-            ) : (
-              <div className="space-y-3">
-                {selectedEvents.map((event) => {
-                  const sign = event.type === "income" || (event.type === "investment" && event.status === "deposit")
-                    ? "+"
-                    : event.type === "goal"
-                      ? ""
-                      : "-";
-
-                  return (
-                  <div key={event.id} className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-text-primary">{event.title}</p>
-                        {event.subtitle && <p className="mt-1 text-sm text-text-secondary">{event.subtitle}</p>}
+        {/* Side panel — hidden on mobile, visible on xl */}
+        <div className="hidden xl:block">
+          <Card>
+            <CardHeader>
+              <CardTitle>{formatDate(selectedDate)}</CardTitle>
+              <p className="text-sm text-text-secondary">Detalhamento do dia selecionado.</p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={index} className="h-16 rounded-xl" />
+                  ))}
+                </div>
+              ) : selectedEvents.length === 0 ? (
+                <EmptyState
+                  icon={Landmark}
+                  title="Sem eventos neste dia"
+                  description="Selecione outra data ou registre movimentacoes para preencher a agenda."
+                />
+              ) : (
+                <div className="space-y-3">
+                  {selectedEvents.map((event) => (
+                    <div key={event.id} className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-text-primary">{event.title}</p>
+                          {event.subtitle && (
+                            <p className="mt-1 text-sm text-text-secondary">{event.subtitle}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className={cn("text-sm font-semibold", getEventTone(event.type))}>
+                            {getSign(event)}{formatCurrency(event.amount)}
+                          </p>
+                          <Badge variant={getEventStatusVariant(event)} className="mt-2 text-[10px]">
+                            {getEventStatusLabel(event)}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className={cn("text-sm font-semibold", getEventTone(event.type))}>
-                          {sign}{formatCurrency(event.amount)}
-                        </p>
-                        <Badge variant={getEventStatusVariant(event)} className="mt-2 text-[10px]">
-                          {getEventStatusLabel(event)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {!loading && monthEvents.length > 0 && (
-              <div className="mt-6 border-t border-border pt-5">
-                <p className="mb-3 text-sm font-semibold text-text-primary">Agenda do mes</p>
-                <div className="space-y-2">
-                  {monthEvents.slice(0, 8).map((event) => (
-                    <div key={event.id} className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">{event.title}</p>
-                        <p className="text-xs text-text-secondary">{formatDate(event.date)}</p>
-                      </div>
-                      <span className={cn("text-sm font-semibold", getEventTone(event.type))}>{formatCurrency(event.amount)}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+
+              {!loading && monthEvents.length > 0 && (
+                <div className="mt-6 border-t border-border pt-5">
+                  <p className="mb-3 text-sm font-semibold text-text-primary">Agenda do mes</p>
+                  <div className="space-y-2">
+                    {monthEvents.slice(0, 8).map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{event.title}</p>
+                          <p className="text-xs text-text-secondary">{formatDate(event.date)}</p>
+                        </div>
+                        <span className={cn("text-sm font-semibold", getEventTone(event.type))}>
+                          {formatCurrency(event.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
