@@ -321,7 +321,7 @@ export default function CalendarPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-5">
             {/* Type filter chips */}
             <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
               {TYPE_FILTERS.map((f) => (
@@ -342,11 +342,11 @@ export default function CalendarPage() {
             </div>
 
             {/* Weekday headers */}
-            <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
+            <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2 w-full">
               {WEEKDAYS.map((day) => (
                 <div
                   key={day}
-                  className="py-1 text-center text-[10px] sm:text-xs font-medium uppercase tracking-wide text-text-secondary"
+                  className="min-w-0 py-1 text-center text-[10px] sm:text-xs font-medium uppercase tracking-wide text-text-secondary"
                 >
                   {day.slice(0, 3)}
                 </div>
@@ -361,7 +361,7 @@ export default function CalendarPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 w-full">
                   {monthMatrix.map(({ date, currentMonth }) => {
                     const isoDate = date.toISOString().split("T")[0];
                     const dayEvents = dailyGroups[isoDate] ?? [];
@@ -382,7 +382,7 @@ export default function CalendarPage() {
                         type="button"
                         onClick={() => setSelectedDate(isoDate)}
                         className={cn(
-                          "relative min-h-[3.5rem] sm:min-h-28 rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all overflow-hidden",
+                          "relative min-h-[3.5rem] sm:min-h-28 min-w-0 w-full rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all overflow-hidden",
                           currentMonth
                             ? isOverdueDay
                               ? "border-expense/40 bg-expense/5 hover:border-expense/60"

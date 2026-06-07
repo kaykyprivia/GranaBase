@@ -1,5 +1,4 @@
 import { Sidebar } from "@/components/layout/Sidebar";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { WalletContributionProvider } from "@/components/wallet/WalletContributionProvider";
 
@@ -12,11 +11,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="flex flex-col min-h-screen lg:ml-64">
           <Header />
-          <main className="flex-1 overflow-x-hidden pb-20 lg:pb-0">
+          <main className="flex-1 overflow-x-hidden">
             {children}
           </main>
         </div>
-        <BottomNav />
       </div>
     </WalletContributionProvider>
   );
