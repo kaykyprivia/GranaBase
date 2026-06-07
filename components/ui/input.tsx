@@ -19,12 +19,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "flex h-10 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary/50",
-            "transition-all duration-200",
-            "focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
-            "disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted",
+            "shadow-input transition-all duration-150",
+            "hover:border-border/80 hover:bg-background/80",
+            "focus:outline-none focus:ring-0 focus:border-accent/60 focus:bg-background focus:shadow-input-focus",
+            "disabled:cursor-not-allowed disabled:opacity-40",
             "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-            error && "border-expense focus:ring-expense",
+            error && "border-expense/70 focus:border-expense focus:shadow-[0_0_0_3px_rgba(239,68,68,0.15)]",
             leftIcon && "pl-10",
             rightIcon && "pr-10",
             className

@@ -17,29 +17,29 @@ interface StatCardProps {
 
 const variantStyles = {
   default: {
-    icon: "bg-border text-text-secondary",
+    icon: "bg-white/[0.06] text-text-secondary",
     value: "text-text-primary",
     glow: "",
   },
   profit: {
-    icon: "bg-profit/20 text-profit",
+    icon: "bg-gradient-to-br from-profit/25 to-profit/10 text-profit ring-1 ring-profit/20",
     value: "text-profit",
-    glow: "hover:shadow-[0_0_20px_rgba(34,197,94,0.1)]",
+    glow: "hover:shadow-glow-profit",
   },
   expense: {
-    icon: "bg-expense/20 text-expense",
+    icon: "bg-gradient-to-br from-expense/25 to-expense/10 text-expense ring-1 ring-expense/20",
     value: "text-expense",
-    glow: "hover:shadow-[0_0_20px_rgba(239,68,68,0.1)]",
+    glow: "hover:shadow-glow-expense",
   },
   warning: {
-    icon: "bg-warning/20 text-warning",
+    icon: "bg-gradient-to-br from-warning/25 to-warning/10 text-warning ring-1 ring-warning/20",
     value: "text-warning",
-    glow: "hover:shadow-[0_0_20px_rgba(250,204,21,0.1)]",
+    glow: "hover:shadow-glow-warning",
   },
   accent: {
-    icon: "bg-accent/20 text-accent",
+    icon: "bg-gradient-to-br from-accent/25 to-accent/10 text-accent ring-1 ring-accent/20",
     value: "text-accent",
-    glow: "hover:shadow-[0_0_20px_rgba(56,189,248,0.1)]",
+    glow: "hover:shadow-glow-accent",
   },
 };
 
@@ -73,8 +73,8 @@ export function StatCard({
     <div className={cn("stat-card group", styles.glow)}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-text-secondary font-medium mb-1 truncate">{title}</p>
-          <p className={cn("text-2xl font-bold tracking-tight", styles.value)}>{value}</p>
+          <p className="text-xs text-text-muted font-medium mb-2 truncate uppercase tracking-wider">{title}</p>
+          <p className={cn("text-2xl font-bold tracking-tight tabular-nums", styles.value)}>{value}</p>
           {(subtitle || trend) && (
             <div className="flex items-center gap-2 mt-1">
               {subtitle && (
@@ -93,8 +93,8 @@ export function StatCard({
             </div>
           )}
         </div>
-        <div className={cn("p-2.5 rounded-lg ml-3 shrink-0", styles.icon)}>
-          <Icon className="h-5 w-5" />
+        <div className={cn("p-2.5 rounded-xl ml-3 shrink-0", styles.icon)}>
+          <Icon className="h-5 w-5" strokeWidth={1.75} />
         </div>
       </div>
     </div>

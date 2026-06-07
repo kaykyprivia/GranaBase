@@ -72,18 +72,18 @@ export function Header({ pageTitle }: HeaderProps) {
             className="absolute inset-0 bg-background/80 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative z-10 w-72 h-full bg-surface border-r border-border flex flex-col animate-slide-in">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="relative z-10 w-72 h-full bg-surface border-r border-border flex flex-col animate-slide-in shadow-overlay">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/70">
               <BrandLogo className="h-12 rounded-xl" priority />
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg text-text-secondary hover:bg-border"
+                className="p-2 rounded-lg text-text-secondary hover:bg-white/[0.05]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -92,13 +92,20 @@ export function Header({ pageTitle }: HeaderProps) {
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                       isActive
-                        ? "bg-accent/15 text-accent border border-accent/20"
-                        : "text-text-secondary hover:bg-border/50 hover:text-text-primary"
+                        ? "bg-accent/10 text-accent"
+                        : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
                     )}
                   >
-                    <item.icon style={{ height: "18px", width: "18px" }} className="shrink-0" />
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-accent" />
+                    )}
+                    <item.icon
+                      style={{ height: "17px", width: "17px" }}
+                      className={cn("shrink-0", isActive ? "text-accent" : "text-text-muted")}
+                      strokeWidth={isActive ? 2 : 1.75}
+                    />
                     {item.label}
                   </Link>
                 );

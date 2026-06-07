@@ -70,6 +70,20 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["'JetBrains Mono'", "'Fira Code'", "ui-monospace", "monospace"],
+      },
+      boxShadow: {
+        card: "0 1px 3px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04)",
+        "card-hover": "0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+        elevated: "0 8px 32px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08)",
+        overlay: "0 24px 64px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+        "glow-accent": "0 0 0 1px rgba(56,189,248,0.15), 0 0 24px rgba(56,189,248,0.18)",
+        "glow-profit": "0 0 0 1px rgba(34,197,94,0.12), 0 0 24px rgba(34,197,94,0.15)",
+        "glow-expense": "0 0 0 1px rgba(239,68,68,0.12), 0 0 24px rgba(239,68,68,0.15)",
+        "glow-warning": "0 0 0 1px rgba(250,204,21,0.12), 0 0 24px rgba(250,204,21,0.15)",
+        "inner-top": "inset 0 1px 0 rgba(255,255,255,0.06)",
+        input: "0 1px 2px rgba(0,0,0,0.4)",
+        "input-focus": "0 0 0 3px rgba(56,189,248,0.18), 0 1px 2px rgba(0,0,0,0.4)",
       },
       keyframes: {
         "accordion-down": {

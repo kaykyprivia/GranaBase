@@ -12,28 +12,36 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
-    @apply bg-background text-text-primary font-sans antialiased;
+    @apply bg-background text-text-primary font-sans;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
+  ::selection {
+    background: rgba(56, 189, 248, 0.22);
+    color: #F1F5F9;
+  }
+
   ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 5px;
+    height: 5px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+    @apply bg-border/70 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-text-secondary;
+    @apply bg-text-muted;
   }
 
   input[type="number"]::-webkit-inner-spin-button,
@@ -41,35 +49,65 @@
     -webkit-appearance: none;
     margin: 0;
   }
+
+  [data-num], .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "kern";
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer components {
   .glass {
-    @apply bg-surface/80 backdrop-blur-md border border-border/50;
+    @apply bg-surface/80 backdrop-blur-md border border-white/[0.06];
   }
 
-  .glow-profit {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+  .card-premium {
+    background: #0F172A;
+    border: 1px solid #1E293B;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: box-shadow 200ms ease, border-color 200ms ease;
   }
 
-  .glow-expense {
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
-  }
-
-  .glow-accent {
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+  .card-premium:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07);
+    border-color: rgba(30,41,59,0.9);
   }
 
   .stat-card {
-    @apply bg-surface border border-border rounded-xl p-5 transition-all duration-200 hover:border-border/80;
+    @apply bg-surface border border-border rounded-xl p-5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+  }
+
+  .stat-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07);
+    border-color: rgba(30,41,59,0.85);
   }
 
   .page-container {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
   }
 
+  .glow-profit {
+    box-shadow: 0 0 0 1px rgba(34,197,94,0.12), 0 0 24px rgba(34,197,94,0.15);
+  }
+
+  .glow-expense {
+    box-shadow: 0 0 0 1px rgba(239,68,68,0.12), 0 0 24px rgba(239,68,68,0.15);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 0 1px rgba(56,189,248,0.15), 0 0 24px rgba(56,189,248,0.18);
+  }
+
   .section-title {
-    @apply text-xl font-semibold text-text-primary;
+    @apply text-xl font-semibold text-text-primary tracking-tight;
+  }
+
+  .section-divider {
+    @apply border-t border-border/60 my-6;
   }
 
   .gradient-text {
@@ -79,41 +117,45 @@
 
 @layer utilities {
   .animate-fade-in {
-    animation: fade-in 0.3s ease-out;
+    animation: fade-in 0.3s ease-out both;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.4s ease-out both;
   }
 
   .text-balance {
     text-wrap: balance;
   }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "kern";
+  }
 }
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes shimmer {
-  from {
-    background-position: -200% 0;
-  }
-  to {
-    background-position: 200% 0;
-  }
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
 }
 
 .skeleton {
   background: linear-gradient(
     90deg,
-    #1F2937 25%,
-    #263244 50%,
-    #1F2937 75%
+    #1a2235 25%,
+    #1f2d42 50%,
+    #1a2235 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.8s ease-in-out infinite;
 }

@@ -11,10 +11,10 @@ interface PageIntroProps {
 }
 
 const toneStyles = {
-  accent: "bg-accent/15 text-accent",
-  profit: "bg-profit/15 text-profit",
-  expense: "bg-expense/15 text-expense",
-  warning: "bg-warning/15 text-warning",
+  accent: "bg-gradient-to-br from-accent/20 to-accent/8 text-accent ring-1 ring-accent/20",
+  profit: "bg-gradient-to-br from-profit/20 to-profit/8 text-profit ring-1 ring-profit/20",
+  expense: "bg-gradient-to-br from-expense/20 to-expense/8 text-expense ring-1 ring-expense/20",
+  warning: "bg-gradient-to-br from-warning/20 to-warning/8 text-warning ring-1 ring-warning/20",
 };
 
 export function PageIntro({
@@ -25,17 +25,17 @@ export function PageIntro({
   actions,
 }: PageIntroProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="flex items-start gap-3">
-        <div className={cn("rounded-2xl p-3", toneStyles[iconTone])}>
-          <Icon className="h-5 w-5" />
+    <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between pb-6 border-b border-border/50">
+      <div className="flex items-center gap-4">
+        <div className={cn("rounded-2xl p-3.5 shrink-0", toneStyles[iconTone])}>
+          <Icon className="h-5 w-5" strokeWidth={1.75} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">{title}</h1>
-          <p className="mt-1 text-sm text-text-secondary">{description}</p>
+          <h1 className="text-xl font-semibold text-text-primary tracking-tight">{title}</h1>
+          <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
         </div>
       </div>
-      {actions}
+      {actions && <div className="shrink-0">{actions}</div>}
     </div>
   );
 }

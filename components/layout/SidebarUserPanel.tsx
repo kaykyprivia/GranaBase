@@ -163,13 +163,12 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
 
   if (loading) {
     return (
-      <div className="mb-3 rounded-2xl border border-border/80 bg-background/30 p-3">
+      <div className="mb-3 rounded-xl border border-border/60 bg-background/50 p-3">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-3 w-36" />
-            <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3 w-32" />
           </div>
         </div>
       </div>
@@ -177,74 +176,65 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
   }
 
   if (!userData) {
-    return <div className="mb-3 h-2" />;
+    return <div className="mb-2 h-2" />;
   }
 
   return (
-    <div ref={containerRef} className="relative mb-3">
+    <div ref={containerRef} className="relative mb-2">
       <button
         type="button"
         onClick={() => setMenuOpen((current) => !current)}
         className={cn(
-          "group flex w-full items-center gap-3 rounded-2xl border border-border/80 bg-gradient-to-br from-background/80 via-surface to-accent/5 p-3 text-left transition-all duration-200",
-          "hover:border-accent/30 hover:bg-accent/5 hover:shadow-[0_0_0_1px_rgba(56,189,248,0.08)]"
+          "group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/50 p-3 text-left transition-all duration-150",
+          "hover:border-border hover:bg-background/80",
+          menuOpen && "border-border bg-background/80"
         )}
       >
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent via-sky-400 to-cyan-300 text-sm font-bold text-slate-950 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/90 to-sky-500 text-[13px] font-bold text-slate-950 shadow-sm ring-2 ring-accent/20">
           {userData.initials}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-text-primary">{userData.displayName}</p>
-          <p className="truncate text-xs text-text-secondary">{userData.email}</p>
-          <span
-            className={cn(
-              "mt-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              userData.planTone === "pro"
-                ? "border-warning/40 bg-warning/15 text-warning"
-                : "border-accent/25 bg-accent/10 text-accent"
-            )}
-          >
-            {userData.planLabel}
-          </span>
+          <p className="truncate text-sm font-medium text-text-primary leading-tight">{userData.displayName}</p>
+          <p className="truncate text-[11px] text-text-muted mt-0.5">{userData.email}</p>
         </div>
 
         <ChevronUp
           className={cn(
-            "h-4 w-4 shrink-0 text-text-secondary transition-transform duration-200",
-            menuOpen ? "rotate-0 text-text-primary" : "rotate-180"
+            "h-3.5 w-3.5 shrink-0 text-text-muted transition-transform duration-200",
+            menuOpen ? "rotate-0" : "rotate-180"
           )}
         />
       </button>
 
       {menuOpen && (
-        <div className="animate-fade-in absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-20 overflow-hidden rounded-2xl border border-border/80 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md">
+        <div className="animate-fade-in absolute bottom-[calc(100%+0.375rem)] left-0 right-0 z-20 overflow-hidden rounded-xl border border-border/80 bg-surface p-1 shadow-overlay backdrop-blur-md">
           <Link
             href="/settings#profile"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-background/70 hover:text-text-primary"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.05] hover:text-text-primary"
           >
-            <UserCircle2 className="h-4 w-4" />
+            <UserCircle2 className="h-4 w-4 shrink-0" />
             Meu Perfil
           </Link>
           <Link
             href="/settings"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-background/70 hover:text-text-primary"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.05] hover:text-text-primary"
           >
-            <Settings className="h-4 w-4" />
-            Configuracoes
+            <Settings className="h-4 w-4 shrink-0" />
+            Configurações
           </Link>
-          <div className="my-1 border-t border-border/70" />
+          <div className="my-1 mx-1 border-t border-border/60" />
           <button
             type="button"
             onClick={async () => {
               setMenuOpen(false);
               await onLogout();
             }}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-expense/10 hover:text-expense"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-expense/10 hover:text-expense"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 shrink-0" />
             Sair
           </button>
         </div>
