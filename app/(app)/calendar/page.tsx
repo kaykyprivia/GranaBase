@@ -1,20 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Landmark, PiggyBank, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Landmark, PiggyBank, Plus, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { buildFinancialEvents, getCalendarMatrix, getEventTone, type FinancialEvent } from "@/lib/finance";
 import { getEffectiveInstallmentStatus, getInstallmentStatusLabel, type EffectiveInstallmentStatus } from "@/lib/installments";
 import { cn, formatCurrency, formatDate, getMonthYear } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { coerceMutation } from "@/lib/supabase/casts";
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, InvestmentContribution } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared/StatCard";
+
+type QuickAddType = "income" | "expense" | "bill";
 
 type InstallmentPaymentWithName = InstallmentPayment & {
   installments: { description: string; installment_count: number } | null;
@@ -53,6 +59,11 @@ export default function CalendarPage() {
   const [referenceDate, setReferenceDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<QuickAddType>("expense");
+  const [quickAddDescription, setQuickAddDescription] = useState("");
+  const [quickAddAmount, setQuickAddAmount] = useState(0);
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [payload, setPayload] = useState<CalendarPayload>({
     income: [],
     expenses: [],
@@ -208,6 +219,60 @@ export default function CalendarPage() {
     if (event.status === "deposit") return "profit" as const;
     if (event.status === "withdraw") return "expense" as const;
     return "secondary" as const;
+  };
+
+  const openQuickAdd = () => {
+    setQuickAddDescription("");
+    setQuickAddAmount(0);
+    setQuickAddType("expense");
+    setQuickAddOpen(true);
+  };
+
+  const handleQuickAdd = async () => {
+    if (!quickAddDescription.trim() || quickAddAmount <= 0) return;
+    setQuickAddSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setQuickAddSaving(false); return; }
+
+    let err: { message: string } | null = null;
+
+    if (quickAddType === "income") {
+      const { error } = await supabase.from("income_entries").insert(coerceMutation({
+        user_id: user.id,
+        description: quickAddDescription.trim(),
+        amount: quickAddAmount,
+        received_at: selectedDate,
+        category: "Outro",
+        payment_method: "Pix",
+      }));
+      err = error;
+    } else if (quickAddType === "expense") {
+      const { error } = await supabase.from("expense_entries").insert(coerceMutation({
+        user_id: user.id,
+        description: quickAddDescription.trim(),
+        amount: quickAddAmount,
+        spent_at: selectedDate,
+        category: "Outro",
+        payment_method: "Pix",
+      }));
+      err = error;
+    } else {
+      const { error } = await supabase.from("bills").insert(coerceMutation({
+        user_id: user.id,
+        name: quickAddDescription.trim(),
+        amount: quickAddAmount,
+        due_date: selectedDate,
+        category: "Outro",
+        status: "pending",
+      }));
+      err = error;
+    }
+
+    setQuickAddSaving(false);
+    if (err) { toast.error("Erro ao adicionar"); return; }
+    toast.success("Adicionado com sucesso!");
+    setQuickAddOpen(false);
+    fetchData();
   };
 
   const navigatePrev = () =>
@@ -387,7 +452,17 @@ export default function CalendarPage() {
 
                 {/* Mobile day detail accordion (hidden on xl where side panel takes over) */}
                 <div className="mt-4 xl:hidden rounded-2xl border border-border/70 bg-background/40 p-4">
-                  <p className="mb-3 font-semibold text-text-primary">{formatDate(selectedDate)}</p>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="font-semibold text-text-primary">{formatDate(selectedDate)}</p>
+                    <button
+                      type="button"
+                      onClick={openQuickAdd}
+                      className="flex items-center gap-1 rounded-lg bg-accent/15 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/25 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Adicionar
+                    </button>
+                  </div>
                   {selectedEvents.length === 0 ? (
                     <EmptyState
                       icon={Landmark}
@@ -430,9 +505,14 @@ export default function CalendarPage() {
         {/* Side panel — hidden on mobile, visible on xl */}
         <div className="hidden xl:block">
           <Card>
-            <CardHeader>
-              <CardTitle>{formatDate(selectedDate)}</CardTitle>
-              <p className="text-sm text-text-secondary">Detalhamento do dia selecionado.</p>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>{formatDate(selectedDate)}</CardTitle>
+                <p className="mt-1 text-sm text-text-secondary">Detalhamento do dia selecionado.</p>
+              </div>
+              <Button variant="outline" size="icon-sm" onClick={openQuickAdd} title="Adicionar evento">
+                <Plus className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -497,6 +577,64 @@ export default function CalendarPage() {
           </Card>
         </div>
       </div>
+
+      {/* Quick add dialog */}
+      <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adicionar em {formatDate(selectedDate)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Type selector */}
+            <div className="flex gap-2">
+              {(["expense", "income", "bill"] as QuickAddType[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setQuickAddType(t)}
+                  className={cn(
+                    "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    quickAddType === t
+                      ? t === "income"
+                        ? "bg-profit/20 text-profit border border-profit/30"
+                        : t === "expense"
+                          ? "bg-expense/20 text-expense border border-expense/30"
+                          : "bg-warning/20 text-warning border border-warning/30"
+                      : "bg-border/40 text-text-secondary hover:bg-border"
+                  )}
+                >
+                  {t === "income" ? "Entrada" : t === "expense" ? "Gasto" : "Conta"}
+                </button>
+              ))}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">Descricao</label>
+              <Input
+                placeholder="Ex: Almoço, Salário..."
+                value={quickAddDescription}
+                onChange={(e) => setQuickAddDescription(e.target.value)}
+              />
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">Valor</label>
+              <CurrencyInput value={quickAddAmount} onChange={setQuickAddAmount} />
+            </div>
+
+            {/* Save */}
+            <Button
+              className="w-full"
+              onClick={handleQuickAdd}
+              disabled={quickAddSaving || !quickAddDescription.trim() || quickAddAmount <= 0}
+            >
+              {quickAddSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
