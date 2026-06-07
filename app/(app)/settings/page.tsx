@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AccountSettings } from "@/components/settings/AccountSettings";
@@ -85,6 +85,7 @@ async function findProfileRecord(
 export default function SettingsPage() {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingFinancial, setSavingFinancial] = useState(false);
@@ -325,6 +326,44 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !userId) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione uma imagem.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("A foto deve ter no maximo 2MB.");
+      return;
+    }
+
+    const toastId = toast.loading("Enviando foto...");
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${userId}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+
+      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      await updateUserSettings({ avatar_url: publicUrl });
+
+      setProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
+      setInitialProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
+      toast.success("Foto atualizada.", { id: toastId });
+    } catch (err) {
+      toast.error(getSupabaseErrorMessage(err), { id: toastId });
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Sessao encerrada");
@@ -339,9 +378,30 @@ export default function SettingsPage() {
       {/* Profile Hero */}
       <div className="mb-6 rounded-2xl border border-border/80 bg-surface/95 p-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="h-14 w-14 shrink-0 rounded-full bg-gradient-to-br from-accent via-sky-400 to-cyan-300 flex items-center justify-center text-base font-bold text-slate-950 shadow-sm">
-            {loading ? "…" : initials}
-          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="relative h-14 w-14 shrink-0 rounded-full overflow-hidden group cursor-pointer"
+            title="Alterar foto"
+          >
+            {profileForm.avatarUrl ? (
+              <img src={profileForm.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-accent via-sky-400 to-cyan-300 flex items-center justify-center text-base font-bold text-slate-950">
+                {loading ? "…" : initials}
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="h-4 w-4 text-white" />
+            </div>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void handleAvatarUpload(e)}
+          />
           <div className="min-w-0 flex-1">
             {loading ? (
               <div className="space-y-1.5">
