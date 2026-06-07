@@ -1,6 +1,6 @@
 "use client";
 
-import { Crown, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { Crown, ShieldAlert, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,12 +55,6 @@ export function AccountSettings({
                     {plan === "pro" ? "Plano Pro" : "Plano Free"}
                   </Badge>
                   <p className="text-sm text-text-secondary">{email || "Conta principal do GranaBase"}</p>
-                </div>
-                <div className="mt-4">
-                  <Button type="button" variant="warning" disabled className="gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Upgrade para Pro em breve
-                  </Button>
                 </div>
               </div>
 

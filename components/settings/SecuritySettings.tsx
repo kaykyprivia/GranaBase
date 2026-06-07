@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock3, KeyRound, SmartphoneNfc, Unplug } from "lucide-react";
+import { Clock3, KeyRound, Unplug } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,17 +122,6 @@ export function SecuritySettings({
                 >
                   Encerrar sessoes
                 </Button>
-              </div>
-
-              <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <SmartphoneNfc className="h-4 w-4 text-text-secondary" />
-                  Autenticacao em dois fatores
-                </div>
-                <p className="mb-3 text-sm text-text-secondary">
-                  Recurso reservado para a proxima camada de protecao da plataforma.
-                </p>
-                <Badge variant="secondary">Em breve</Badge>
               </div>
 
               <div className="rounded-2xl border border-border/70 bg-background/40 p-4">

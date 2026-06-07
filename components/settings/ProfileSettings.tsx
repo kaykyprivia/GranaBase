@@ -1,9 +1,9 @@
 "use client";
 
-import { ImageIcon, Mail, Phone, RotateCcw, Save, UserRound } from "lucide-react";
+import { Mail, Phone, RotateCcw, Save, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormField } from "@/components/shared/FormField";
@@ -67,13 +67,8 @@ export function ProfileSettings({
     <Card id="profile" className="border-border/80 bg-surface/95">
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>Perfil</CardTitle>
-            <CardDescription>
-              Atualize seus dados principais e mantenha sua conta sempre identificada do seu jeito.
-            </CardDescription>
-          </div>
-          {dirty && <Badge variant="warning">Alteracoes nao salvas</Badge>}
+          <CardTitle>Perfil</CardTitle>
+          {dirty && <Badge variant="warning">Nao salvo</Badge>}
         </div>
       </CardHeader>
 
@@ -100,9 +95,6 @@ export function ProfileSettings({
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-text-primary">{displayName}</p>
                 <p className="truncate text-sm text-text-secondary">{value.email || "Sem email principal"}</p>
-                <p className="mt-1 text-xs text-text-secondary">
-                  O avatar pode ser definido por URL e os demais dados ficam salvos na sua conta.
-                </p>
               </div>
             </div>
 
@@ -116,29 +108,18 @@ export function ProfileSettings({
                 />
               </FormField>
 
-              <FormField label="Email" hint="Seu email principal de acesso.">
+              <FormField label="Email" hint="Email principal de acesso — nao editavel.">
                 <Input value={value.email} disabled leftIcon={<Mail className="h-4 w-4" />} />
               </FormField>
 
-              <div className="grid gap-4 lg:grid-cols-2">
-                <FormField label="Telefone" hint="Opcional para contato e futuras notificacoes.">
-                  <Input
-                    value={value.phone}
-                    onChange={(event) => onFieldChange("phone", event.target.value)}
-                    leftIcon={<Phone className="h-4 w-4" />}
-                    placeholder="(11) 99999-9999"
-                  />
-                </FormField>
-
-                <FormField label="Avatar (URL opcional)" hint="Use uma imagem publica se quiser personalizar seu perfil.">
-                  <Input
-                    value={value.avatarUrl}
-                    onChange={(event) => onFieldChange("avatarUrl", event.target.value)}
-                    leftIcon={<ImageIcon className="h-4 w-4" />}
-                    placeholder="https://..."
-                  />
-                </FormField>
-              </div>
+              <FormField label="Telefone" hint="Opcional.">
+                <Input
+                  value={value.phone}
+                  onChange={(event) => onFieldChange("phone", event.target.value)}
+                  leftIcon={<Phone className="h-4 w-4" />}
+                  placeholder="(11) 99999-9999"
+                />
+              </FormField>
             </div>
 
             <div className="flex flex-wrap gap-3">

@@ -1,21 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCcw, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { InstallAppSettings } from "@/components/settings/InstallAppSettings";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
+import { FinancialSettings } from "@/components/settings/FinancialSettings";
 import {
   DEFAULT_PROFILE_FORM,
+  DEFAULT_FINANCIAL_FORM,
   type PlanType,
   type ProfileFormState,
+  type FinancialFormState,
 } from "@/components/settings/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageIntro } from "@/components/shared/PageIntro";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getSupabaseErrorMessage } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
@@ -47,27 +50,34 @@ function buildEmailFallback(email: string) {
   return email.split("@")[0]?.replace(/[._-]+/g, " ").trim() ?? "Usuario";
 }
 
+function toTitleCase(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getDisplayName(form: ProfileFormState) {
+  if (form.fullName.trim()) return toTitleCase(form.fullName);
+  const prefix = form.email.split("@")[0] ?? "Granabase";
+  return toTitleCase(prefix.replace(/[._-]+/g, " "));
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "GB";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 async function findProfileRecord(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<ProfileLookupResult> {
   const byId = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-
-  if (byId.data) {
-    return {
-      matchField: "id",
-      record: coerceData<ProfileRecord>(byId.data),
-    };
-  }
+  if (byId.data) return { matchField: "id", record: coerceData<ProfileRecord>(byId.data) };
 
   const byUserId = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
-
-  if (byUserId.data) {
-    return {
-      matchField: "user_id",
-      record: coerceData<ProfileRecord>(byUserId.data),
-    };
-  }
+  if (byUserId.data) return { matchField: "user_id", record: coerceData<ProfileRecord>(byUserId.data) };
 
   return { matchField: null, record: null };
 }
@@ -77,6 +87,8 @@ export default function SettingsPage() {
   const [supabase] = useState(() => createClient());
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingFinancial, setSavingFinancial] = useState(false);
+  const [exportingFinancial, setExportingFinancial] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [endingSessions, setEndingSessions] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -84,26 +96,17 @@ export default function SettingsPage() {
   const [profileMatchField, setProfileMatchField] = useState<ProfileMatchField>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
   const [initialProfileForm, setInitialProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
+  const [financialForm, setFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
+  const [initialFinancialForm, setInitialFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
   const [plan, setPlan] = useState<PlanType>("free");
   const [lastAccess, setLastAccess] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
-
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw userError;
-      }
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) { router.push("/login"); return; }
 
       const [profileLookup, settingsResponse] = await Promise.all([
         findProfileRecord(supabase, user.id),
@@ -134,6 +137,12 @@ export default function SettingsPage() {
           "",
       };
 
+      const nextFinancialForm: FinancialFormState = {
+        primaryCurrency: settingsRow?.primary_currency ?? "BRL",
+        monthlyGoalDefault: settingsRow?.monthly_goal_default ?? 0,
+        defaultExpenseCategory: settingsRow?.default_expense_category ?? "Outro",
+      };
+
       setUserId(user.id);
       setProfileMatchField(profileLookup.matchField);
       setPlan(
@@ -147,6 +156,8 @@ export default function SettingsPage() {
       setLastAccess(user.last_sign_in_at ?? null);
       setProfileForm(nextProfileForm);
       setInitialProfileForm(nextProfileForm);
+      setFinancialForm(nextFinancialForm);
+      setInitialFinancialForm(nextFinancialForm);
     } catch (error) {
       toast.error(getSupabaseErrorMessage(error));
     } finally {
@@ -154,92 +165,49 @@ export default function SettingsPage() {
     }
   }, [router, supabase]);
 
-  useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
+  useEffect(() => { void loadSettings(); }, [loadSettings]);
 
   const profileDirty = JSON.stringify(profileForm) !== JSON.stringify(initialProfileForm);
+  const financialDirty = JSON.stringify(financialForm) !== JSON.stringify(initialFinancialForm);
 
   const updateUserSettings = async (payload: Partial<InsertUserSettings & UpdateUserSettings>) => {
-    if (!userId) {
-      throw new Error("Usuario nao autenticado.");
-    }
-
+    if (!userId) throw new Error("Usuario nao autenticado.");
     const { error } = await supabase.from("user_settings").upsert(
-      coerceMutation({
-        user_id: userId,
-        ...payload,
-      })
+      coerceMutation({ user_id: userId, ...payload })
     );
-
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
   };
 
-  const handleProfileFieldChange = <K extends keyof ProfileFormState>(
-    field: K,
-    fieldValue: ProfileFormState[K]
-  ) => {
+  const handleProfileFieldChange = <K extends keyof ProfileFormState>(field: K, fieldValue: ProfileFormState[K]) => {
     setProfileForm((current) => ({ ...current, [field]: fieldValue }));
   };
 
+  const handleFinancialFieldChange = <K extends keyof FinancialFormState>(field: K, fieldValue: FinancialFormState[K]) => {
+    setFinancialForm((current) => ({ ...current, [field]: fieldValue }));
+  };
+
   const handleSaveProfile = async () => {
-    if (!userId) {
-      toast.error("Sessao nao encontrada. Entre novamente para continuar.");
-      return;
-    }
-
+    if (!userId) { toast.error("Sessao nao encontrada. Entre novamente para continuar."); return; }
     const fullName = profileForm.fullName.trim();
-
-    if (!fullName) {
-      toast.error("Informe seu nome completo.");
-      return;
-    }
+    if (!fullName) { toast.error("Informe seu nome completo."); return; }
 
     setSavingProfile(true);
-
     try {
       const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          full_name: fullName,
-          name: fullName,
-          phone: profileForm.phone.trim() || null,
-          avatar_url: profileForm.avatarUrl.trim() || null,
-        },
+        data: { full_name: fullName, name: fullName, phone: profileForm.phone.trim() || null, avatar_url: profileForm.avatarUrl.trim() || null },
       });
-
-      if (authError) {
-        throw authError;
-      }
+      if (authError) throw authError;
 
       if (profileMatchField === "id") {
-        const { error } = await supabase
-          .from("profiles")
-          .update(coerceMutation({ full_name: fullName }))
-          .eq("id", userId);
-
-        if (error) {
-          throw error;
-        }
+        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("id", userId);
+        if (error) throw error;
       }
-
       if (profileMatchField === "user_id") {
-        const { error } = await supabase
-          .from("profiles")
-          .update(coerceMutation({ full_name: fullName }))
-          .eq("user_id", userId);
-
-        if (error) {
-          throw error;
-        }
+        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("user_id", userId);
+        if (error) throw error;
       }
 
-      await updateUserSettings({
-        phone: profileForm.phone.trim() || null,
-        avatar_url: profileForm.avatarUrl.trim() || null,
-      });
-
+      await updateUserSettings({ phone: profileForm.phone.trim() || null, avatar_url: profileForm.avatarUrl.trim() || null });
       setInitialProfileForm(profileForm);
       toast.success("Perfil atualizado.");
       await loadSettings();
@@ -250,16 +218,73 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChangePassword = async (nextPassword: string) => {
-    setChangingPassword(true);
-
+  const handleSaveFinancial = async () => {
+    setSavingFinancial(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      await updateUserSettings({
+        primary_currency: financialForm.primaryCurrency,
+        monthly_goal_default: financialForm.monthlyGoalDefault,
+        default_expense_category: financialForm.defaultExpenseCategory,
+      });
+      setInitialFinancialForm(financialForm);
+      toast.success("Preferencias financeiras salvas.");
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
+    } finally {
+      setSavingFinancial(false);
+    }
+  };
 
-      if (error) {
-        throw error;
+  const handleExport = async () => {
+    if (!userId) return;
+    setExportingFinancial(true);
+    try {
+      type ExpenseRow = { description: string; amount: number; category: string; spent_at: string };
+      type IncomeRow = { description: string; amount: number; category: string; received_at: string };
+      type BillRow = { name: string; amount: number; due_date: string | null; category: string | null };
+
+      const [expensesRes, incomeRes, billsRes] = await Promise.all([
+        supabase.from("expense_entries").select("description, amount, category, spent_at").eq("user_id", userId),
+        supabase.from("income_entries").select("description, amount, category, received_at").eq("user_id", userId),
+        supabase.from("bills").select("name, amount, due_date, category").eq("user_id", userId),
+      ]);
+
+      const expenses = (expensesRes.data ?? []) as unknown as ExpenseRow[];
+      const income = (incomeRes.data ?? []) as unknown as IncomeRow[];
+      const bills = (billsRes.data ?? []) as unknown as BillRow[];
+
+      const rows: string[][] = [["tipo", "descricao", "valor", "data", "categoria"]];
+      for (const row of expenses) {
+        rows.push(["gasto", row.description, String(row.amount), row.spent_at, row.category]);
+      }
+      for (const row of income) {
+        rows.push(["entrada", row.description, String(row.amount), row.received_at, row.category]);
+      }
+      for (const row of bills) {
+        rows.push(["conta", row.name, String(row.amount), row.due_date ?? "", row.category ?? ""]);
       }
 
+      const csv = rows.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `granabase-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dados exportados.");
+    } catch {
+      toast.error("Erro ao exportar dados.");
+    } finally {
+      setExportingFinancial(false);
+    }
+  };
+
+  const handleChangePassword = async (nextPassword: string) => {
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) throw error;
       toast.success("Senha atualizada.");
     } catch (error) {
       toast.error(getSupabaseErrorMessage(error));
@@ -271,14 +296,9 @@ export default function SettingsPage() {
 
   const handleEndSessions = async () => {
     setEndingSessions(true);
-
     try {
       const { error } = await supabase.auth.signOut({ scope: "others" });
-
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       toast.success("Outras sessoes foram encerradas.");
     } catch (error) {
       toast.error(getSupabaseErrorMessage(error));
@@ -290,14 +310,9 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     setDeletingAccount(true);
-
     try {
       const { error } = await supabase.rpc("delete_my_account");
-
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       await supabase.auth.signOut();
       toast.success("Conta excluida com sucesso.");
       router.push("/login");
@@ -310,25 +325,53 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Sessao encerrada");
+    router.push("/login");
+  };
+
+  const displayName = getDisplayName(profileForm);
+  const initials = getInitials(displayName);
+
   return (
     <div className="page-container animate-fade-in">
-      <PageIntro
-        icon={Settings}
-        iconTone="warning"
-        title="Configuracoes"
-        description="Gerencie sua conta e personalize sua experiencia com controles realmente uteis para o seu dia a dia financeiro."
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant={profileDirty ? "warning" : "secondary"}>
-              {profileDirty ? "Alteracoes nao salvas" : "Tudo salvo"}
-            </Badge>
-            <Button type="button" variant="outline" onClick={() => void loadSettings()} disabled={loading} className="gap-2">
-              <RefreshCcw className="h-4 w-4" />
-              Recarregar dados
-            </Button>
+      {/* Profile Hero */}
+      <div className="mb-6 rounded-2xl border border-border/80 bg-surface/95 p-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="h-14 w-14 shrink-0 rounded-full bg-gradient-to-br from-accent via-sky-400 to-cyan-300 flex items-center justify-center text-base font-bold text-slate-950 shadow-sm">
+            {loading ? "…" : initials}
           </div>
-        }
-      />
+          <div className="min-w-0 flex-1">
+            {loading ? (
+              <div className="space-y-1.5">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-56" />
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                  <p className="text-base font-semibold text-text-primary">{displayName}</p>
+                  <Badge variant={plan === "pro" ? "warning" : "secondary"}>
+                    {plan === "pro" ? "Pro" : "Free"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-text-secondary">{profileForm.email || "—"}</p>
+              </>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleLogout()}
+            className="gap-2 shrink-0 text-expense hover:text-expense hover:border-expense/50"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
+        </div>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-6">
@@ -341,6 +384,17 @@ export default function SettingsPage() {
             onSave={() => void handleSaveProfile()}
             onReset={() => setProfileForm(initialProfileForm)}
           />
+          <FinancialSettings
+            value={financialForm}
+            loading={loading}
+            saving={savingFinancial}
+            exporting={exportingFinancial}
+            dirty={financialDirty}
+            onFieldChange={handleFinancialFieldChange}
+            onSave={() => void handleSaveFinancial()}
+            onReset={() => setFinancialForm(initialFinancialForm)}
+            onExport={() => void handleExport()}
+          />
         </div>
 
         <div className="space-y-6">
@@ -352,9 +406,6 @@ export default function SettingsPage() {
             onChangePassword={handleChangePassword}
             onEndSessions={handleEndSessions}
           />
-
-          <InstallAppSettings />
-
           <AccountSettings
             loading={loading}
             plan={plan}
@@ -362,6 +413,7 @@ export default function SettingsPage() {
             deletingAccount={deletingAccount}
             onDeleteAccount={handleDeleteAccount}
           />
+          <InstallAppSettings />
         </div>
       </div>
     </div>
