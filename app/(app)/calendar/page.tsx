@@ -31,6 +31,16 @@ interface CalendarPayload {
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
 
+type TypeFilter = "all" | "income" | "expense" | "bill" | "installment";
+
+const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "Tudo" },
+  { value: "income", label: "Entradas" },
+  { value: "expense", label: "Gastos" },
+  { value: "bill", label: "Contas" },
+  { value: "installment", label: "Parcelas" },
+];
+
 function getSign(event: FinancialEvent) {
   if (event.type === "income" || (event.type === "investment" && event.status === "deposit")) return "+";
   if (event.type === "goal") return "";
@@ -42,6 +52,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [referenceDate, setReferenceDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [payload, setPayload] = useState<CalendarPayload>({
     income: [],
     expenses: [],
@@ -132,14 +143,26 @@ export default function CalendarPage() {
   const monthLabel = referenceDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const monthMatrix = useMemo(() => getCalendarMatrix(referenceDate), [referenceDate]);
 
+  // Unfiltered month events for stat cards summary
   const monthEvents = useMemo(
     () => events.filter((event) => event.date.startsWith(monthKey)),
     [events, monthKey]
   );
 
+  // Events filtered by the user's type selection
+  const filteredEvents = useMemo(() => {
+    if (typeFilter === "all") return events;
+    return events.filter((e) => e.type === typeFilter);
+  }, [events, typeFilter]);
+
+  const filteredMonthEvents = useMemo(
+    () => filteredEvents.filter((e) => e.date.startsWith(monthKey)),
+    [filteredEvents, monthKey]
+  );
+
   const selectedEvents = useMemo(
-    () => events.filter((event) => event.date === selectedDate),
-    [events, selectedDate]
+    () => filteredEvents.filter((event) => event.date === selectedDate),
+    [filteredEvents, selectedDate]
   );
 
   const stats = useMemo(() => {
@@ -164,11 +187,11 @@ export default function CalendarPage() {
   }, [monthEvents]);
 
   const dailyGroups = useMemo(() => {
-    return events.reduce<Record<string, FinancialEvent[]>>((accumulator, event) => {
+    return filteredEvents.reduce<Record<string, FinancialEvent[]>>((accumulator, event) => {
       accumulator[event.date] = [...(accumulator[event.date] ?? []), event];
       return accumulator;
     }, {});
-  }, [events]);
+  }, [filteredEvents]);
 
   const getEventStatusLabel = (event: FinancialEvent) => {
     if (event.type === "installment" && event.status) {
@@ -227,6 +250,25 @@ export default function CalendarPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Type filter chips */}
+            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+              {TYPE_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setTypeFilter(f.value)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                    typeFilter === f.value
+                      ? "bg-accent text-white"
+                      : "bg-border/50 text-text-secondary hover:bg-border"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             {/* Weekday headers */}
             <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
               {WEEKDAYS.map((day) => (
@@ -410,11 +452,11 @@ export default function CalendarPage() {
                 </div>
               )}
 
-              {!loading && monthEvents.length > 0 && (
+              {!loading && filteredMonthEvents.length > 0 && (
                 <div className="mt-6 border-t border-border pt-5">
                   <p className="mb-3 text-sm font-semibold text-text-primary">Agenda do mes</p>
                   <div className="space-y-2">
-                    {monthEvents.slice(0, 8).map((event) => (
+                    {filteredMonthEvents.slice(0, 8).map((event) => (
                       <div
                         key={event.id}
                         className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2"
