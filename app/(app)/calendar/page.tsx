@@ -197,6 +197,13 @@ export default function CalendarPage() {
     );
   }, [monthEvents]);
 
+  // Set of ISO date strings that have at least one overdue event (unfiltered)
+  const overdueDates = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach((e) => { if (e.status === "overdue") set.add(e.date); });
+    return set;
+  }, [events]);
+
   const dailyGroups = useMemo(() => {
     return filteredEvents.reduce<Record<string, FinancialEvent[]>>((accumulator, event) => {
       accumulator[event.date] = [...(accumulator[event.date] ?? []), event];
@@ -367,6 +374,7 @@ export default function CalendarPage() {
                       .reduce((sum, e) => sum + e.amount, 0);
                     const net = incomeTotal - outflowTotal;
                     const hasNet = incomeTotal > 0 || outflowTotal > 0;
+                    const isOverdueDay = currentMonth && overdueDates.has(isoDate);
 
                     return (
                       <button
@@ -376,7 +384,9 @@ export default function CalendarPage() {
                         className={cn(
                           "relative min-h-[3.5rem] sm:min-h-28 rounded-xl sm:rounded-2xl border p-1.5 sm:p-3 text-left transition-all overflow-hidden",
                           currentMonth
-                            ? "border-border bg-surface/60 hover:border-accent/40"
+                            ? isOverdueDay
+                              ? "border-expense/40 bg-expense/5 hover:border-expense/60"
+                              : "border-border bg-surface/60 hover:border-accent/40"
                             : "border-border/40 bg-background/20 text-text-secondary/60",
                           isSelected && "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,189,248,0.3)]"
                         )}
@@ -396,7 +406,9 @@ export default function CalendarPage() {
                           <span
                             className={cn(
                               "text-xs sm:text-sm font-semibold leading-none",
-                              currentMonth ? "text-text-primary" : "text-text-secondary/60"
+                              currentMonth
+                                ? isOverdueDay ? "text-expense" : "text-text-primary"
+                                : "text-text-secondary/60"
                             )}
                           >
                             {date.getDate()}
@@ -453,7 +465,12 @@ export default function CalendarPage() {
                 {/* Mobile day detail accordion (hidden on xl where side panel takes over) */}
                 <div className="mt-4 xl:hidden rounded-2xl border border-border/70 bg-background/40 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="font-semibold text-text-primary">{formatDate(selectedDate)}</p>
+                    <div>
+                      <p className="font-semibold text-text-primary">{formatDate(selectedDate)}</p>
+                      {overdueDates.has(selectedDate) && (
+                        <p className="text-xs font-medium text-expense">Vencimento em atraso</p>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={openQuickAdd}
