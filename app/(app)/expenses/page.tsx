@@ -8,7 +8,7 @@ import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
 import type { ExpenseEntry } from "@/types/database";
 import { Button } from "@/components/ui/button";
