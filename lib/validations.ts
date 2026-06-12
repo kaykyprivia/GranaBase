@@ -20,7 +20,7 @@ export const incomeSchema = z.object({
   amount: z.number().positive("Valor deve ser positivo"),
   category: z.string().min(1, "Categoria é obrigatória"),
   received_at: z.string().min(1, "Data é obrigatória"),
-  payment_method: z.string().optional(),
+  payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
   notes: z.string().optional(),
 });
 
@@ -29,7 +29,7 @@ export const expenseSchema = z.object({
   amount: z.number().positive("Valor deve ser positivo"),
   category: z.string().min(1, "Categoria é obrigatória"),
   spent_at: z.string().min(1, "Data é obrigatória"),
-  payment_method: z.string().optional(),
+  payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
   notes: z.string().optional(),
 });
 

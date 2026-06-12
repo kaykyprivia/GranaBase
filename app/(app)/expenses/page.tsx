@@ -365,10 +365,10 @@ export default function ExpensesPage() {
                 <Input type="date" error={errors.spent_at?.message} {...register("spent_at")} />
               </FormField>
             </div>
-            <FormField label="Método de pagamento">
+            <FormField label="Método de pagamento" error={errors.payment_method?.message} required>
               <Controller name="payment_method" control={control} render={({ field }) => (
                 <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                  <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                  <SelectTrigger error={errors.payment_method?.message}><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
