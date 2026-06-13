@@ -8,7 +8,7 @@ import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-re
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { incomeSchema, type IncomeFormData } from "@/lib/validations";
 import type { IncomeEntry } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -312,6 +312,7 @@ export default function IncomePage() {
                           <div className="shrink-0 text-right">
                             <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount)}</p>
                             <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)}</p>
+                            <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button variant="ghost" size="icon-sm" onClick={() => openEdit(entry)} className="text-text-secondary hover:text-text-primary">
