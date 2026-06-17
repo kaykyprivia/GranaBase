@@ -11,6 +11,7 @@ import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
+import { appliesMaeFilter } from "@/lib/mae";
 import type { Bill, ExpenseEntry, Installment, InstallmentPayment } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,7 +142,7 @@ export default function ExpensesPage() {
     const installmentsById = new Map(installments.map((installment) => [installment.id, installment]));
 
     const billExpenses: DisplayExpense[] = bills
-      .filter((bill) => bill.paid_at)
+      .filter((bill) => bill.paid_at && appliesMaeFilter(user.id, "exclude-mae", bill.name))
       .map((bill) => ({
         id: bill.id,
         description: bill.name,
@@ -155,7 +156,11 @@ export default function ExpensesPage() {
       }));
 
     const installmentExpenses: DisplayExpense[] = payments
-      .filter((payment) => isInstallmentPaid(getEffectiveInstallmentStatus(payment)) && payment.paid_at)
+      .filter((payment) =>
+        isInstallmentPaid(getEffectiveInstallmentStatus(payment)) &&
+        payment.paid_at &&
+        appliesMaeFilter(user.id, "exclude-mae", installmentsById.get(payment.installment_id)?.description)
+      )
       .map((payment) => {
         const installment = installmentsById.get(payment.installment_id);
         return {

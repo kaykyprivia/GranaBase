@@ -17,6 +17,7 @@ import {
 } from "@/lib/installments";
 import { addMonths, cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
+import { appliesMaeFilter, isMaeName, type MaeFilterMode } from "@/lib/mae";
 import type { Installment, InstallmentPayment, InstallmentStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -73,7 +74,11 @@ export interface InstallmentsPanelHandle {
   openCreateModal: () => void;
 }
 
-export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function InstallmentsPanel(_, ref) {
+interface InstallmentsPanelProps {
+  mode?: MaeFilterMode;
+}
+
+export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, InstallmentsPanelProps>(function InstallmentsPanel({ mode = "exclude-mae" }, ref) {
   const supabase = createClient();
   const [items, setItems] = useState<InstallmentWithPayments[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,18 +237,23 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
     const installments = coerceData<Installment[]>(installmentsData ?? []);
     const payments = coerceData<InstallmentPayment[]>(paymentsData ?? []);
 
-    const grouped = installments.map((installment) => ({
-      ...installment,
-      payments: payments.filter((payment) => payment.installment_id === installment.id),
-    }));
+    const grouped = installments
+      .filter((installment) => appliesMaeFilter(user.id, mode, installment.description))
+      .map((installment) => ({
+        ...installment,
+        payments: payments.filter((payment) => payment.installment_id === installment.id),
+      }));
 
     setItems(grouped);
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, mode]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  const ensureModeDescription = (description: string) =>
+    mode === "only-mae" && !isMaeName(description) ? `Mãe - ${description}` : description;
 
   const handleCreate = async (values: InstallmentFormData) => {
     setSaving(true);
@@ -254,7 +264,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
         .from("installments")
         .insert(coerceMutation({
           user_id: userId,
-          description: values.description,
+          description: ensureModeDescription(values.description),
           total_amount: computedTotalAmount,
           installment_count: values.installment_count,
           installment_amount: unitAmount,
@@ -307,7 +317,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle>(function In
       const { error: updateError } = await supabase
         .from("installments")
         .update(coerceMutation({
-          description: values.description,
+          description: ensureModeDescription(values.description),
           installment_amount: unitAmount,
           installment_count: values.installment_count,
           total_amount: computedTotalAmount,

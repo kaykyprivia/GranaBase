@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FileText, Plus } from "lucide-react";
+import { Heart, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +11,7 @@ import { BillsManager, type BillsManagerHandle } from "@/components/bills/BillsM
 
 type ActiveTab = "bills" | "installments";
 
-export default function BillsPage() {
+export default function MaePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const installmentsPanelRef = useRef<InstallmentsPanelHandle>(null);
@@ -28,7 +28,7 @@ export default function BillsPage() {
       params.delete("tab");
     }
 
-    const nextUrl = params.toString() ? `/bills?${params.toString()}` : "/bills";
+    const nextUrl = params.toString() ? `/mae?${params.toString()}` : "/mae";
     router.replace(nextUrl, { scroll: false });
   };
 
@@ -36,12 +36,12 @@ export default function BillsPage() {
     <div className="page-container animate-fade-in">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-warning/20 p-2.5">
-            <FileText className="h-5 w-5 text-warning" />
+          <div className="rounded-xl bg-accent/20 p-2.5">
+            <Heart className="h-5 w-5 text-accent" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-text-primary">Contas</h1>
-            <p className="text-sm text-text-secondary">Contas, recorrências e parcelamentos.</p>
+            <h1 className="text-xl font-bold text-text-primary">Mãe</h1>
+            <p className="text-sm text-text-secondary">Contas e parcelamentos da mãe, separados das suas finanças.</p>
           </div>
         </div>
 
@@ -90,9 +90,9 @@ export default function BillsPage() {
       </div>
 
       {activeTab === "bills" ? (
-        <BillsManager ref={billsManagerRef} mode="exclude-mae" />
+        <BillsManager ref={billsManagerRef} mode="only-mae" />
       ) : (
-        <InstallmentsPanel ref={installmentsPanelRef} mode="exclude-mae" />
+        <InstallmentsPanel ref={installmentsPanelRef} mode="only-mae" />
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -10,6 +11,7 @@ import {
   PiggyBank,
   Target,
   BarChart3,
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { MAE_USER_ID } from "@/lib/mae";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -28,10 +31,21 @@ const navItems = [
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
 ];
 
+const maeNavItem = { href: "/mae", label: "Mãe", icon: Heart };
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [isMaeUser, setIsMaeUser] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsMaeUser(user?.id === MAE_USER_ID);
+    });
+  }, [supabase]);
+
+  const items = isMaeUser ? [...navItems, maeNavItem] : navItems;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -48,7 +62,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 min-h-0 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

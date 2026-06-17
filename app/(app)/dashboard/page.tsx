@@ -16,6 +16,7 @@ import { coerceData } from "@/lib/supabase/casts";
 import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
 import { calculateGoalMetrics } from "@/lib/goals";
 import { getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
+import { appliesMaeFilter } from "@/lib/mae";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
-import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, InstallmentPayment } from "@/types/database";
+import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment } from "@/types/database";
 
 const AreaChart = dynamic(
   () => import("recharts").then((m) => ({
@@ -127,6 +128,7 @@ export default function DashboardPage() {
       { data: billsData },
       { data: upcomingBillsData },
       { data: installmentPaymentsData },
+      { data: installmentsData },
       { data: investmentsData },
       { data: goalsData },
       { data: recentIncome },
@@ -137,6 +139,7 @@ export default function DashboardPage() {
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue", "paid"]),
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).order("due_date").limit(6),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
+      supabase.from("installments").select("*").eq("user_id", user.id),
       supabase.from("investments").select("amount").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
       supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }).limit(5),
@@ -145,9 +148,12 @@ export default function DashboardPage() {
 
     const incomeRows = coerceData<IncomeEntry[]>(allIncome ?? []);
     const expenseRows = coerceData<ExpenseEntry[]>(allExpenses ?? []);
-    const billRows = coerceData<Bill[]>(billsData ?? []);
-    const upcomingBillRows = coerceData<Bill[]>(upcomingBillsData ?? []);
-    const installmentPayments = coerceData<InstallmentPayment[]>(installmentPaymentsData ?? []);
+    const installments = coerceData<Installment[]>(installmentsData ?? []);
+    const installmentsById = new Map(installments.map((installment) => [installment.id, installment]));
+    const billRows = coerceData<Bill[]>(billsData ?? []).filter((bill) => appliesMaeFilter(user.id, "exclude-mae", bill.name));
+    const upcomingBillRows = coerceData<Bill[]>(upcomingBillsData ?? []).filter((bill) => appliesMaeFilter(user.id, "exclude-mae", bill.name));
+    const installmentPayments = coerceData<InstallmentPayment[]>(installmentPaymentsData ?? [])
+      .filter((payment) => appliesMaeFilter(user.id, "exclude-mae", installmentsById.get(payment.installment_id)?.description));
     const goalRows = coerceData<FinancialGoal[]>(goalsData ?? []);
     const recentIncomeRows = coerceData<IncomeEntry[]>(recentIncome ?? []);
     const recentExpenseRows = coerceData<ExpenseEntry[]>(recentExpenses ?? []);

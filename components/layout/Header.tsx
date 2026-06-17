@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, TrendingUp, TrendingDown, FileText,
-  PiggyBank, Target, BarChart3, Settings, LogOut,
+  PiggyBank, Target, BarChart3, Settings, LogOut, Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { MAE_USER_ID } from "@/lib/mae";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,15 +26,28 @@ const navItems = [
   { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
+const maeNavItem = { href: "/mae", label: "Mãe", icon: Heart };
+
 interface HeaderProps {
   pageTitle?: string;
 }
 
 export function Header({ pageTitle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMaeUser, setIsMaeUser] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsMaeUser(user?.id === MAE_USER_ID);
+    });
+  }, [supabase]);
+
+  const items = isMaeUser
+    ? [...navItems.slice(0, -1), maeNavItem, navItems[navItems.length - 1]]
+    : navItems;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -84,7 +98,7 @@ export function Header({ pageTitle }: HeaderProps) {
             </div>
 
             <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-              {navItems.map((item) => {
+              {items.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
