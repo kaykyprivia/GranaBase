@@ -55,6 +55,11 @@ function formatMonthLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function dateTimeSortKey(entry: IncomeEntry) {
+  const time = entry.created_at.includes("T") ? entry.created_at.slice(11) : "00:00:00";
+  return `${entry.received_at}T${time}`;
+}
+
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
 function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -126,7 +131,8 @@ export default function IncomePage() {
     return Object.entries(grouped)
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([month, items]) => ({
-        month, label: formatMonthLabel(month), items,
+        month, label: formatMonthLabel(month),
+        items: [...items].sort((a, b) => dateTimeSortKey(b).localeCompare(dateTimeSortKey(a))),
         total: items.reduce((s, e) => s + e.amount, 0),
       }));
   }, [filtered]);

@@ -76,6 +76,11 @@ function withNewDate(originalIso: string, newDateStr: string) {
   return original.toISOString();
 }
 
+function dateTimeSortKey(entry: DisplayExpense) {
+  const time = entry.created_at.includes("T") ? entry.created_at.slice(11) : "00:00:00";
+  return `${entry.spent_at}T${time}`;
+}
+
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
 function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -207,7 +212,8 @@ export default function ExpensesPage() {
     return Object.entries(grouped)
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([month, items]) => ({
-        month, label: formatMonthLabel(month), items,
+        month, label: formatMonthLabel(month),
+        items: [...items].sort((a, b) => dateTimeSortKey(b).localeCompare(dateTimeSortKey(a))),
         total: items.reduce((s, e) => s + e.amount, 0),
       }));
   }, [filtered]);
