@@ -66,6 +66,14 @@ interface DisplayExpense {
   payment_method: string | null;
   created_at: string;
   source: "manual" | "bill" | "installment";
+  dueAmount?: number;
+}
+
+function withNewDate(originalIso: string, newDateStr: string) {
+  const original = new Date(originalIso);
+  const [year, month, day] = newDateStr.split("-").map(Number);
+  original.setUTCFullYear(year, month - 1, day);
+  return original.toISOString();
 }
 
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
@@ -89,6 +97,12 @@ export default function ExpensesPage() {
   const [editingEntry, setEditingEntry] = useState<ExpenseEntry | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editPaidItem, setEditPaidItem] = useState<DisplayExpense | null>(null);
+  const [editPaidAmount, setEditPaidAmount] = useState(0);
+  const [editPaidDate, setEditPaidDate] = useState("");
+  const [editPaidSaving, setEditPaidSaving] = useState(false);
+  const [revertItem, setRevertItem] = useState<DisplayExpense | null>(null);
+  const [reverting, setReverting] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -132,6 +146,7 @@ export default function ExpensesPage() {
         payment_method: null,
         created_at: bill.paid_at!,
         source: "bill" as const,
+        dueAmount: bill.amount,
       }));
 
     const installmentExpenses: DisplayExpense[] = payments
@@ -149,6 +164,7 @@ export default function ExpensesPage() {
           payment_method: null,
           created_at: payment.paid_at!,
           source: "installment" as const,
+          dueAmount: payment.amount,
         };
       });
 
@@ -273,6 +289,68 @@ export default function ExpensesPage() {
     }
   };
 
+  const openEditPaid = (entry: DisplayExpense) => {
+    setEditPaidItem(entry);
+    setEditPaidAmount(entry.amount);
+    setEditPaidDate(entry.spent_at);
+  };
+
+  const handleSaveEditPaid = async () => {
+    if (!editPaidItem) return;
+    setEditPaidSaving(true);
+    try {
+      const newPaidAt = withNewDate(editPaidItem.created_at, editPaidDate);
+
+      if (editPaidItem.source === "bill") {
+        const { error } = await supabase.from("bills").update(coerceMutation({
+          amount: editPaidAmount, paid_at: newPaidAt,
+        })).eq("id", editPaidItem.id);
+        if (error) throw error;
+      } else if (editPaidItem.source === "installment") {
+        const dueAmount = editPaidItem.dueAmount ?? editPaidAmount;
+        const status = editPaidAmount < dueAmount ? "paid_with_discount" : "paid";
+        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+          paid_amount: editPaidAmount, paid_at: newPaidAt, status,
+        })).eq("id", editPaidItem.id);
+        if (error) throw error;
+      }
+
+      toast.success("Pagamento atualizado");
+      setEditPaidItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao atualizar pagamento");
+    } finally {
+      setEditPaidSaving(false);
+    }
+  };
+
+  const handleRevert = async () => {
+    if (!revertItem) return;
+    setReverting(true);
+    try {
+      if (revertItem.source === "bill") {
+        const { error } = await supabase.from("bills").update(coerceMutation({
+          status: "pending", paid_at: null,
+        })).eq("id", revertItem.id);
+        if (error) throw error;
+      } else if (revertItem.source === "installment") {
+        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+          status: "pending", paid_at: null, paid_amount: null,
+        })).eq("id", revertItem.id);
+        if (error) throw error;
+      }
+
+      toast.success("Pagamento desfeito — volta para pendente");
+      setRevertItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao desfazer pagamento");
+    } finally {
+      setReverting(false);
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="flex items-center justify-between gap-4 mb-6">
@@ -385,19 +463,25 @@ export default function ExpensesPage() {
                               <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              {entry.source === "manual" && (
-                                <>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => {
-                                    const original = entries.find((e) => e.id === entry.id);
-                                    if (original) openEdit(original);
-                                  }} className="text-text-secondary hover:text-text-primary">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)} className="text-text-secondary hover:text-expense hover:bg-expense/10">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
+                              <Button variant="ghost" size="icon-sm" onClick={() => {
+                                if (entry.source === "manual") {
+                                  const original = entries.find((e) => e.id === entry.id);
+                                  if (original) openEdit(original);
+                                } else {
+                                  openEditPaid(entry);
+                                }
+                              }} className="text-text-secondary hover:text-text-primary">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon-sm" onClick={() => {
+                                if (entry.source === "manual") {
+                                  setDeleteId(entry.id);
+                                } else {
+                                  setRevertItem(entry);
+                                }
+                              }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
                         );
@@ -459,6 +543,32 @@ export default function ExpensesPage() {
       <ConfirmDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}
         title="Excluir gasto" description="Tem certeza? Esta ação não pode ser desfeita."
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
+
+      <Dialog open={editPaidItem !== null} onOpenChange={open => !open && setEditPaidItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar pagamento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">{editPaidItem?.description}</p>
+            <FormField label="Valor pago" required>
+              <CurrencyInput value={editPaidAmount} onChange={setEditPaidAmount} />
+            </FormField>
+            <FormField label="Data do pagamento" required>
+              <Input type="date" value={editPaidDate} onChange={e => setEditPaidDate(e.target.value)} />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditPaidItem(null)}>Cancelar</Button>
+            <Button type="button" variant="destructive" loading={editPaidSaving} onClick={handleSaveEditPaid}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog open={revertItem !== null} onOpenChange={open => !open && setRevertItem(null)}
+        title="Desfazer pagamento"
+        description={`"${revertItem?.description}" vai voltar para pendente em ${revertItem?.source === "bill" ? "Contas" : "Parcelamentos"} e vai sair da lista de Gastos. Os dados da conta/parcelamento não são excluídos.`}
+        confirmLabel="Desfazer pagamento" onConfirm={handleRevert} loading={reverting} />
     </div>
   );
 }
