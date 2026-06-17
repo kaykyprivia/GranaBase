@@ -20,6 +20,7 @@ function makePayment(overrides: Partial<InstallmentPayment> = {}): InstallmentPa
     paid_amount: null,
     status: "pending",
     paid_at: null,
+    notes: null,
     created_at: "2026-04-30T00:00:00.000Z",
     ...overrides,
   };

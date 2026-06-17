@@ -95,19 +95,48 @@ export function summarizeInstallmentPayments(
   };
 }
 
+function combineDateWithExistingTime(
+  dateOnly: string,
+  existingPaidAt: string | null | undefined,
+  now: string
+): string {
+  const timeSource = existingPaidAt ?? now;
+  const timePart = timeSource.includes("T") ? timeSource.split("T")[1] : "00:00:00.000Z";
+  return `${dateOnly}T${timePart}`;
+}
+
 export function buildInstallmentStatusUpdate(
   payment: Pick<InstallmentPayment, "status" | "paid_at">,
   nextStatus: InstallmentStatus,
   paidAmount?: number | null,
-  now = new Date().toISOString()
+  now = new Date().toISOString(),
+  paidAtOverride?: string | null,
+  notes?: string | null
 ) {
   const shouldBePaid = isInstallmentPaid(nextStatus);
 
-  return {
+  let paidAt: string | null = shouldBePaid ? payment.paid_at ?? now : null;
+
+  if (shouldBePaid && paidAtOverride) {
+    paidAt = combineDateWithExistingTime(paidAtOverride, payment.paid_at, now);
+  }
+
+  const update: {
+    status: InstallmentStatus;
+    paid_at: string | null;
+    paid_amount: number | null;
+    notes?: string | null;
+  } = {
     status: nextStatus,
-    paid_at: shouldBePaid ? payment.paid_at ?? now : null,
+    paid_at: paidAt,
     paid_amount: shouldBePaid ? (paidAmount ?? null) : null,
   };
+
+  if (notes !== undefined) {
+    update.notes = notes;
+  }
+
+  return update;
 }
 
 function roundCurrency(value: number) {

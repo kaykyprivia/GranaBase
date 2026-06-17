@@ -280,6 +280,7 @@ export interface Database {
           paid_amount: number | null;
           status: InstallmentStatus;
           paid_at: string | null;
+          notes: string | null;
           created_at: string;
         };
         Insert: {
@@ -292,6 +293,7 @@ export interface Database {
           paid_amount?: number | null;
           status?: InstallmentStatus;
           paid_at?: string | null;
+          notes?: string | null;
           created_at?: string;
         };
         Update: {
@@ -304,6 +306,7 @@ export interface Database {
           paid_amount?: number | null;
           status?: InstallmentStatus;
           paid_at?: string | null;
+          notes?: string | null;
           created_at?: string;
         };
         Relationships: [

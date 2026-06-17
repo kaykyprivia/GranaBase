@@ -99,6 +99,8 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
   const [editingPayment, setEditingPayment] = useState<EditingPaymentState | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<InstallmentStatus>("pending");
   const [paymentPaidAmount, setPaymentPaidAmount] = useState<number>(0);
+  const [paymentPaidDate, setPaymentPaidDate] = useState<string>("");
+  const [paymentNotes, setPaymentNotes] = useState<string>("");
   const [confirmPayOpen, setConfirmPayOpen] = useState(false);
   const [confirmPayContext, setConfirmPayContext] = useState<{ item: InstallmentWithPayments; payment: InstallmentPayment } | null>(null);
   const [confirmPayAmount, setConfirmPayAmount] = useState<number>(0);
@@ -132,6 +134,8 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     setEditingPayment(null);
     setPaymentStatus("pending");
     setPaymentPaidAmount(0);
+    setPaymentPaidDate("");
+    setPaymentNotes("");
   };
 
   useImperativeHandle(ref, () => ({
@@ -203,6 +207,8 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     setEditingPayment({ installmentDescription: item.description, payment });
     setPaymentStatus(normalizeInstallmentStatus(payment.status));
     setPaymentPaidAmount(payment.paid_amount ?? payment.amount);
+    setPaymentPaidDate(payment.paid_at ? payment.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setPaymentNotes(payment.notes ?? "");
     setPaymentDialogOpen(true);
   };
 
@@ -376,16 +382,23 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     await handleCreate(values);
   };
 
-  const updatePaymentStatus = async (payment: InstallmentPayment, nextStatus: InstallmentStatus, successMessage: string, paidAmount?: number | null) => {
+  const updatePaymentStatus = async (
+    payment: InstallmentPayment,
+    nextStatus: InstallmentStatus,
+    successMessage: string,
+    paidAmount?: number | null,
+    paidAt?: string | null,
+    notes?: string | null
+  ) => {
     const currentStatus = normalizeInstallmentStatus(payment.status);
 
-    if (currentStatus === nextStatus && paidAmount === undefined) {
+    if (currentStatus === nextStatus && paidAmount === undefined && paidAt === undefined && notes === undefined) {
       return true;
     }
 
     setUpdatingPaymentId(payment.id);
     try {
-      const payload = buildInstallmentStatusUpdate(payment, nextStatus, paidAmount);
+      const payload = buildInstallmentStatusUpdate(payment, nextStatus, paidAmount, undefined, paidAt, notes);
       const { error } = await supabase
         .from("installment_payments")
         .update(coerceMutation(payload))
@@ -452,7 +465,9 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     }
 
     const paidAmount = paymentStatus === "paid_with_discount" ? paymentPaidAmount : null;
-    const saved = await updatePaymentStatus(editingPayment.payment, paymentStatus, "Parcela atualizada", paidAmount);
+    const paidAt = isInstallmentPaid(paymentStatus) ? paymentPaidDate : null;
+    const notes = paymentNotes.trim() || null;
+    const saved = await updatePaymentStatus(editingPayment.payment, paymentStatus, "Parcela atualizada", paidAmount, paidAt, notes);
 
     if (saved) {
       closePaymentDialog();
@@ -692,6 +707,11 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                               {isPaid && payment.paid_at && (
                                 <span className="text-[10px] text-text-secondary">{formatTime(payment.paid_at)}</span>
                               )}
+                              {payment.notes && (
+                                <span className="truncate text-[10px] text-text-secondary" title={payment.notes}>
+                                  · {payment.notes}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center justify-end gap-0.5">
                               <Button
@@ -887,6 +907,16 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
               </Select>
             </FormField>
 
+            {isInstallmentPaid(paymentStatus) && (
+              <FormField label="Data do pagamento" required>
+                <Input
+                  type="date"
+                  value={paymentPaidDate}
+                  onChange={(event) => setPaymentPaidDate(event.target.value)}
+                />
+              </FormField>
+            )}
+
             {paymentStatus === "paid_with_discount" && (
               <FormField label="Valor efetivamente pago" required>
                 <CurrencyInput
@@ -896,6 +926,15 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                 />
               </FormField>
             )}
+
+            <FormField label="Observação">
+              <Textarea
+                placeholder="Notas opcionais..."
+                value={paymentNotes}
+                onChange={(event) => setPaymentNotes(event.target.value)}
+                rows={2}
+              />
+            </FormField>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closePaymentDialog} disabled={updatingPaymentId !== null}>
