@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
 import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
 import { calculateGoalMetrics } from "@/lib/goals";
-import { isInstallmentPaid } from "@/lib/installments";
+import { getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -152,10 +152,16 @@ export default function DashboardPage() {
     const recentIncomeRows = coerceData<IncomeEntry[]>(recentIncome ?? []);
     const recentExpenseRows = coerceData<ExpenseEntry[]>(recentExpenses ?? []);
 
+    const paidInstallments = installmentPayments.filter((payment) => isInstallmentPaid(getEffectiveInstallmentStatus(payment)) && payment.paid_at);
+    const monthPaidInstallmentsAmount = paidInstallments
+      .filter((payment) => payment.paid_at!.startsWith(monthKey))
+      .reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
+    const totalPaidInstallmentsAmount = paidInstallments.reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
+
     const totalIncome = incomeRows.reduce((sum, entry) => sum + entry.amount, 0);
-    const totalExpenses = expenseRows.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalExpenses = expenseRows.reduce((sum, entry) => sum + entry.amount, 0) + totalPaidInstallmentsAmount;
     const monthIncome = incomeRows.filter((entry) => entry.received_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
-    const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
+    const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0) + monthPaidInstallmentsAmount;
     const openBills = billRows.filter((bill) => bill.status !== "paid");
     const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
     const futureInstallments = installmentPayments.filter((payment) => !isInstallmentPaid(getEffectiveInstallmentStatus(payment)));
@@ -191,7 +197,7 @@ export default function DashboardPage() {
     setRecentTransactions(combined);
 
     setGoals(goalRows);
-    setChartData(buildMonthSeries(incomeRows, expenseRows));
+    setChartData(buildMonthSeries(incomeRows, expenseRows, 6, installmentPayments));
 
     setLoading(false);
   }, []);

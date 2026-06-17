@@ -7,10 +7,11 @@ import { BarChart, Bar, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } 
 import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
+import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
-import type { ExpenseEntry } from "@/types/database";
+import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
+import type { Bill, ExpenseEntry, Installment, InstallmentPayment } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,17 @@ function formatMonthLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+interface DisplayExpense {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  spent_at: string;
+  payment_method: string | null;
+  created_at: string;
+  source: "manual" | "bill" | "installment";
+}
+
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
 function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -70,6 +82,7 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 export default function ExpensesPage() {
   const supabase = createClient();
   const [entries, setEntries] = useState<ExpenseEntry[]>([]);
+  const [paidBillsAndInstallments, setPaidBillsAndInstallments] = useState<DisplayExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -92,14 +105,63 @@ export default function ExpensesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
-    const { data, error } = await supabase
-      .from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false });
-    if (error) { toast.error("Erro ao carregar gastos"); return; }
-    setEntries(data ?? []);
+
+    const [expensesRes, billsRes, installmentsRes, paymentsRes] = await Promise.all([
+      supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }),
+      supabase.from("bills").select("*").eq("user_id", user.id).eq("status", "paid"),
+      supabase.from("installments").select("*").eq("user_id", user.id),
+      supabase.from("installment_payments").select("*").eq("user_id", user.id),
+    ]);
+
+    if (expensesRes.error) { toast.error("Erro ao carregar gastos"); return; }
+    setEntries(expensesRes.data ?? []);
+
+    const bills = coerceData<Bill[]>(billsRes.data ?? []);
+    const installments = coerceData<Installment[]>(installmentsRes.data ?? []);
+    const payments = coerceData<InstallmentPayment[]>(paymentsRes.data ?? []);
+    const installmentsById = new Map(installments.map((installment) => [installment.id, installment]));
+
+    const billExpenses: DisplayExpense[] = bills
+      .filter((bill) => bill.paid_at)
+      .map((bill) => ({
+        id: bill.id,
+        description: bill.name,
+        amount: bill.amount,
+        category: bill.category,
+        spent_at: bill.paid_at!.slice(0, 10),
+        payment_method: null,
+        created_at: bill.paid_at!,
+        source: "bill" as const,
+      }));
+
+    const installmentExpenses: DisplayExpense[] = payments
+      .filter((payment) => isInstallmentPaid(getEffectiveInstallmentStatus(payment)) && payment.paid_at)
+      .map((payment) => {
+        const installment = installmentsById.get(payment.installment_id);
+        return {
+          id: payment.id,
+          description: installment
+            ? `${installment.description} (${payment.installment_number}/${installment.installment_count})`
+            : `Parcela ${payment.installment_number}`,
+          amount: getInstallmentPaidAmount(payment),
+          category: "Parcelamento",
+          spent_at: payment.paid_at!.slice(0, 10),
+          payment_method: null,
+          created_at: payment.paid_at!,
+          source: "installment" as const,
+        };
+      });
+
+    setPaidBillsAndInstallments([...billExpenses, ...installmentExpenses]);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
+
+  const allEntries = useMemo<DisplayExpense[]>(() => [
+    ...entries.map((e) => ({ ...e, source: "manual" as const })),
+    ...paidBillsAndInstallments,
+  ], [entries, paidBillsAndInstallments]);
 
   const trendData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
@@ -107,20 +169,20 @@ export default function ExpensesPage() {
       d.setMonth(d.getMonth() - (5 - i));
       const key = d.toISOString().slice(0, 7);
       const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
-      const value = entries.filter(e => e.spent_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
+      const value = allEntries.filter(e => e.spent_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
       return { month: label, value };
     });
-  }, [entries]);
+  }, [allEntries]);
 
-  const filtered = useMemo(() => entries.filter(e => {
+  const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.spent_at.startsWith(monthFilter);
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
     return matchMonth && matchCat && matchSearch;
-  }), [entries, monthFilter, categoryFilter, search]);
+  }), [allEntries, monthFilter, categoryFilter, search]);
 
   const groupedByMonth = useMemo(() => {
-    const grouped: Record<string, ExpenseEntry[]> = {};
+    const grouped: Record<string, DisplayExpense[]> = {};
     [...filtered].forEach(e => {
       const key = e.spent_at.slice(0, 7);
       if (!grouped[key]) grouped[key] = [];
@@ -150,11 +212,11 @@ export default function ExpensesPage() {
 
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthTotal = entries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
+  const monthTotal = allEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
+  const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
   const topCategory = (() => {
     const map: Record<string, number> = {};
-    entries.filter(e => e.spent_at.startsWith(currentMonth)).forEach(e => { map[e.category] = (map[e.category] || 0) + e.amount; });
+    allEntries.filter(e => e.spent_at.startsWith(currentMonth)).forEach(e => { map[e.category] = (map[e.category] || 0) + e.amount; });
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
   })();
 
@@ -312,6 +374,8 @@ export default function ExpensesPage() {
                               <p className="truncate text-sm font-medium text-text-primary">{entry.description}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
+                                {entry.source === "bill" && <Badge variant="warning" className="text-[10px]">Conta</Badge>}
+                                {entry.source === "installment" && <Badge variant="default" className="text-[10px]">Parcela</Badge>}
                                 {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
                               </div>
                             </div>
@@ -321,12 +385,19 @@ export default function ExpensesPage() {
                               <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              <Button variant="ghost" size="icon-sm" onClick={() => openEdit(entry)} className="text-text-secondary hover:text-text-primary">
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)} className="text-text-secondary hover:text-expense hover:bg-expense/10">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {entry.source === "manual" && (
+                                <>
+                                  <Button variant="ghost" size="icon-sm" onClick={() => {
+                                    const original = entries.find((e) => e.id === entry.id);
+                                    if (original) openEdit(original);
+                                  }} className="text-text-secondary hover:text-text-primary">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)} className="text-text-secondary hover:text-expense hover:bg-expense/10">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );

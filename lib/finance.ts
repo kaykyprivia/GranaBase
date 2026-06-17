@@ -1,5 +1,5 @@
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution } from "@/types/database";
-import { getEffectiveInstallmentStatus } from "@/lib/installments";
+import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { formatCurrency, getMonthYear, isOverdue } from "@/lib/utils";
 
 export { getEffectiveInstallmentStatus } from "@/lib/installments";
@@ -55,18 +55,24 @@ export function getEffectiveBillStatus(bill: Pick<Bill, "status" | "due_date">) 
 export function buildMonthSeries(
   income: Pick<IncomeEntry, "amount" | "received_at">[],
   expenses: Pick<ExpenseEntry, "amount" | "spent_at">[],
-  months = 6
+  months = 6,
+  installmentPayments: Pick<InstallmentPayment, "amount" | "status" | "paid_at" | "paid_amount">[] = []
 ) {
   const now = new Date();
+  const paidInstallments = installmentPayments.filter((payment) => isInstallmentPaid(payment.status) && payment.paid_at);
 
   return Array.from({ length: months }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - (months - index - 1), 1);
     const key = getMonthYear(date);
 
+    const installmentsExpenses = paidInstallments
+      .filter((payment) => payment.paid_at!.startsWith(key))
+      .reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
+
     return {
       month: MONTH_LABELS[date.getMonth()],
       income: income.filter((entry) => entry.received_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0),
-      expenses: expenses.filter((entry) => entry.spent_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0),
+      expenses: expenses.filter((entry) => entry.spent_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0) + installmentsExpenses,
     };
   });
 }
