@@ -327,10 +327,9 @@ export default function IncomePage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard title="Total do Mês" value={formatCurrency(monthTotal)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingUp} variant="accent" loading={loading} />
-        <StatCard title="Registros" value={String(allEntries.length)} icon={TrendingUp} variant="default" loading={loading} subtitle={`${filtered.length} exibindo`} />
       </div>
 
       {/* Trend chart */}
