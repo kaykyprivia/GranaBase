@@ -460,7 +460,7 @@ export default function ExpensesPage() {
                               <div className="h-2 w-2 rounded-full" style={{ background: catColor }} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium text-text-primary">{entry.description}</p>
+                              <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
                               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                                 <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
                                 {entry.source === "bill" && <Badge variant="warning" className="text-[10px]">Conta</Badge>}

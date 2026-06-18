@@ -556,7 +556,7 @@ export default function ReportsPage() {
                               className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-border/20"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-text-primary">{expense.description}</p>
+                                <p className="break-words text-sm font-medium text-text-primary">{expense.description}</p>
                                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                   <Badge variant="default" className="text-[10px]">{expense.category}</Badge>
                                   {expense.payment_method && (

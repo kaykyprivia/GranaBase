@@ -73,12 +73,12 @@ export function StatCard({
     <div className={cn("stat-card group", styles.glow)}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-text-muted font-medium mb-2 truncate uppercase tracking-wider">{title}</p>
+          <p className="text-[11px] text-text-muted font-medium mb-2 uppercase tracking-wider leading-snug">{title}</p>
           <p className={cn("text-2xl font-bold tracking-tight tabular-nums", styles.value)}>{value}</p>
           {(subtitle || trend) && (
             <div className="flex items-center gap-2 mt-1">
               {subtitle && (
-                <p className="text-xs text-text-secondary truncate">{subtitle}</p>
+                <p className="text-xs text-text-secondary">{subtitle}</p>
               )}
               {trend && (
                 <span

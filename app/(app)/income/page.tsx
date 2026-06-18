@@ -404,7 +404,7 @@ export default function IncomePage() {
                             <TrendingUp className="h-3.5 w-3.5 text-profit" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-text-primary">{entry.description}</p>
+                            <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
                             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                               <Badge variant="profit" className="text-[10px]">{entry.category}</Badge>
                               {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">Recebível</Badge>}

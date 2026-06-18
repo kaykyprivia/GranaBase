@@ -591,7 +591,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-text-primary truncate">{item.description}</h3>
+                        <h3 className="font-semibold text-text-primary break-words">{item.description}</h3>
                         <span
                           className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
                           style={{
@@ -700,7 +700,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                             </div>
 
                             {/* Row 2: badge (+ paid time) + action buttons */}
-                            <div className="mt-1 flex items-center gap-1.5">
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <Badge variant={effectiveStatus} className="text-[10px]">
                                 {getInstallmentStatusLabel(effectiveStatus)}
                               </Badge>
@@ -708,7 +708,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                                 <span className="text-[10px] text-text-secondary">{formatTime(payment.paid_at)}</span>
                               )}
                               {payment.notes && (
-                                <span className="truncate text-[10px] text-text-secondary" title={payment.notes}>
+                                <span className="break-words text-[10px] text-text-secondary" title={payment.notes}>
                                   · {payment.notes}
                                 </span>
                               )}

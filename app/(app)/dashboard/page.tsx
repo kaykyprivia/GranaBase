@@ -280,7 +280,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-primary">Saúde financeira do mês</p>
-                  <p className="truncate text-xs text-text-secondary">{sublabel}</p>
+                  <p className="break-words text-xs text-text-secondary">{sublabel}</p>
                 </div>
               </div>
               <div className="shrink-0 text-right">
@@ -441,7 +441,7 @@ export default function DashboardPage() {
                         <AlertCircle className={cn("h-4 w-4", overdue ? "text-expense" : "text-warning")} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-text-primary truncate">{bill.name}</p>
+                        <p className="text-sm font-medium text-text-primary break-words">{bill.name}</p>
                         <p className={cn("text-xs", overdue ? "text-expense" : "text-warning")}>
                           {overdue
                             ? `Atrasada ${Math.abs(days)} dia${Math.abs(days) !== 1 ? "s" : ""}`
@@ -525,7 +525,7 @@ export default function DashboardPage() {
                         <CatIcon className="h-4 w-4" style={{ color: catMeta.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{tx.description}</p>
+                        <p className="text-sm font-medium text-text-primary break-words">{tx.description}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span
                             className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
@@ -577,7 +577,7 @@ export default function DashboardPage() {
                   return (
                     <div key={goal.id}>
                       <div className="flex items-center justify-between mb-1">
-                        <p className="truncate text-sm font-medium text-text-primary">{goal.name}</p>
+                        <p className="break-words text-sm font-medium text-text-primary">{goal.name}</p>
                         <span className="text-xs font-semibold" style={{ color }}>{metrics.displayProgress}%</span>
                       </div>
                       <Progress

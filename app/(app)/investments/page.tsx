@@ -155,13 +155,13 @@ function AssetCard({
     <div className="group relative overflow-hidden rounded-xl border border-border/60 bg-surface/60 p-4 transition-all hover:border-border hover:bg-border/20">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
-          <div className="mt-1.5 flex items-center gap-2">
+          <p className="break-words text-sm font-semibold text-text-primary">{entry.name}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <Badge variant="default" className="text-[10px]">{entry.investment_type}</Badge>
             <span className="text-[10px] text-text-secondary">{formatDate(entry.invested_at)}</span>
           </div>
           {entry.notes && (
-            <p className="mt-1 truncate text-[10px] text-text-secondary">{entry.notes}</p>
+            <p className="mt-1 break-words text-[10px] text-text-secondary">{entry.notes}</p>
           )}
         </div>
         <div className="shrink-0 text-right">
@@ -228,8 +228,8 @@ function InvestmentsTable({
             className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_112px]"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-text-primary">{entry.name}</p>
-              {entry.notes && <p className="truncate text-xs text-text-secondary">{entry.notes}</p>}
+              <p className="break-words text-sm font-semibold text-text-primary">{entry.name}</p>
+              {entry.notes && <p className="break-words text-xs text-text-secondary">{entry.notes}</p>}
               <div className="mt-1 flex items-center gap-2 sm:hidden">
                 <Badge variant="default" className="text-[10px]">
                   {entry.investment_type}
@@ -297,7 +297,7 @@ function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) 
             <span className={entry.type === "deposit" ? "text-sm font-semibold text-profit" : "text-sm font-semibold text-expense"}>
               {entry.type === "deposit" ? "+" : "-"}{formatCurrency(entry.amount)}
             </span>
-            <span className="min-w-0 truncate text-sm text-text-primary">{entry.description ?? "Movimentacao da carteira"}</span>
+            <span className="min-w-0 break-words text-sm text-text-primary">{entry.description ?? "Movimentacao da carteira"}</span>
             <span className="text-sm text-text-secondary">{formatContributionDate(entry.created_at)}</span>
           </div>
         ))}
