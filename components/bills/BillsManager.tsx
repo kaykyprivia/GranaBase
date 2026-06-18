@@ -313,11 +313,19 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
         )}
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard title="Pendentes" value={formatCurrency(pendingTotal)} icon={FileText} variant="warning" loading={loading} />
-        <StatCard title="Atrasadas" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
-        <StatCard title="Pagas este mês" value={formatCurrency(paidThisMonth)} icon={Check} variant="profit" loading={loading} />
-      </div>
+      {statusFilter !== "all" && (
+        <div className="mb-6 grid grid-cols-1 gap-3">
+          {statusFilter === "pending" && (
+            <StatCard title="Pendentes" value={formatCurrency(pendingTotal)} icon={FileText} variant="warning" loading={loading} />
+          )}
+          {statusFilter === "overdue" && (
+            <StatCard title="Atrasadas" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
+          )}
+          {statusFilter === "paid" && (
+            <StatCard title="Pagas este mês" value={formatCurrency(paidThisMonth)} icon={Check} variant="profit" loading={loading} />
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">

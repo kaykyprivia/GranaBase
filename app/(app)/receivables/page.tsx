@@ -249,11 +249,19 @@ export default function ReceivablesPage() {
         )}
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard title="Pendentes" value={formatCurrency(pendingTotal)} icon={HandCoins} variant="warning" loading={loading} />
-        <StatCard title="Atrasados" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
-        <StatCard title="Recebidos este mês" value={formatCurrency(receivedThisMonth)} icon={Check} variant="profit" loading={loading} />
-      </div>
+      {statusFilter !== "all" && (
+        <div className="mb-6 grid grid-cols-1 gap-3">
+          {statusFilter === "pending" && (
+            <StatCard title="Pendentes" value={formatCurrency(pendingTotal)} icon={HandCoins} variant="warning" loading={loading} />
+          )}
+          {statusFilter === "overdue" && (
+            <StatCard title="Atrasados" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
+          )}
+          {statusFilter === "received" && (
+            <StatCard title="Recebidos este mês" value={formatCurrency(receivedThisMonth)} icon={Check} variant="profit" loading={loading} />
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">
