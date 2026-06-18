@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Calendar, Check, ChevronDown, HandCoins, Pencil, Plus, Trash2, Clock, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Calendar, Check, ChevronDown, HandCoins, Pencil, Plus, RotateCcw, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -151,6 +151,23 @@ export default function ReceivablesPage() {
     }
   };
 
+  const handleUnmarkReceived = async (id: string) => {
+    setMarkingReceivedId(id);
+    try {
+      const { error } = await supabase
+        .from("receivables")
+        .update(coerceMutation({ status: "pending" as const, received_at: null }))
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Recebível voltou para pendente");
+      await fetchReceivables();
+    } catch {
+      toast.error("Erro ao desmarcar recebível");
+    } finally {
+      setMarkingReceivedId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
@@ -278,8 +295,8 @@ export default function ReceivablesPage() {
                   : <Clock className="h-4 w-4 text-warning" />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-text-primary">{receivable.description}</span>
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="break-words text-sm font-semibold text-text-primary">{receivable.description}</span>
                   <Badge variant="secondary" className="shrink-0 text-[10px]">{receivable.category}</Badge>
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
@@ -305,6 +322,12 @@ export default function ReceivablesPage() {
                   <Button variant="ghost" size="icon-sm" onClick={() => handleMarkReceived(receivable.id)}
                     disabled={markingReceivedId === receivable.id} className="text-profit hover:bg-profit/10 hover:text-profit" title="Marcar como recebido">
                     <Check className="h-4 w-4" />
+                  </Button>
+                )}
+                {effective === "received" && (
+                  <Button variant="ghost" size="icon-sm" onClick={() => handleUnmarkReceived(receivable.id)}
+                    disabled={markingReceivedId === receivable.id} className="text-warning hover:bg-warning/10 hover:text-warning" title="Desmarcar como recebido">
+                    <RotateCcw className="h-4 w-4" />
                   </Button>
                 )}
                 <Button variant="ghost" size="icon-sm" onClick={() => openEdit(receivable)} className="text-text-secondary hover:text-text-primary">

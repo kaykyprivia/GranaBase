@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
-import { AlertCircle, Calendar, Check, ChevronDown, FileText, Pencil, RefreshCw, Trash2, Clock, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Calendar, Check, ChevronDown, FileText, Pencil, RefreshCw, RotateCcw, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -233,6 +233,23 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     }
   };
 
+  const handleUnmarkPaid = async (id: string) => {
+    setMarkingPaidId(id);
+    try {
+      const { error } = await supabase
+        .from("bills")
+        .update(coerceMutation({ status: "pending" as const, paid_at: null }))
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Conta voltou para pendente");
+      await fetchBills();
+    } catch {
+      toast.error("Erro ao desmarcar conta");
+    } finally {
+      setMarkingPaidId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
@@ -342,8 +359,8 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                   : <Clock className="h-4 w-4 text-warning" />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-text-primary">{bill.name}</span>
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="break-words text-sm font-semibold text-text-primary">{bill.name}</span>
                   {bill.is_recurring && <RefreshCw className="h-3 w-3 shrink-0 text-accent" />}
                   <Badge variant="secondary" className="shrink-0 text-[10px]">{bill.category}</Badge>
                 </div>
@@ -376,6 +393,12 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                   <Button variant="ghost" size="icon-sm" onClick={() => handleMarkPaid(bill.id)}
                     disabled={markingPaidId === bill.id} className="text-profit hover:bg-profit/10 hover:text-profit" title="Marcar como paga">
                     <Check className="h-4 w-4" />
+                  </Button>
+                )}
+                {effective === "paid" && (
+                  <Button variant="ghost" size="icon-sm" onClick={() => handleUnmarkPaid(bill.id)}
+                    disabled={markingPaidId === bill.id} className="text-warning hover:bg-warning/10 hover:text-warning" title="Desmarcar como paga">
+                    <RotateCcw className="h-4 w-4" />
                   </Button>
                 )}
                 <Button variant="ghost" size="icon-sm" onClick={() => openEdit(bill)} className="text-text-secondary hover:text-text-primary">
