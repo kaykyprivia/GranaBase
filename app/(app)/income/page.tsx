@@ -7,10 +7,10 @@ import { BarChart, Bar, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } 
 import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
+import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { incomeSchema, type IncomeFormData } from "@/lib/validations";
-import type { IncomeEntry } from "@/types/database";
+import type { IncomeEntry, Receivable } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,9 +55,27 @@ function formatMonthLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function dateTimeSortKey(entry: IncomeEntry) {
+interface DisplayIncome {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  received_at: string;
+  payment_method: string | null;
+  created_at: string;
+  source: "manual" | "receivable";
+}
+
+function dateTimeSortKey(entry: DisplayIncome) {
   const time = entry.created_at.includes("T") ? entry.created_at.slice(11) : "00:00:00";
   return `${entry.received_at}T${time}`;
+}
+
+function withNewDate(originalIso: string, newDateStr: string) {
+  const original = new Date(originalIso);
+  const [year, month, day] = newDateStr.split("-").map(Number);
+  original.setUTCFullYear(year, month - 1, day);
+  return original.toISOString();
 }
 
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
@@ -74,11 +92,18 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 export default function IncomePage() {
   const supabase = createClient();
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
+  const [receivedReceivables, setReceivedReceivables] = useState<DisplayIncome[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<IncomeEntry | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editReceivedItem, setEditReceivedItem] = useState<DisplayIncome | null>(null);
+  const [editReceivedAmount, setEditReceivedAmount] = useState(0);
+  const [editReceivedDate, setEditReceivedDate] = useState("");
+  const [editReceivedSaving, setEditReceivedSaving] = useState(false);
+  const [revertReceivedItem, setRevertReceivedItem] = useState<DisplayIncome | null>(null);
+  const [revertingReceived, setRevertingReceived] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -94,14 +119,39 @@ export default function IncomePage() {
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data, error } = await supabase
-      .from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false });
-    if (error) { toast.error("Erro ao carregar entradas"); return; }
-    setEntries(data ?? []);
+
+    const [incomeRes, receivablesRes] = await Promise.all([
+      supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }),
+      supabase.from("receivables").select("*").eq("user_id", user.id).eq("status", "received"),
+    ]);
+
+    if (incomeRes.error) { toast.error("Erro ao carregar entradas"); return; }
+    setEntries(incomeRes.data ?? []);
+
+    const receivables = coerceData<Receivable[]>(receivablesRes.data ?? []);
+    setReceivedReceivables(
+      receivables
+        .filter((r) => r.received_at)
+        .map((r) => ({
+          id: r.id,
+          description: r.description,
+          amount: r.amount,
+          category: r.category,
+          received_at: r.received_at!.slice(0, 10),
+          payment_method: null,
+          created_at: r.received_at!,
+          source: "receivable" as const,
+        }))
+    );
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
+
+  const allEntries = useMemo<DisplayIncome[]>(() => [
+    ...entries.map((e) => ({ ...e, source: "manual" as const })),
+    ...receivedReceivables,
+  ], [entries, receivedReceivables]);
 
   const trendData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
@@ -109,20 +159,20 @@ export default function IncomePage() {
       d.setMonth(d.getMonth() - (5 - i));
       const key = d.toISOString().slice(0, 7);
       const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
-      const value = entries.filter(e => e.received_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
+      const value = allEntries.filter(e => e.received_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
       return { month: label, value };
     });
-  }, [entries]);
+  }, [allEntries]);
 
-  const filtered = useMemo(() => entries.filter(e => {
+  const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.received_at.startsWith(monthFilter);
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
     return matchMonth && matchCat && matchSearch;
-  }), [entries, monthFilter, categoryFilter, search]);
+  }), [allEntries, monthFilter, categoryFilter, search]);
 
   const groupedByMonth = useMemo(() => {
-    const grouped: Record<string, IncomeEntry[]> = {};
+    const grouped: Record<string, DisplayIncome[]> = {};
     [...filtered].forEach(e => {
       const key = e.received_at.slice(0, 7);
       if (!grouped[key]) grouped[key] = [];
@@ -153,8 +203,8 @@ export default function IncomePage() {
 
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthTotal = entries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
+  const monthTotal = allEntries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
+  const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -211,6 +261,51 @@ export default function IncomePage() {
     }
   };
 
+  const openEditReceived = (entry: DisplayIncome) => {
+    setEditReceivedItem(entry);
+    setEditReceivedAmount(entry.amount);
+    setEditReceivedDate(entry.received_at);
+  };
+
+  const handleSaveEditReceived = async () => {
+    if (!editReceivedItem) return;
+    setEditReceivedSaving(true);
+    try {
+      const newReceivedAt = withNewDate(editReceivedItem.created_at, editReceivedDate);
+      const { error } = await supabase.from("receivables").update(coerceMutation({
+        amount: editReceivedAmount, received_at: newReceivedAt,
+      })).eq("id", editReceivedItem.id);
+      if (error) throw error;
+
+      toast.success("Recebimento atualizado");
+      setEditReceivedItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao atualizar recebimento");
+    } finally {
+      setEditReceivedSaving(false);
+    }
+  };
+
+  const handleRevertReceived = async () => {
+    if (!revertReceivedItem) return;
+    setRevertingReceived(true);
+    try {
+      const { error } = await supabase.from("receivables").update(coerceMutation({
+        status: "pending", received_at: null,
+      })).eq("id", revertReceivedItem.id);
+      if (error) throw error;
+
+      toast.success("Recebimento desfeito — volta para pendente");
+      setRevertReceivedItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao desfazer recebimento");
+    } finally {
+      setRevertingReceived(false);
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in">
       {/* Header */}
@@ -235,7 +330,7 @@ export default function IncomePage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <StatCard title="Total do Mês" value={formatCurrency(monthTotal)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingUp} variant="accent" loading={loading} />
-        <StatCard title="Registros" value={String(entries.length)} icon={TrendingUp} variant="default" loading={loading} subtitle={`${filtered.length} exibindo`} />
+        <StatCard title="Registros" value={String(allEntries.length)} icon={TrendingUp} variant="default" loading={loading} subtitle={`${filtered.length} exibindo`} />
       </div>
 
       {/* Trend chart */}
@@ -312,6 +407,7 @@ export default function IncomePage() {
                             <p className="truncate text-sm font-medium text-text-primary">{entry.description}</p>
                             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                               <Badge variant="profit" className="text-[10px]">{entry.category}</Badge>
+                              {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">Recebível</Badge>}
                               {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
                             </div>
                           </div>
@@ -321,10 +417,23 @@ export default function IncomePage() {
                             <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
-                            <Button variant="ghost" size="icon-sm" onClick={() => openEdit(entry)} className="text-text-secondary hover:text-text-primary">
+                            <Button variant="ghost" size="icon-sm" onClick={() => {
+                              if (entry.source === "manual") {
+                                const original = entries.find((e) => e.id === entry.id);
+                                if (original) openEdit(original);
+                              } else {
+                                openEditReceived(entry);
+                              }
+                            }} className="text-text-secondary hover:text-text-primary">
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)} className="text-text-secondary hover:text-expense hover:bg-expense/10">
+                            <Button variant="ghost" size="icon-sm" onClick={() => {
+                              if (entry.source === "manual") {
+                                setDeleteId(entry.id);
+                              } else {
+                                setRevertReceivedItem(entry);
+                              }
+                            }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -388,6 +497,32 @@ export default function IncomePage() {
       <ConfirmDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}
         title="Excluir entrada" description="Tem certeza? Esta ação não pode ser desfeita."
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
+
+      <Dialog open={editReceivedItem !== null} onOpenChange={open => !open && setEditReceivedItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar recebimento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">{editReceivedItem?.description}</p>
+            <FormField label="Valor recebido" required>
+              <CurrencyInput value={editReceivedAmount} onChange={setEditReceivedAmount} />
+            </FormField>
+            <FormField label="Data do recebimento" required>
+              <Input type="date" value={editReceivedDate} onChange={e => setEditReceivedDate(e.target.value)} />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditReceivedItem(null)}>Cancelar</Button>
+            <Button type="button" variant="profit" loading={editReceivedSaving} onClick={handleSaveEditReceived}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog open={revertReceivedItem !== null} onOpenChange={open => !open && setRevertReceivedItem(null)}
+        title="Desfazer recebimento"
+        description={`"${revertReceivedItem?.description}" vai voltar para pendente em A Receber e vai sair da lista de Entradas. O registro não é excluído.`}
+        confirmLabel="Desfazer recebimento" onConfirm={handleRevertReceived} loading={revertingReceived} />
     </div>
   );
 }

@@ -25,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
-import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment } from "@/types/database";
+import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment, Receivable } from "@/types/database";
 
 const AreaChart = dynamic(
   () => import("recharts").then((m) => ({
@@ -129,6 +129,7 @@ export default function DashboardPage() {
       { data: upcomingBillsData },
       { data: installmentPaymentsData },
       { data: installmentsData },
+      { data: receivablesData },
       { data: investmentsData },
       { data: goalsData },
       { data: recentIncome },
@@ -140,6 +141,7 @@ export default function DashboardPage() {
       supabase.from("bills").select("*").eq("user_id", user.id).in("status", ["pending", "overdue"]).order("due_date").limit(6),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
       supabase.from("installments").select("*").eq("user_id", user.id),
+      supabase.from("receivables").select("*").eq("user_id", user.id),
       supabase.from("investments").select("amount").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
       supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }).limit(5),
@@ -164,9 +166,16 @@ export default function DashboardPage() {
       .reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
     const totalPaidInstallmentsAmount = paidInstallments.reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
 
-    const totalIncome = incomeRows.reduce((sum, entry) => sum + entry.amount, 0);
+    const receivables = coerceData<Receivable[]>(receivablesData ?? []);
+    const receivedReceivables = receivables.filter((r) => r.status === "received" && r.received_at);
+    const monthReceivedAmount = receivedReceivables
+      .filter((r) => r.received_at!.startsWith(monthKey))
+      .reduce((sum, r) => sum + r.amount, 0);
+    const totalReceivedAmount = receivedReceivables.reduce((sum, r) => sum + r.amount, 0);
+
+    const totalIncome = incomeRows.reduce((sum, entry) => sum + entry.amount, 0) + totalReceivedAmount;
     const totalExpenses = expenseRows.reduce((sum, entry) => sum + entry.amount, 0) + totalPaidInstallmentsAmount;
-    const monthIncome = incomeRows.filter((entry) => entry.received_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0);
+    const monthIncome = incomeRows.filter((entry) => entry.received_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0) + monthReceivedAmount;
     const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0) + monthPaidInstallmentsAmount;
     const openBills = billRows.filter((bill) => bill.status !== "paid");
     const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
@@ -203,7 +212,7 @@ export default function DashboardPage() {
     setRecentTransactions(combined);
 
     setGoals(goalRows);
-    setChartData(buildMonthSeries(incomeRows, expenseRows, 6, installmentPayments));
+    setChartData(buildMonthSeries(incomeRows, expenseRows, 6, installmentPayments, receivables));
 
     setLoading(false);
   }, []);

@@ -1,4 +1,4 @@
-import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution } from "@/types/database";
+import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution, Receivable } from "@/types/database";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { formatCurrency, getMonthYear, isOverdue } from "@/lib/utils";
 
@@ -52,14 +52,24 @@ export function getEffectiveBillStatus(bill: Pick<Bill, "status" | "due_date">) 
   return bill.status;
 }
 
+export function getEffectiveReceivableStatus(receivable: Pick<Receivable, "status" | "expected_date">) {
+  if (receivable.status === "pending" && isOverdue(receivable.expected_date)) {
+    return "overdue" as const;
+  }
+
+  return receivable.status;
+}
+
 export function buildMonthSeries(
   income: Pick<IncomeEntry, "amount" | "received_at">[],
   expenses: Pick<ExpenseEntry, "amount" | "spent_at">[],
   months = 6,
-  installmentPayments: Pick<InstallmentPayment, "amount" | "status" | "paid_at" | "paid_amount">[] = []
+  installmentPayments: Pick<InstallmentPayment, "amount" | "status" | "paid_at" | "paid_amount">[] = [],
+  receivables: Pick<Receivable, "amount" | "status" | "received_at">[] = []
 ) {
   const now = new Date();
   const paidInstallments = installmentPayments.filter((payment) => isInstallmentPaid(payment.status) && payment.paid_at);
+  const receivedReceivables = receivables.filter((receivable) => receivable.status === "received" && receivable.received_at);
 
   return Array.from({ length: months }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - (months - index - 1), 1);
@@ -69,9 +79,13 @@ export function buildMonthSeries(
       .filter((payment) => payment.paid_at!.startsWith(key))
       .reduce((sum, payment) => sum + getInstallmentPaidAmount(payment), 0);
 
+    const receivablesIncome = receivedReceivables
+      .filter((receivable) => receivable.received_at!.startsWith(key))
+      .reduce((sum, receivable) => sum + receivable.amount, 0);
+
     return {
       month: MONTH_LABELS[date.getMonth()],
-      income: income.filter((entry) => entry.received_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0),
+      income: income.filter((entry) => entry.received_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0) + receivablesIncome,
       expenses: expenses.filter((entry) => entry.spent_at.startsWith(key)).reduce((sum, entry) => sum + entry.amount, 0) + installmentsExpenses,
     };
   });

@@ -42,6 +42,14 @@ export const billSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const receivableSchema = z.object({
+  description: z.string().min(1, "Descrição é obrigatória"),
+  amount: z.number().positive("Valor deve ser positivo"),
+  expected_date: z.string().min(1, "Data prevista é obrigatória"),
+  category: z.string().min(1, "Categoria é obrigatória"),
+  notes: z.string().optional(),
+});
+
 export const installmentSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
   installment_amount: z.number().positive("Valor da parcela deve ser positivo"),
@@ -77,6 +85,7 @@ export type RegisterFormData = z.infer<typeof registerSchema>;
 export type IncomeFormData = z.infer<typeof incomeSchema>;
 export type ExpenseFormData = z.infer<typeof expenseSchema>;
 export type BillFormData = z.infer<typeof billSchema>;
+export type ReceivableFormData = z.infer<typeof receivableSchema>;
 export type InstallmentFormData = z.infer<typeof installmentSchema>;
 export type InvestmentFormData = z.infer<typeof investmentSchema>;
 export type GoalFormData = z.infer<typeof goalSchema>;

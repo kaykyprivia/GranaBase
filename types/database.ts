@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 type BillStatus = "pending" | "paid" | "overdue";
+export type ReceivableStatus = "pending" | "received" | "overdue";
 export type InstallmentStatus = "pending" | "paid" | "paid_with_discount";
 type GoalStatus = "active" | "completed" | "paused";
 type InvestmentContributionType = "deposit" | "withdraw";
@@ -220,6 +221,52 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "bills_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      receivables: {
+        Row: {
+          id: string;
+          user_id: string;
+          description: string;
+          amount: number;
+          expected_date: string;
+          status: ReceivableStatus;
+          category: string;
+          received_at: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          description: string;
+          amount: number;
+          expected_date: string;
+          status?: ReceivableStatus;
+          category: string;
+          received_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          description?: string;
+          amount?: number;
+          expected_date?: string;
+          status?: ReceivableStatus;
+          category?: string;
+          received_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "receivables_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -523,6 +570,7 @@ export type UserSettings = Tables<"user_settings">;
 export type IncomeEntry = Tables<"income_entries">;
 export type ExpenseEntry = Tables<"expense_entries">;
 export type Bill = Tables<"bills">;
+export type Receivable = Tables<"receivables">;
 export type Installment = Tables<"installments">;
 export type InstallmentPayment = Tables<"installment_payments">;
 export type Investment = Tables<"investments">;
@@ -533,6 +581,7 @@ export type FinancialGoal = Tables<"financial_goals">;
 export type InsertIncomeEntry = Inserts<"income_entries">;
 export type InsertExpenseEntry = Inserts<"expense_entries">;
 export type InsertBill = Inserts<"bills">;
+export type InsertReceivable = Inserts<"receivables">;
 export type InsertInstallment = Inserts<"installments">;
 export type InsertInstallmentPayment = Inserts<"installment_payments">;
 export type InsertInvestment = Inserts<"investments">;
