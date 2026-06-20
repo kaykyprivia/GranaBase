@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from "recharts";
@@ -34,7 +34,6 @@ import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  InvestmentsSubSidebar,
   investmentTabs,
   type InvestmentTabId,
 } from "@/components/investments/InvestmentsSubSidebar";
@@ -325,7 +324,6 @@ function MonthlyChartTooltip({ active, payload, label }: MonthlyChartTooltipProp
 
 export default function InvestmentsPage() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [entries, setEntries] = useState<Investment[]>([]);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
@@ -342,7 +340,7 @@ export default function InvestmentsPage() {
   const [monthFilter, setMonthFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTabState] = useState<InvestmentTabId>(() => {
+  const [activeTab, setActiveTab] = useState<InvestmentTabId>(() => {
     const tabParam = searchParams.get("tab") as InvestmentTabId | null;
     return tabParam && investmentTabs.some((tab) => tab.id === tabParam) ? tabParam : "overview";
   });
@@ -350,14 +348,9 @@ export default function InvestmentsPage() {
   useEffect(() => {
     const tabParam = searchParams.get("tab") as InvestmentTabId | null;
     if (tabParam && investmentTabs.some((tab) => tab.id === tabParam) && tabParam !== activeTab) {
-      setActiveTabState(tabParam);
+      setActiveTab(tabParam);
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const setActiveTab = (tab: InvestmentTabId) => {
-    setActiveTabState(tab);
-    router.replace(`/investments?tab=${tab}`, { scroll: false });
-  };
 
   const monthOptions = getMonthOptions(18);
 
@@ -686,9 +679,7 @@ export default function InvestmentsPage() {
 
       {/* Main panel */}
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
-        <div className="flex flex-col lg:flex-row lg:items-stretch">
-          <InvestmentsSubSidebar activeTab={activeTab} onTabChange={setActiveTab} embedded />
-
+        <div className="flex flex-col">
           <main className="min-w-0 flex-1 p-4 lg:p-5">
             {loading ? (
               <div className="space-y-2">
