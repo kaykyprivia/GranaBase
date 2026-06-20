@@ -465,11 +465,65 @@ export default function InvestmentsPage() {
     handleSubmit,
     control,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<InvestmentFormData>({
     resolver: zodResolver(investmentSchema),
     defaultValues: { name: "", amount: 0, investment_type: "", invested_at: "", ticker: "", quantity: undefined, notes: "" },
   });
+
+  const watchedTicker = watch("ticker");
+  const watchedType = watch("investment_type");
+  const watchedQuantity = watch("quantity");
+  const [tickerLookup, setTickerLookup] = useState<{ name: string | null; price: number | null } | null>(null);
+  const [tickerLookupLoading, setTickerLookupLoading] = useState(false);
+  const [tickerLookupNotFound, setTickerLookupNotFound] = useState(false);
+
+  useEffect(() => {
+    const ticker = watchedTicker?.trim().toUpperCase();
+    setTickerLookup(null);
+    setTickerLookupNotFound(false);
+
+    if (!ticker || ticker.length < 3) {
+      return;
+    }
+
+    const isCrypto = watchedType.trim().toLowerCase() === "crypto";
+    let alive = true;
+    setTickerLookupLoading(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const url = isCrypto
+          ? `/api/market/crypto?symbols=${ticker}`
+          : `/api/market/quotes?tickers=${ticker}`;
+        const response = await fetch(url);
+        const data = response.ok ? await response.json() : {};
+        const entry = data?.[ticker];
+
+        if (!alive) return;
+
+        if (isCrypto && entry) {
+          setTickerLookup({ name: null, price: entry.priceBrl ?? null });
+        } else if (!isCrypto && entry && entry.price !== null) {
+          setTickerLookup({ name: entry.name ?? null, price: entry.price ?? null });
+        } else {
+          setTickerLookupNotFound(true);
+        }
+      } catch {
+        if (alive) setTickerLookupNotFound(true);
+      } finally {
+        if (alive) setTickerLookupLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+      setTickerLookupLoading(false);
+    };
+  }, [watchedTicker, watchedType]);
 
   const fetchEntries = useCallback(async () => {
     const {
@@ -1253,6 +1307,46 @@ export default function InvestmentsPage() {
                 />
               </FormField>
             </div>
+
+            {tickerLookupLoading && (
+              <p className="text-xs text-text-secondary">Buscando cotação...</p>
+            )}
+            {!tickerLookupLoading && tickerLookup && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-xs">
+                <span className="text-text-secondary">
+                  {tickerLookup.name ? `${tickerLookup.name} · ` : ""}
+                  {tickerLookup.price !== null ? formatCurrency(tickerLookup.price) : "sem preço"}
+                </span>
+                {tickerLookup.name && (
+                  <button
+                    type="button"
+                    className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
+                    onClick={() => setValue("name", tickerLookup.name!)}
+                  >
+                    Usar nome
+                  </button>
+                )}
+                {tickerLookup.price !== null && (
+                  <button
+                    type="button"
+                    className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
+                    onClick={() =>
+                      setValue(
+                        "amount",
+                        watchedQuantity && watchedQuantity > 0
+                          ? Math.round(tickerLookup.price! * watchedQuantity * 100) / 100
+                          : tickerLookup.price!
+                      )
+                    }
+                  >
+                    Usar valor{watchedQuantity ? " (preço × qtd)" : ""}
+                  </button>
+                )}
+              </div>
+            )}
+            {!tickerLookupLoading && tickerLookupNotFound && (
+              <p className="text-xs text-text-secondary">Sem cotação disponível agora para esse ticker.</p>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Valor" error={errors.amount?.message} required>
