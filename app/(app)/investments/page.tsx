@@ -467,6 +467,7 @@ export default function InvestmentsPage() {
     reset,
     watch,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<InvestmentFormData>({
     resolver: zodResolver(investmentSchema),
@@ -508,6 +509,9 @@ export default function InvestmentsPage() {
           setTickerLookup({ name: null, price: entry.priceBrl ?? null });
         } else if (!isCrypto && entry && entry.price !== null) {
           setTickerLookup({ name: entry.name ?? null, price: entry.price ?? null });
+          if (entry.name && !getValues("name").trim()) {
+            setValue("name", entry.name);
+          }
         } else {
           setTickerLookupNotFound(true);
         }
@@ -523,7 +527,7 @@ export default function InvestmentsPage() {
       clearTimeout(timer);
       setTickerLookupLoading(false);
     };
-  }, [watchedTicker, watchedType]);
+  }, [watchedTicker, watchedType, getValues, setValue]);
 
   const fetchEntries = useCallback(async () => {
     const {
