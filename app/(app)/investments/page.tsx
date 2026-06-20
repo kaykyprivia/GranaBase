@@ -16,6 +16,10 @@ import {
   calculateTesouroSelicReturn,
   type MarketOverview,
 } from "@/lib/market";
+import type { AssetQuote } from "@/app/api/market/quotes/route";
+import type { CryptoQuote } from "@/app/api/market/crypto/route";
+import type { TreasuryTitle } from "@/app/api/market/treasury/route";
+import type { CurrencyConversionPayload } from "@/app/api/market/currency/route";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
 import type { Investment, InvestmentContribution } from "@/types/database";
@@ -136,20 +140,65 @@ function matchesInvestmentTab(entry: Investment, tab: InvestmentTabId) {
   }
 }
 
+interface LiveQuote {
+  price: number;
+  changePercent: number | null;
+}
+
+function getEntryQuote(
+  entry: Investment,
+  cryptoQuotes: Record<string, CryptoQuote>,
+  assetQuotes: Record<string, AssetQuote>
+): LiveQuote | null {
+  const ticker = entry.ticker?.trim().toUpperCase();
+  if (!ticker) return null;
+
+  const crypto = cryptoQuotes[ticker];
+  if (crypto) {
+    return { price: crypto.priceBrl, changePercent: crypto.changePercent24h };
+  }
+
+  const asset = assetQuotes[ticker];
+  if (asset && asset.price !== null) {
+    return { price: asset.price, changePercent: asset.changePercent };
+  }
+
+  return null;
+}
+
+function QuoteBadge({ quote }: { quote: LiveQuote }) {
+  const isPositive = (quote.changePercent ?? 0) >= 0;
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px]">
+      <span className="font-medium text-text-secondary">{formatCurrency(quote.price)}</span>
+      {quote.changePercent !== null && (
+        <span className={isPositive ? "text-profit" : "text-expense"}>
+          {isPositive ? "▲" : "▼"} {Math.abs(quote.changePercent).toFixed(2)}%
+        </span>
+      )}
+    </span>
+  );
+}
+
 function AssetCard({
   entry,
   portfolioTotal,
+  cryptoQuotes,
+  assetQuotes,
   onEdit,
   onSell,
   onDelete,
 }: {
   entry: Investment;
   portfolioTotal: number;
+  cryptoQuotes: Record<string, CryptoQuote>;
+  assetQuotes: Record<string, AssetQuote>;
   onEdit: (e: Investment) => void;
   onSell: (e: Investment) => void;
   onDelete: (id: string) => void;
 }) {
   const pct = portfolioTotal > 0 ? (entry.amount / portfolioTotal) * 100 : 0;
+  const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border/60 bg-surface/60 p-4 transition-all hover:border-border hover:bg-border/20">
@@ -159,6 +208,7 @@ function AssetCard({
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <Badge variant="default" className="text-[10px]">{entry.investment_type}</Badge>
             <span className="text-[10px] text-text-secondary">{formatDate(entry.invested_at)}</span>
+            {quote && <QuoteBadge quote={quote} />}
           </div>
           {entry.notes && (
             <p className="mt-1 break-words text-[10px] text-text-secondary">{entry.notes}</p>
@@ -203,11 +253,15 @@ function AssetCard({
 
 function InvestmentsTable({
   entries,
+  cryptoQuotes,
+  assetQuotes,
   onEdit,
   onSell,
   onDelete,
 }: {
   entries: Investment[];
+  cryptoQuotes: Record<string, CryptoQuote>;
+  assetQuotes: Record<string, AssetQuote>;
   onEdit: (entry: Investment) => void;
   onSell: (entry: Investment) => void;
   onDelete: (id: string) => void;
@@ -222,7 +276,9 @@ function InvestmentsTable({
         <span className="text-right">Acoes</span>
       </div>
       <div className="divide-y divide-border">
-        {entries.map((entry) => (
+        {entries.map((entry) => {
+          const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
+          return (
           <div
             key={entry.id}
             className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-border/20 sm:grid sm:grid-cols-[1fr_180px_140px_110px_112px]"
@@ -236,6 +292,11 @@ function InvestmentsTable({
                 </Badge>
                 <span className="text-xs text-text-secondary">{formatDate(entry.invested_at)}</span>
               </div>
+              {quote && (
+                <div className="mt-1">
+                  <QuoteBadge quote={quote} />
+                </div>
+              )}
             </div>
             <div className="hidden sm:block">
               <Badge variant="default">{entry.investment_type}</Badge>
@@ -266,7 +327,8 @@ function InvestmentsTable({
               </Button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -328,6 +390,14 @@ export default function InvestmentsPage() {
   const [entries, setEntries] = useState<Investment[]>([]);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
   const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
+  const [cryptoQuotes, setCryptoQuotes] = useState<Record<string, CryptoQuote>>({});
+  const [assetQuotes, setAssetQuotes] = useState<Record<string, AssetQuote>>({});
+  const [treasuryTitles, setTreasuryTitles] = useState<TreasuryTitle[]>([]);
+  const [currencyFrom, setCurrencyFrom] = useState("USD");
+  const [currencyTo, setCurrencyTo] = useState("BRL");
+  const [currencyAmount, setCurrencyAmount] = useState(1);
+  const [currencyResult, setCurrencyResult] = useState<CurrencyConversionPayload | null>(null);
+  const [convertingCurrency, setConvertingCurrency] = useState(false);
   const [simulationAmount, setSimulationAmount] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -429,6 +499,102 @@ export default function InvestmentsPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    fetch("/api/market/treasury")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { titles: TreasuryTitle[] } | null) => {
+        if (alive && data?.titles) {
+          setTreasuryTitles(data.titles);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setTreasuryTitles([]);
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const cryptoTypes = new Set(["cripto", "criptomoeda", "crypto"]);
+    const cryptoTickers = new Set<string>();
+    const assetTickers = new Set<string>();
+
+    for (const entry of entries) {
+      const ticker = entry.ticker?.trim().toUpperCase();
+      if (!ticker) continue;
+
+      const normalizedType = entry.investment_type.trim().toLowerCase();
+      if (cryptoTypes.has(normalizedType)) {
+        cryptoTickers.add(ticker);
+      } else {
+        assetTickers.add(ticker);
+      }
+    }
+
+    let alive = true;
+
+    if (cryptoTickers.size > 0) {
+      fetch(`/api/market/crypto?symbols=${[...cryptoTickers].join(",")}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: Record<string, CryptoQuote> | null) => {
+          if (alive && data) {
+            setCryptoQuotes(data);
+          }
+        })
+        .catch(() => {
+          if (alive) {
+            setCryptoQuotes({});
+          }
+        });
+    } else {
+      setCryptoQuotes({});
+    }
+
+    if (assetTickers.size > 0) {
+      fetch(`/api/market/quotes?tickers=${[...assetTickers].join(",")}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: Record<string, AssetQuote> | null) => {
+          if (alive && data) {
+            setAssetQuotes(data);
+          }
+        })
+        .catch(() => {
+          if (alive) {
+            setAssetQuotes({});
+          }
+        });
+    } else {
+      setAssetQuotes({});
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [entries]);
+
+  const handleConvertCurrency = async () => {
+    setConvertingCurrency(true);
+    try {
+      const response = await fetch(
+        `/api/market/currency?from=${currencyFrom}&to=${currencyTo}&amount=${currencyAmount}`
+      );
+      const data: CurrencyConversionPayload = response.ok
+        ? await response.json()
+        : { rate: null, amount: currencyAmount, converted: null, date: null };
+      setCurrencyResult(data);
+    } catch {
+      setCurrencyResult({ rate: null, amount: currencyAmount, converted: null, date: null });
+    } finally {
+      setConvertingCurrency(false);
+    }
+  };
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -795,6 +961,8 @@ export default function InvestmentsPage() {
                 ) : (
                   <InvestmentsTable
                     entries={filtered}
+                    cryptoQuotes={cryptoQuotes}
+                    assetQuotes={assetQuotes}
                     onEdit={openEdit}
                     onSell={setSellingEntry}
                     onDelete={setDeleteId}
@@ -830,6 +998,8 @@ export default function InvestmentsPage() {
                           key={entry.id}
                           entry={entry}
                           portfolioTotal={portfolioTotal}
+                          cryptoQuotes={cryptoQuotes}
+                          assetQuotes={assetQuotes}
                           onEdit={openEdit}
                           onSell={setSellingEntry}
                           onDelete={setDeleteId}
@@ -876,6 +1046,92 @@ export default function InvestmentsPage() {
                   )}
                 </Card>
 
+                {activeTab === "fixed-income" && treasuryTitles.length > 0 && (
+                  <Card className="border-border/70 bg-surface/90">
+                    <CardHeader>
+                      <CardTitle className="text-sm">Taxas do Tesouro Direto</CardTitle>
+                      <CardDescription>Valores informativos, atualizados periodicamente.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {treasuryTitles.map((title) => (
+                          <div
+                            key={title.name}
+                            className="rounded-xl border border-border/60 bg-surface/60 p-3"
+                          >
+                            <p className="break-words text-xs font-semibold text-text-primary">{title.name}</p>
+                            <div className="mt-1.5 flex items-center justify-between text-[11px] text-text-secondary">
+                              {title.rate !== null && (
+                                <span className="font-medium text-profit">{title.rate.toFixed(2)}% a.a.</span>
+                              )}
+                              {title.price !== null && <span>{formatCurrency(title.price)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {activeTab === "international" && (
+                  <Card className="border-border/70 bg-surface/90">
+                    <CardHeader>
+                      <CardTitle className="text-sm">Conversor de moedas</CardTitle>
+                      <CardDescription>Ferramenta utilitária, não altera seus registros.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          <p className="mb-1 text-[11px] text-text-secondary">Valor</p>
+                          <CurrencyInput value={currencyAmount} onChange={setCurrencyAmount} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="mb-1 text-[11px] text-text-secondary">De</p>
+                          <Select value={currencyFrom} onValueChange={setCurrencyFrom}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
+                                <SelectItem key={code} value={code}>{code}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <p className="mb-1 text-[11px] text-text-secondary">Para</p>
+                          <Select value={currencyTo} onValueChange={setCurrencyTo}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
+                                <SelectItem key={code} value={code}>{code}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          loading={convertingCurrency}
+                          onClick={handleConvertCurrency}
+                        >
+                          Converter
+                        </Button>
+                      </div>
+                      {currencyResult && currencyResult.converted !== null && (
+                        <p className="mt-3 text-sm text-text-primary">
+                          {currencyAmount} {currencyFrom} ={" "}
+                          <strong className="text-profit">
+                            {currencyResult.converted.toFixed(2)} {currencyTo}
+                          </strong>
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {tabEntries.length > 0 ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {tabEntries.map((entry) => (
@@ -883,6 +1139,8 @@ export default function InvestmentsPage() {
                         key={entry.id}
                         entry={entry}
                         portfolioTotal={portfolioTotal}
+                        cryptoQuotes={cryptoQuotes}
+                        assetQuotes={assetQuotes}
                         onEdit={openEdit}
                         onSell={setSellingEntry}
                         onDelete={setDeleteId}
