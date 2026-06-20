@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
@@ -113,6 +114,7 @@ export default function ExpensesPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
 
   const monthOptions = getMonthOptions();
 
@@ -374,11 +376,18 @@ export default function ExpensesPage() {
             <p className="text-sm text-text-secondary">Controle suas despesas</p>
           </div>
         </div>
-        <Button onClick={openCreate} size="sm" variant="destructive" className="gap-1.5 shrink-0">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Gasto</span>
-          <span className="sm:hidden">Novo</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline" className="gap-1.5">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar extrato</span>
+            <span className="sm:hidden">Importar</span>
+          </Button>
+          <Button onClick={openCreate} size="sm" variant="destructive" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Gasto</span>
+            <span className="sm:hidden">Novo</span>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
@@ -580,6 +589,14 @@ export default function ExpensesPage() {
         title="Desfazer pagamento"
         description={`"${revertItem?.description}" vai voltar para pendente em ${revertItem?.source === "bill" ? "Contas" : "Parcelamentos"} e vai sair da lista de Gastos. Os dados da conta/parcelamento não são excluídos.`}
         confirmLabel="Desfazer pagamento" onConfirm={handleRevert} loading={reverting} />
+
+      <ImportStatementDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        kind="expense"
+        userId={userId}
+        onImported={fetchEntries}
+      />
     </div>
   );
 }

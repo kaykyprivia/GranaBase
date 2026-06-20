@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import { incomeSchema, type IncomeFormData } from "@/lib/validations";
@@ -94,6 +95,8 @@ export default function IncomePage() {
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
   const [receivedReceivables, setReceivedReceivables] = useState<DisplayIncome[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<IncomeEntry | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export default function IncomePage() {
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     const [incomeRes, receivablesRes] = await Promise.all([
       supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }),
@@ -319,11 +323,18 @@ export default function IncomePage() {
             <p className="text-sm text-text-secondary">Controle suas receitas</p>
           </div>
         </div>
-        <Button onClick={openCreate} size="sm" variant="profit" className="gap-1.5 shrink-0">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nova Entrada</span>
-          <span className="sm:hidden">Nova</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline" className="gap-1.5">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar extrato</span>
+            <span className="sm:hidden">Importar</span>
+          </Button>
+          <Button onClick={openCreate} size="sm" variant="profit" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Entrada</span>
+            <span className="sm:hidden">Nova</span>
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -522,6 +533,14 @@ export default function IncomePage() {
         title="Desfazer recebimento"
         description={`"${revertReceivedItem?.description}" vai voltar para pendente em A Receber e vai sair da lista de Entradas. O registro não é excluído.`}
         confirmLabel="Desfazer recebimento" onConfirm={handleRevertReceived} loading={revertingReceived} />
+
+      <ImportStatementDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        kind="income"
+        userId={userId}
+        onImported={fetchEntries}
+      />
     </div>
   );
 }
