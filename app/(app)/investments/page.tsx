@@ -44,102 +44,6 @@ import {
 import { MarketTicker } from "@/components/investments/MarketTicker";
 import { PortfolioAllocationChart } from "@/components/investments/PortfolioAllocationChart";
 
-interface InvestmentCategoryMeta {
-  title: string;
-  description: string;
-}
-
-const investmentCategoryMeta: Record<InvestmentTabId, InvestmentCategoryMeta> = {
-  overview: {
-    title: "Visão geral",
-    description: "Uma leitura ampla dos seus aportes, filtros ativos e movimentações recentes.",
-  },
-  portfolio: {
-    title: "Carteira",
-    description: "Todos os registros que compõem a sua carteira atual.",
-  },
-  stocks: {
-    title: "Ações",
-    description: "Posições de renda variável local agrupadas em ações e ETFs.",
-  },
-  fiis: {
-    title: "FIIs",
-    description: "Fundos imobiliários que já foram registrados como investimento.",
-  },
-  "fixed-income": {
-    title: "Renda fixa",
-    description: "Tesouro, CDBs e reservas que funcionam como caixa ou proteção.",
-  },
-  crypto: {
-    title: "Criptomoedas",
-    description: "Acompanhe seus ativos digitais dentro da mesma experiência da carteira.",
-  },
-  international: {
-    title: "Exterior",
-    description: "Espaço reservado para ativos internacionais quando a base tiver esse recorte explícito.",
-  },
-  dividends: {
-    title: "Dividendos",
-    description: "Área preparada para consolidar renda passiva quando o app passar a registrar proventos.",
-  },
-  earnings: {
-    title: "Proventos",
-    description: "Uma visão futura para JCP, dividendos, amortizações e demais eventos de caixa.",
-  },
-  contributions: {
-    title: "Aportes",
-    description: "Histórico de registros lançados na sua carteira, destacando os aportes feitos.",
-  },
-  profitability: {
-    title: "Rentabilidade",
-    description: "Pronta para receber comparativos e evolução de performance quando houver métricas dedicadas.",
-  },
-  reports: {
-    title: "Relatórios",
-    description: "Seção reservada para análises consolidadas, exportações e visões executivas.",
-  },
-};
-
-function matchesInvestmentTab(entry: Investment, tab: InvestmentTabId) {
-  const normalizedType = entry.investment_type.trim().toLowerCase();
-  const normalizedName = entry.name.trim().toLowerCase();
-
-  switch (tab) {
-    case "overview":
-    case "portfolio":
-    case "contributions":
-      return true;
-    case "stocks":
-      return normalizedType === "acao" || normalizedType === "etf";
-    case "fiis":
-      return normalizedType === "fii";
-    case "fixed-income":
-      return normalizedType === "tesouro" || normalizedType === "cdb" || normalizedType === "reserva";
-    case "crypto":
-      return normalizedType === "crypto";
-    case "international":
-      return (
-        normalizedType.includes("bdr")
-        || normalizedName.includes("exterior")
-        || normalizedName.includes("internacional")
-        || normalizedName.includes("global")
-        || normalizedName.includes("usa")
-        || normalizedName.includes("eua")
-        || normalizedName.includes("nasdaq")
-        || normalizedName.includes("nyse")
-        || normalizedName.includes("s&p")
-        || normalizedName.includes("sp500")
-      );
-    case "dividends":
-    case "earnings":
-    case "profitability":
-    case "reports":
-      return false;
-    default:
-      return false;
-  }
-}
-
 interface LiveQuote {
   price: number;
   changePercent: number | null;
@@ -804,9 +708,6 @@ export default function InvestmentsPage() {
   );
   const portfolioTotal = useMemo(() => entries.reduce((sum, entry) => sum + entry.amount, 0), [entries]);
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
-  const activeTabItem = investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
-  const activeTabMeta = investmentCategoryMeta[activeTab];
-  const ActiveTabIcon = activeTabItem.icon;
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
   const tesouroReturn = calculateTesouroSelicReturn(portfolioTotal || simulationAmount, marketOverview.selic.annualizedValue);
   const portfolioCdiMonthly = useMemo(
@@ -838,15 +739,7 @@ export default function InvestmentsPage() {
     });
   }, [entries, monthFilter, search, typeFilter]);
 
-  const tabEntries = useMemo(
-    () => filtered.filter((entry) => matchesInvestmentTab(entry, activeTab)),
-    [activeTab, filtered]
-  );
-
-  const unfilteredTabEntries = useMemo(
-    () => entries.filter((entry) => matchesInvestmentTab(entry, activeTab)),
-    [activeTab, entries]
-  );
+  const tabEntries = filtered;
 
   const isOverviewTab = activeTab === "overview";
   const isPortfolioTab = activeTab === "portfolio";
@@ -1046,6 +939,63 @@ export default function InvestmentsPage() {
                   </>
                 )}
 
+                <Card className="border-border/70 bg-surface/90">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Conversor de moedas</CardTitle>
+                    <CardDescription>Ferramenta utilitária, não altera seus registros.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <div className="flex-1">
+                        <p className="mb-1 text-[11px] text-text-secondary">Valor</p>
+                        <CurrencyInput value={currencyAmount} onChange={setCurrencyAmount} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="mb-1 text-[11px] text-text-secondary">De</p>
+                        <Select value={currencyFrom} onValueChange={setCurrencyFrom}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
+                              <SelectItem key={code} value={code}>{code}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex-1">
+                        <p className="mb-1 text-[11px] text-text-secondary">Para</p>
+                        <Select value={currencyTo} onValueChange={setCurrencyTo}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
+                              <SelectItem key={code} value={code}>{code}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        loading={convertingCurrency}
+                        onClick={handleConvertCurrency}
+                      >
+                        Converter
+                      </Button>
+                    </div>
+                    {currencyResult && currencyResult.converted !== null && (
+                      <p className="mt-3 text-sm text-text-primary">
+                        {currencyAmount} {currencyFrom} ={" "}
+                        <strong className="text-profit">
+                          {currencyResult.converted.toFixed(2)} {currencyTo}
+                        </strong>
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {filtered.length === 0 ? (
                   <EmptyState
                     icon={PiggyBank}
@@ -1070,6 +1020,33 @@ export default function InvestmentsPage() {
 
             ) : isPortfolioTab ? (
               <div className="space-y-4">
+                {(typeFilter === "all" || typeFilter === "Tesouro" || typeFilter === "CDB") && treasuryTitles.length > 0 && (
+                  <Card className="border-border/70 bg-surface/90">
+                    <CardHeader>
+                      <CardTitle className="text-sm">Taxas do Tesouro Direto</CardTitle>
+                      <CardDescription>Valores informativos, atualizados periodicamente.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {treasuryTitles.map((title) => (
+                          <div
+                            key={title.name}
+                            className="rounded-xl border border-border/60 bg-surface/60 p-3"
+                          >
+                            <p className="break-words text-xs font-semibold text-text-primary">{title.name}</p>
+                            <div className="mt-1.5 flex items-center justify-between text-[11px] text-text-secondary">
+                              {title.rate !== null && (
+                                <span className="font-medium text-profit">{title.rate.toFixed(2)}% a.a.</span>
+                              )}
+                              {title.price !== null && <span>{formatCurrency(title.price)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {tabEntries.length === 0 ? (
                   <EmptyState
                     icon={Wallet}
@@ -1108,180 +1085,7 @@ export default function InvestmentsPage() {
                 )}
               </div>
 
-            ) : (
-              <div className="space-y-4">
-                <Card className="border-border/70 bg-surface/90">
-                  <CardHeader>
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-xl bg-accent/12 p-2.5 text-accent">
-                        <ActiveTabIcon className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <CardTitle>{activeTabMeta.title}</CardTitle>
-                        <CardDescription className="mt-1">
-                          {activeTabMeta.description}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  {tabEntries.length > 0 && (
-                    <CardContent>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
-                          {tabEntries.length} registro{tabEntries.length !== 1 ? "s" : ""}
-                        </span>
-                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
-                          {formatCurrency(tabEntries.reduce((sum, entry) => sum + entry.amount, 0))}
-                        </span>
-                        <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1">
-                          {portfolioTotal > 0
-                            ? `${((tabEntries.reduce((s, e) => s + e.amount, 0) / portfolioTotal) * 100).toFixed(1)}% carteira`
-                            : "0% carteira"
-                          }
-                        </span>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                {activeTab === "fixed-income" && treasuryTitles.length > 0 && (
-                  <Card className="border-border/70 bg-surface/90">
-                    <CardHeader>
-                      <CardTitle className="text-sm">Taxas do Tesouro Direto</CardTitle>
-                      <CardDescription>Valores informativos, atualizados periodicamente.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {treasuryTitles.map((title) => (
-                          <div
-                            key={title.name}
-                            className="rounded-xl border border-border/60 bg-surface/60 p-3"
-                          >
-                            <p className="break-words text-xs font-semibold text-text-primary">{title.name}</p>
-                            <div className="mt-1.5 flex items-center justify-between text-[11px] text-text-secondary">
-                              {title.rate !== null && (
-                                <span className="font-medium text-profit">{title.rate.toFixed(2)}% a.a.</span>
-                              )}
-                              {title.price !== null && <span>{formatCurrency(title.price)}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {activeTab === "international" && (
-                  <Card className="border-border/70 bg-surface/90">
-                    <CardHeader>
-                      <CardTitle className="text-sm">Conversor de moedas</CardTitle>
-                      <CardDescription>Ferramenta utilitária, não altera seus registros.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                        <div className="flex-1">
-                          <p className="mb-1 text-[11px] text-text-secondary">Valor</p>
-                          <CurrencyInput value={currencyAmount} onChange={setCurrencyAmount} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="mb-1 text-[11px] text-text-secondary">De</p>
-                          <Select value={currencyFrom} onValueChange={setCurrencyFrom}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
-                                <SelectItem key={code} value={code}>{code}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex-1">
-                          <p className="mb-1 text-[11px] text-text-secondary">Para</p>
-                          <Select value={currencyTo} onValueChange={setCurrencyTo}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "BRL"].map((code) => (
-                                <SelectItem key={code} value={code}>{code}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          loading={convertingCurrency}
-                          onClick={handleConvertCurrency}
-                        >
-                          Converter
-                        </Button>
-                      </div>
-                      {currencyResult && currencyResult.converted !== null && (
-                        <p className="mt-3 text-sm text-text-primary">
-                          {currencyAmount} {currencyFrom} ={" "}
-                          <strong className="text-profit">
-                            {currencyResult.converted.toFixed(2)} {currencyTo}
-                          </strong>
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {tabEntries.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {tabEntries.map((entry) => (
-                      <AssetCard
-                        key={entry.id}
-                        entry={entry}
-                        portfolioTotal={portfolioTotal}
-                        cryptoQuotes={cryptoQuotes}
-                        assetQuotes={assetQuotes}
-                        onEdit={openEdit}
-                        onSell={setSellingEntry}
-                        onDelete={setDeleteId}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={activeTabItem.icon}
-                    title={
-                      unfilteredTabEntries.length > 0
-                        ? `Nenhum registro visível em ${activeTabMeta.title}`
-                        : `${activeTabMeta.title} em preparação`
-                    }
-                    description={
-                      unfilteredTabEntries.length > 0
-                        ? "Os filtros atuais esconderam essa categoria. Ajuste mês, tipo ou busca para reencontrar os investimentos."
-                        : hasFilterApplied
-                          ? "Ainda não há registros suficientes para compor esta visão com os filtros ativos."
-                          : "Essa categoria já tem espaço reservado e pode receber dados assim que você começar a registrar esse tipo de investimento."
-                    }
-                    actionLabel={
-                      !hasFilterApplied
-                      && activeTab !== "dividends"
-                      && activeTab !== "earnings"
-                      && activeTab !== "profitability"
-                      && activeTab !== "reports"
-                        ? "+ Novo investimento"
-                        : undefined
-                    }
-                    onAction={
-                      !hasFilterApplied
-                      && activeTab !== "dividends"
-                      && activeTab !== "earnings"
-                      && activeTab !== "profitability"
-                      && activeTab !== "reports"
-                        ? openCreate
-                        : undefined
-                    }
-                  />
-                )}
-              </div>
-            )}
+            ) : null}
           </main>
         </div>
       </div>

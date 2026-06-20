@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ChevronDown, PiggyBank } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { investmentNavGroups, type InvestmentTabId } from "@/components/investments/InvestmentsSubSidebar";
+import { investmentTabs, type InvestmentTabId } from "@/components/investments/InvestmentsSubSidebar";
 
 interface InvestmentsNavAccordionProps {
   onNavigate?: () => void;
@@ -18,17 +18,6 @@ export function InvestmentsNavAccordion({ onNavigate }: InvestmentsNavAccordionP
   const activeTab: InvestmentTabId = ((isInvestmentsSection ? searchParams.get("tab") : null) as InvestmentTabId | null) ?? "overview";
 
   const [expanded, setExpanded] = useState(isInvestmentsSection);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    investmentNavGroups.reduce<Record<string, boolean>>((acc, item) => {
-      if (item.kind === "group") {
-        acc[item.groupId] = isInvestmentsSection && item.items.some((sub) => sub.id === activeTab);
-      }
-      return acc;
-    }, {})
-  );
-
-  const toggleGroup = (groupId: string) =>
-    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
 
   return (
     <div>
@@ -61,73 +50,22 @@ export function InvestmentsNavAccordion({ onNavigate }: InvestmentsNavAccordionP
         style={{ maxHeight: expanded ? "1000px" : "0px" }}
       >
         <div className="ml-[19px] mt-0.5 space-y-0.5 border-l border-border/60 py-0.5 pl-3">
-          {investmentNavGroups.map((item) => {
-            if (item.kind === "single") {
-              const isActive = isInvestmentsSection && activeTab === item.id;
-              return (
-                <Link
-                  key={item.id}
-                  href={`/investments?tab=${item.id}`}
-                  onClick={onNavigate}
-                  className={cn(
-                    "block rounded-lg px-3 py-2 text-sm transition-colors",
-                    isActive
-                      ? "bg-white/10 font-medium text-text-primary"
-                      : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            }
-
-            const isGroupOpen = !!openGroups[item.groupId];
-            const hasActiveChild = isInvestmentsSection && item.items.some((sub) => sub.id === activeTab);
-
+          {investmentTabs.map((item) => {
+            const isActive = isInvestmentsSection && activeTab === item.id;
             return (
-              <div key={item.groupId}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(item.groupId)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                    hasActiveChild
-                      ? "text-text-primary"
-                      : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
-                  )}
-                >
-                  <span className="flex-1 break-words text-left">{item.label}</span>
-                  <ChevronDown
-                    className={cn("h-3 w-3 shrink-0 transition-transform duration-200", isGroupOpen ? "rotate-180" : "rotate-0")}
-                  />
-                </button>
-
-                <div
-                  className="overflow-hidden transition-all duration-300 ease-in-out"
-                  style={{ maxHeight: isGroupOpen ? `${item.items.length * 40}px` : "0px" }}
-                >
-                  <div className="ml-3 space-y-0.5 border-l border-border/40 py-0.5 pl-3">
-                    {item.items.map((sub) => {
-                      const isActive = isInvestmentsSection && activeTab === sub.id;
-                      return (
-                        <Link
-                          key={sub.id}
-                          href={`/investments?tab=${sub.id}`}
-                          onClick={onNavigate}
-                          className={cn(
-                            "block rounded-lg px-3 py-1.5 text-xs transition-colors",
-                            isActive
-                              ? "bg-white/10 font-medium text-text-primary"
-                              : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
-                          )}
-                        >
-                          {sub.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <Link
+                key={item.id}
+                href={`/investments?tab=${item.id}`}
+                onClick={onNavigate}
+                className={cn(
+                  "block rounded-lg px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "bg-white/10 font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                )}
+              >
+                {item.label}
+              </Link>
             );
           })}
         </div>
