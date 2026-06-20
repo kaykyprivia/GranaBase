@@ -64,6 +64,7 @@ export const investmentSchema = z.object({
   investment_type: z.string().min(1, "Tipo é obrigatório"),
   invested_at: z.string().min(1, "Data é obrigatória"),
   ticker: z.string().optional(),
+  quantity: z.number().nonnegative("Quantidade não pode ser negativa").optional(),
   notes: z.string().optional(),
 });
 

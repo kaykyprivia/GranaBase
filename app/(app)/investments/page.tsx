@@ -20,7 +20,7 @@ import type { AssetQuote } from "@/app/api/market/quotes/route";
 import type { CryptoQuote } from "@/app/api/market/crypto/route";
 import type { TreasuryTitle } from "@/app/api/market/treasury/route";
 import type { CurrencyConversionPayload } from "@/app/api/market/currency/route";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
 import type { Investment, InvestmentContribution } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -180,6 +180,35 @@ function QuoteBadge({ quote }: { quote: LiveQuote }) {
   );
 }
 
+interface PositionGainLoss {
+  currentValue: number;
+  gainLoss: number;
+  gainLossPercent: number;
+}
+
+function getPositionGainLoss(entry: Investment, quote: LiveQuote | null): PositionGainLoss | null {
+  if (!quote || !entry.quantity || entry.quantity <= 0) {
+    return null;
+  }
+
+  const currentValue = entry.quantity * quote.price;
+  const gainLoss = currentValue - entry.amount;
+  const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
+
+  return { currentValue, gainLoss, gainLossPercent };
+}
+
+function GainLossBadge({ gainLoss }: { gainLoss: PositionGainLoss }) {
+  const isPositive = gainLoss.gainLoss >= 0;
+  return (
+    <p className={cn("mt-0.5 text-[10px] font-medium", isPositive ? "text-profit" : "text-expense")}>
+      Atual: {formatCurrency(gainLoss.currentValue)} ({isPositive ? "+" : ""}
+      {formatCurrency(gainLoss.gainLoss)} · {isPositive ? "+" : ""}
+      {gainLoss.gainLossPercent.toFixed(1)}%)
+    </p>
+  );
+}
+
 function AssetCard({
   entry,
   portfolioTotal,
@@ -199,6 +228,7 @@ function AssetCard({
 }) {
   const pct = portfolioTotal > 0 ? (entry.amount / portfolioTotal) * 100 : 0;
   const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
+  const gainLoss = getPositionGainLoss(entry, quote);
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border/60 bg-surface/60 p-4 transition-all hover:border-border hover:bg-border/20">
@@ -209,6 +239,9 @@ function AssetCard({
             <Badge variant="default" className="text-[10px]">{entry.investment_type}</Badge>
             <span className="text-[10px] text-text-secondary">{formatDate(entry.invested_at)}</span>
             {quote && <QuoteBadge quote={quote} />}
+            {entry.quantity ? (
+              <span className="text-[10px] text-text-secondary">{entry.quantity} cotas</span>
+            ) : null}
           </div>
           {entry.notes && (
             <p className="mt-1 break-words text-[10px] text-text-secondary">{entry.notes}</p>
@@ -217,6 +250,7 @@ function AssetCard({
         <div className="shrink-0 text-right">
           <p className="text-sm font-bold text-profit">{formatCurrency(entry.amount)}</p>
           <p className="mt-0.5 text-[10px] text-text-secondary">{pct.toFixed(1)}% carteira</p>
+          {gainLoss && <GainLossBadge gainLoss={gainLoss} />}
         </div>
       </div>
       <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/30">
@@ -278,6 +312,7 @@ function InvestmentsTable({
       <div className="divide-y divide-border">
         {entries.map((entry) => {
           const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
+          const gainLoss = getPositionGainLoss(entry, quote);
           return (
           <div
             key={entry.id}
@@ -297,6 +332,7 @@ function InvestmentsTable({
                   <QuoteBadge quote={quote} />
                 </div>
               )}
+              {gainLoss && <GainLossBadge gainLoss={gainLoss} />}
             </div>
             <div className="hidden sm:block">
               <Badge variant="default">{entry.investment_type}</Badge>
@@ -432,7 +468,7 @@ export default function InvestmentsPage() {
     formState: { errors, isSubmitting },
   } = useForm<InvestmentFormData>({
     resolver: zodResolver(investmentSchema),
-    defaultValues: { name: "", amount: 0, investment_type: "", invested_at: "", ticker: "", notes: "" },
+    defaultValues: { name: "", amount: 0, investment_type: "", invested_at: "", ticker: "", quantity: undefined, notes: "" },
   });
 
   const fetchEntries = useCallback(async () => {
@@ -604,6 +640,7 @@ export default function InvestmentsPage() {
       investment_type: "",
       invested_at: new Date().toISOString().split("T")[0],
       ticker: "",
+      quantity: undefined,
       notes: "",
     });
     setModalOpen(true);
@@ -617,6 +654,7 @@ export default function InvestmentsPage() {
       investment_type: entry.investment_type,
       invested_at: entry.invested_at,
       ticker: entry.ticker ?? "",
+      quantity: entry.quantity ?? undefined,
       notes: entry.notes ?? "",
     });
     setModalOpen(true);
@@ -633,6 +671,7 @@ export default function InvestmentsPage() {
             investment_type: data.investment_type,
             invested_at: data.invested_at,
             ticker: data.ticker?.trim().toUpperCase() || null,
+            quantity: data.quantity ?? null,
             notes: data.notes || null,
           }))
           .eq("id", editingEntry.id);
@@ -647,6 +686,7 @@ export default function InvestmentsPage() {
           investment_type: data.investment_type,
           invested_at: data.invested_at,
           ticker: data.ticker?.trim().toUpperCase() || null,
+          quantity: data.quantity ?? null,
           notes: data.notes || null,
         }));
 
@@ -1198,9 +1238,21 @@ export default function InvestmentsPage() {
               <Input placeholder="Ex: Tesouro Selic" error={errors.name?.message} {...register("name")} />
             </FormField>
 
-            <FormField label="Ticker / Símbolo" error={errors.ticker?.message}>
-              <Input placeholder="Ex: PETR4, MXRF11, BTC" error={errors.ticker?.message} {...register("ticker")} />
-            </FormField>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label="Ticker / Símbolo" error={errors.ticker?.message}>
+                <Input placeholder="Ex: PETR4, MXRF11, BTC" error={errors.ticker?.message} {...register("ticker")} />
+              </FormField>
+              <FormField label="Quantidade de cotas" error={errors.quantity?.message}>
+                <Input
+                  type="number"
+                  step="any"
+                  min={0}
+                  placeholder="Ex: 100"
+                  error={errors.quantity?.message}
+                  {...register("quantity", { valueAsNumber: true })}
+                />
+              </FormField>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Valor" error={errors.amount?.message} required>
