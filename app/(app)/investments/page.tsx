@@ -864,12 +864,38 @@ export default function InvestmentsPage() {
               <div className="space-y-4">
                 {filtered.length > 0 && (
                   <>
-                    {/* Allocation chart + Simulator */}
+                    {/* Allocation chart */}
+                    <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
+                      <p className="mb-4 text-sm font-semibold text-text-primary">Distribuição da carteira</p>
+                      <PortfolioAllocationChart investments={filtered} />
+                    </div>
+
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5 lg:col-span-2">
-                        <p className="mb-4 text-sm font-semibold text-text-primary">Distribuição da carteira</p>
-                        <PortfolioAllocationChart investments={filtered} />
-                      </div>
+                      {/* Monthly contributions bar chart */}
+                      {hasMonthlyData && (
+                        <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5 lg:col-span-2">
+                          <p className="mb-4 text-sm font-semibold text-text-primary">Aportes mensais</p>
+                          <ResponsiveContainer width="100%" height={140}>
+                            <BarChart data={monthlyChartData} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
+                              <XAxis
+                                dataKey="month"
+                                tick={{ fontSize: 11, fill: "#94A3B8" }}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                              <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                                <LabelList
+                                  dataKey="value"
+                                  position="top"
+                                  formatter={(v: number) => v > 0 ? `R$${(v / 1000).toFixed(1)}k` : ""}
+                                  style={{ fontSize: 10, fill: "#94A3B8" }}
+                                />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
 
                       <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
                         <p className="mb-4 text-sm font-semibold text-text-primary">Simulador CDI / SELIC</p>
@@ -891,18 +917,6 @@ export default function InvestmentsPage() {
                           </div>
                           <div className="border-t border-border/40 pt-3 space-y-1.5 text-xs text-text-secondary">
                             <div className="flex justify-between">
-                              <span>CDI a.a.</span>
-                              <span className="font-medium text-profit">{marketOverview.cdi.annualizedValue.toFixed(2)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>SELIC a.a.</span>
-                              <span className="font-medium text-profit">{marketOverview.selic.annualizedValue.toFixed(2)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>IPCA a.a.</span>
-                              <span className="font-medium text-expense">{marketOverview.ipca.annualizedValue.toFixed(2)}%</span>
-                            </div>
-                            <div className="flex justify-between">
                               <span>Carteira / CDI mês</span>
                               <strong className="text-profit">{formatCurrency(tesouroReturn.monthly)}</strong>
                             </div>
@@ -910,32 +924,6 @@ export default function InvestmentsPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* Monthly contributions bar chart */}
-                    {hasMonthlyData && (
-                      <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface/60 p-5">
-                        <p className="mb-4 text-sm font-semibold text-text-primary">Aportes mensais</p>
-                        <ResponsiveContainer width="100%" height={140}>
-                          <BarChart data={monthlyChartData} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
-                            <XAxis
-                              dataKey="month"
-                              tick={{ fontSize: 11, fill: "#94A3B8" }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                            <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44}>
-                              <LabelList
-                                dataKey="value"
-                                position="top"
-                                formatter={(v: number) => v > 0 ? `R$${(v / 1000).toFixed(1)}k` : ""}
-                                style={{ fontSize: 10, fill: "#94A3B8" }}
-                              />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
                   </>
                 )}
 
