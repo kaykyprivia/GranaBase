@@ -380,6 +380,7 @@ export interface Database {
           investment_type: string;
           invested_at: string;
           notes: string | null;
+          ticker: string | null;
           created_at: string;
         };
         Insert: {
@@ -390,6 +391,7 @@ export interface Database {
           investment_type: string;
           invested_at: string;
           notes?: string | null;
+          ticker?: string | null;
           created_at?: string;
         };
         Update: {
@@ -400,6 +402,7 @@ export interface Database {
           investment_type?: string;
           invested_at?: string;
           notes?: string | null;
+          ticker?: string | null;
           created_at?: string;
         };
         Relationships: [

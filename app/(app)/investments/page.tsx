@@ -362,7 +362,7 @@ export default function InvestmentsPage() {
     formState: { errors, isSubmitting },
   } = useForm<InvestmentFormData>({
     resolver: zodResolver(investmentSchema),
-    defaultValues: { name: "", amount: 0, investment_type: "", invested_at: "", notes: "" },
+    defaultValues: { name: "", amount: 0, investment_type: "", invested_at: "", ticker: "", notes: "" },
   });
 
   const fetchEntries = useCallback(async () => {
@@ -437,6 +437,7 @@ export default function InvestmentsPage() {
       amount: 0,
       investment_type: "",
       invested_at: new Date().toISOString().split("T")[0],
+      ticker: "",
       notes: "",
     });
     setModalOpen(true);
@@ -449,6 +450,7 @@ export default function InvestmentsPage() {
       amount: entry.amount,
       investment_type: entry.investment_type,
       invested_at: entry.invested_at,
+      ticker: entry.ticker ?? "",
       notes: entry.notes ?? "",
     });
     setModalOpen(true);
@@ -464,6 +466,7 @@ export default function InvestmentsPage() {
             amount: data.amount,
             investment_type: data.investment_type,
             invested_at: data.invested_at,
+            ticker: data.ticker?.trim().toUpperCase() || null,
             notes: data.notes || null,
           }))
           .eq("id", editingEntry.id);
@@ -477,6 +480,7 @@ export default function InvestmentsPage() {
           amount: data.amount,
           investment_type: data.investment_type,
           invested_at: data.invested_at,
+          ticker: data.ticker?.trim().toUpperCase() || null,
           notes: data.notes || null,
         }));
 
@@ -934,6 +938,10 @@ export default function InvestmentsPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <FormField label="Nome" error={errors.name?.message} required>
               <Input placeholder="Ex: Tesouro Selic" error={errors.name?.message} {...register("name")} />
+            </FormField>
+
+            <FormField label="Ticker / Símbolo" error={errors.ticker?.message}>
+              <Input placeholder="Ex: PETR4, MXRF11, BTC" error={errors.ticker?.message} {...register("ticker")} />
             </FormField>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
