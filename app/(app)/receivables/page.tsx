@@ -8,6 +8,7 @@ import { coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, getDaysUntilDue } from "@/lib/utils";
 import { getEffectiveReceivableStatus } from "@/lib/finance";
 import { receivableSchema, type ReceivableFormData } from "@/lib/validations";
+import { isDateOnHolidayList, type BrasilApiHoliday } from "@/lib/brasilapi";
 import type { Receivable } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ export default function ReceivablesPage() {
   const [deleting, setDeleting] = useState(false);
   const [markingReceivedId, setMarkingReceivedId] = useState<string | null>(null);
   const [receivedSectionOpen, setReceivedSectionOpen] = useState(false);
+  const [holidaysByYear, setHolidaysByYear] = useState<Record<string, BrasilApiHoliday[]>>({});
 
   const fetchReceivables = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -68,6 +70,41 @@ export default function ReceivablesPage() {
   useEffect(() => {
     fetchReceivables();
   }, [fetchReceivables]);
+
+  useEffect(() => {
+    const years = [...new Set(receivables.map((r) => r.expected_date.slice(0, 4)))].filter(
+      (year) => !(year in holidaysByYear)
+    );
+    if (years.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        years.map(async (year) => {
+          try {
+            const response = await fetch(`/api/brasilapi/holidays?year=${year}`);
+            if (!response.ok) return [year, [] as BrasilApiHoliday[]] as const;
+            const data = (await response.json()) as BrasilApiHoliday[];
+            return [year, Array.isArray(data) ? data : []] as const;
+          } catch {
+            return [year, [] as BrasilApiHoliday[]] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      setHolidaysByYear((current) => {
+        const next = { ...current };
+        for (const [year, holidays] of entries) {
+          next[year] = holidays;
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [receivables, holidaysByYear]);
 
   const openCreate = () => {
     setEditingReceivable(null);
@@ -287,6 +324,9 @@ export default function ReceivablesPage() {
         const ReceivableCard = ({ receivable }: { receivable: Receivable }) => {
           const effective = getEffectiveReceivableStatus(receivable);
           const daysUntil = getDaysUntilDue(receivable.expected_date);
+          const holiday = effective !== "received"
+            ? isDateOnHolidayList(receivable.expected_date, holidaysByYear[receivable.expected_date.slice(0, 4)] ?? [])
+            : null;
           return (
             <div className={cn(
               "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-border/20",
@@ -311,6 +351,9 @@ export default function ReceivablesPage() {
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />{formatDate(receivable.expected_date)}
                   </span>
+                  {holiday && (
+                    <span className="text-text-secondary">🎉 Feriado: {holiday.name}</span>
+                  )}
                   {effective === "overdue" && (
                     <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>
                   )}

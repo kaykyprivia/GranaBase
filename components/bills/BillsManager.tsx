@@ -1,13 +1,14 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
-import { AlertCircle, Calendar, Check, ChevronDown, FileText, Pencil, RefreshCw, RotateCcw, Trash2, Clock, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Calendar, Check, ChevronDown, FileText, Loader2, Pencil, RefreshCw, RotateCcw, Search, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
 import { addMonths, cn, formatCurrency, formatDate, getDaysUntilDue, isOverdue } from "@/lib/utils";
 import { billSchema, type BillFormData } from "@/lib/validations";
 import { appliesMaeFilter, isMaeName, type MaeFilterMode } from "@/lib/mae";
+import { isDateOnHolidayList, type BrasilApiHoliday } from "@/lib/brasilapi";
 import type { Bill } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,9 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const [deleting, setDeleting] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [paidSectionOpen, setPaidSectionOpen] = useState(false);
+  const [cnpjInput, setCnpjInput] = useState("");
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [holidaysByYear, setHolidaysByYear] = useState<Record<string, BrasilApiHoliday[]>>({});
 
   const ensureModeName = (name: string) =>
     mode === "only-mae" && !isMaeName(name) ? `Mãe - ${name}` : name;
@@ -125,10 +129,46 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     fetchBills();
   }, [fetchBills]);
 
+  useEffect(() => {
+    const years = [...new Set(bills.map((bill) => bill.due_date.slice(0, 4)))].filter(
+      (year) => !(year in holidaysByYear)
+    );
+    if (years.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        years.map(async (year) => {
+          try {
+            const response = await fetch(`/api/brasilapi/holidays?year=${year}`);
+            if (!response.ok) return [year, [] as BrasilApiHoliday[]] as const;
+            const data = (await response.json()) as BrasilApiHoliday[];
+            return [year, Array.isArray(data) ? data : []] as const;
+          } catch {
+            return [year, [] as BrasilApiHoliday[]] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      setHolidaysByYear((current) => {
+        const next = { ...current };
+        for (const [year, holidays] of entries) {
+          next[year] = holidays;
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bills, holidaysByYear]);
+
   const openCreate = () => {
     setEditingBill(null);
     setForm(EMPTY_FORM);
     setFormErrors({});
+    setCnpjInput("");
     setModalOpen(true);
   };
 
@@ -147,7 +187,39 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
       notes: bill.notes ?? "",
     });
     setFormErrors({});
+    setCnpjInput("");
     setModalOpen(true);
+  };
+
+  const handleCnpjLookup = async () => {
+    const digits = cnpjInput.replace(/\D/g, "");
+    if (digits.length !== 14) {
+      toast.error("CNPJ inválido");
+      return;
+    }
+
+    setCnpjLoading(true);
+    try {
+      const response = await fetch(`/api/brasilapi/cnpj?cnpj=${digits}`);
+      const data = await response.json();
+      if (!response.ok || data?.error) {
+        toast.error("CNPJ não encontrado");
+        return;
+      }
+
+      const name = data?.nome_fantasia || data?.razao_social;
+      if (!name) {
+        toast.error("CNPJ não encontrado");
+        return;
+      }
+
+      setForm((current) => ({ ...current, name }));
+      toast.success(`Conta encontrada: ${name}`);
+    } catch {
+      toast.error("CNPJ não encontrado");
+    } finally {
+      setCnpjLoading(false);
+    }
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -351,6 +423,9 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
         const BillCard = ({ bill }: { bill: Bill }) => {
           const effective = getEffectiveStatus(bill);
           const daysUntil = getDaysUntilDue(bill.due_date);
+          const holiday = effective !== "paid"
+            ? isDateOnHolidayList(bill.due_date, holidaysByYear[bill.due_date.slice(0, 4)] ?? [])
+            : null;
           return (
             <div className={cn(
               "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-border/20",
@@ -376,6 +451,9 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />{formatDate(bill.due_date)}
                   </span>
+                  {holiday && (
+                    <span className="text-text-secondary">🎉 Feriado: {holiday.name}</span>
+                  )}
                   {effective === "overdue" && (
                     <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>
                   )}
@@ -483,6 +561,26 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
             <DialogTitle>{editingBill ? "Editar Conta" : "Nova Conta"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
+            <FormField label="CNPJ (opcional)" hint="Busque o nome da empresa automaticamente">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="00.000.000/0000-00"
+                  value={cnpjInput}
+                  onChange={(event) => setCnpjInput(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCnpjLookup}
+                  disabled={cnpjLoading}
+                  className="shrink-0 gap-1.5"
+                >
+                  {cnpjLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Buscar
+                </Button>
+              </div>
+            </FormField>
+
             <FormField label="Nome da conta" error={formErrors.name} required>
               <Input
                 placeholder="Ex: Aluguel de agosto"
