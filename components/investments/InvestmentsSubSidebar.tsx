@@ -130,7 +130,7 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
         </p>
       </div>
 
-      <nav className="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-thin scrollbar-track-transparent lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-3 lg:py-3">
+      <nav className="flex flex-col gap-0.5 px-3 py-3">
           {NAV.map((item) => {
             if (item.kind === "single") {
               const Icon = item.icon;
@@ -141,8 +141,7 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   className={cn(
-                    "group inline-flex min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                    "lg:w-full lg:min-w-0",
+                    "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                     isActive
                       ? "bg-white/10 text-text-primary"
                       : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
@@ -154,7 +153,7 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
                   )}>
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className="truncate text-left">{item.label}</span>
+                  <span className="break-words text-left">{item.label}</span>
                 </button>
               );
             }
@@ -165,12 +164,12 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
             const subHeight = item.items.length * 40;
 
             return (
-              <div key={item.groupId} className="lg:w-full">
+              <div key={item.groupId} className="w-full">
                 <button
                   type="button"
                   onClick={() => toggle(item.groupId)}
                   className={cn(
-                    "group inline-flex min-w-max w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                     hasActiveChild
                       ? "text-text-primary"
                       : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
@@ -182,10 +181,10 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
                   )}>
                     <Icon className="h-4 w-4" />
                   </span>
-                  <span className="flex-1 truncate text-left">{item.label}</span>
+                  <span className="flex-1 break-words text-left">{item.label}</span>
                   <ChevronDown
                     className={cn(
-                      "hidden h-4 w-4 shrink-0 transition-transform duration-300 lg:block",
+                      "h-4 w-4 shrink-0 transition-transform duration-300",
                       isGroupOpen ? "rotate-180" : "rotate-0"
                     )}
                   />
@@ -230,7 +229,7 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
 
   if (embedded) {
     return (
-      <aside className="w-full shrink-0 border-r border-border/70 lg:w-60">
+      <aside className="w-full shrink-0 border-b border-border/70 lg:w-60 lg:border-b-0 lg:border-r">
         {inner}
       </aside>
     );
