@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
+import { InvestmentsNavAccordion } from "@/components/layout/InvestmentsNavAccordion";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { MAE_USER_ID } from "@/lib/mae";
 
@@ -65,6 +66,10 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 min-h-0 px-2 py-4 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
+          if (item.href === "/investments") {
+            return <InvestmentsNavAccordion key={item.href} />;
+          }
+
           const isActive = pathname === item.href;
           return (
             <Link

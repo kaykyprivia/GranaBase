@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from "recharts";
@@ -324,6 +325,8 @@ function MonthlyChartTooltip({ active, payload, label }: MonthlyChartTooltipProp
 
 export default function InvestmentsPage() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [entries, setEntries] = useState<Investment[]>([]);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
   const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
@@ -339,7 +342,22 @@ export default function InvestmentsPage() {
   const [monthFilter, setMonthFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<InvestmentTabId>("overview");
+  const [activeTab, setActiveTabState] = useState<InvestmentTabId>(() => {
+    const tabParam = searchParams.get("tab") as InvestmentTabId | null;
+    return tabParam && investmentTabs.some((tab) => tab.id === tabParam) ? tabParam : "overview";
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") as InvestmentTabId | null;
+    if (tabParam && investmentTabs.some((tab) => tab.id === tabParam) && tabParam !== activeTab) {
+      setActiveTabState(tabParam);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setActiveTab = (tab: InvestmentTabId) => {
+    setActiveTabState(tab);
+    router.replace(`/investments?tab=${tab}`, { scroll: false });
+  };
 
   const monthOptions = getMonthOptions(18);
 

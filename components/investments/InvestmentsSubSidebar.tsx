@@ -54,11 +54,11 @@ export const investmentTabs: InvestmentTabItem[] = [
   { id: "reports", label: "Relatórios", icon: BarChart3 },
 ];
 
-type NavItem =
+export type InvestmentNavItem =
   | { kind: "single"; id: InvestmentTabId; label: string; icon: LucideIcon }
   | { kind: "group"; groupId: string; label: string; icon: LucideIcon; items: { id: InvestmentTabId; label: string }[] };
 
-const NAV: NavItem[] = [
+export const investmentNavGroups: InvestmentNavItem[] = [
   { kind: "single", id: "overview", label: "Visão geral", icon: LayoutDashboard },
   { kind: "single", id: "portfolio", label: "Carteira", icon: Wallet },
   {
@@ -104,7 +104,7 @@ interface InvestmentsSubSidebarProps {
 }
 
 export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false }: InvestmentsSubSidebarProps) {
-  const initialOpen = NAV.reduce<Record<string, boolean>>((acc, item) => {
+  const initialOpen = investmentNavGroups.reduce<Record<string, boolean>>((acc, item) => {
     if (item.kind === "group") {
       acc[item.groupId] = item.items.some((sub) => sub.id === activeTab);
     }
@@ -131,7 +131,7 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
       </div>
 
       <nav className="flex flex-col gap-0.5 px-3 py-3">
-          {NAV.map((item) => {
+          {investmentNavGroups.map((item) => {
             if (item.kind === "single") {
               const Icon = item.icon;
               const isActive = item.id === activeTab;
