@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Calendar, Check, ChevronDown, HandCoins, Pencil, Plus, RotateCcw, Trash2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +23,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
 import { StatCard } from "@/components/shared/StatCard";
+import { PageIntro } from "@/components/shared/PageIntro";
 
 const RECEIVABLE_CATEGORIES = ["Trabalho", "Freela", "Empréstimo", "Venda", "Reembolso", "Outro"];
 type StatusFilter = "all" | "pending" | "overdue" | "received";
@@ -221,18 +222,26 @@ export default function ReceivablesPage() {
     }
   };
 
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  const pendingTotal = receivables.filter((r) => getEffectiveReceivableStatus(r) === "pending").reduce((sum, r) => sum + r.amount, 0);
-  const overdueTotal = receivables.filter((r) => getEffectiveReceivableStatus(r) === "overdue").reduce((sum, r) => sum + r.amount, 0);
-  const receivedThisMonth = receivables
-    .filter((r) => {
-      if (r.status !== "received" || !r.received_at) return false;
-      const receivedDate = new Date(r.received_at);
-      return receivedDate.getMonth() === currentMonth && receivedDate.getFullYear() === currentYear;
-    })
-    .reduce((sum, r) => sum + r.amount, 0);
+  const { pendingTotal, overdueTotal, receivedThisMonth, totalToReceive } = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const pending = receivables.filter((r) => getEffectiveReceivableStatus(r) === "pending").reduce((sum, r) => sum + r.amount, 0);
+    const overdue = receivables.filter((r) => getEffectiveReceivableStatus(r) === "overdue").reduce((sum, r) => sum + r.amount, 0);
+    const receivedMonth = receivables
+      .filter((r) => {
+        if (r.status !== "received" || !r.received_at) return false;
+        const receivedDate = new Date(r.received_at);
+        return receivedDate.getMonth() === currentMonth && receivedDate.getFullYear() === currentYear;
+      })
+      .reduce((sum, r) => sum + r.amount, 0);
+    return {
+      pendingTotal: pending,
+      overdueTotal: overdue,
+      receivedThisMonth: receivedMonth,
+      totalToReceive: pending + overdue,
+    };
+  }, [receivables]);
   const uniqueCategories = [...new Set(receivables.map((r) => r.category))].sort();
   const filteredReceivables = receivables.filter((r) => {
     const effective = getEffectiveReceivableStatus(r);
@@ -241,23 +250,26 @@ export default function ReceivablesPage() {
 
   return (
     <div className="page-container animate-fade-in">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-profit/20 p-2.5">
-            <HandCoins className="h-5 w-5 text-profit" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">A Receber</h1>
-            <p className="text-sm text-text-secondary">Dinheiro que ainda vai entrar: trabalhos, empréstimos, etc.</p>
-          </div>
-        </div>
+      <PageIntro
+        icon={HandCoins}
+        iconTone="profit"
+        title="A Receber"
+        description="Dinheiro que ainda vai entrar: trabalhos, empréstimos, etc."
+        actions={
+          <Button onClick={openCreate} size="sm" variant="profit" className="shrink-0 gap-1.5">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Recebível</span>
+            <span className="sm:hidden">Novo</span>
+          </Button>
+        }
+      />
 
-        <Button onClick={openCreate} size="sm" variant="profit" className="shrink-0 gap-1.5">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Recebível</span>
-          <span className="sm:hidden">Novo</span>
-        </Button>
-      </div>
+      {statusFilter === "all" && (
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard title="Total a receber" value={formatCurrency(totalToReceive)} icon={HandCoins} variant="warning" loading={loading} />
+          <StatCard title="Recebido no mês" value={formatCurrency(receivedThisMonth)} icon={CheckCircle2} variant="profit" loading={loading} />
+        </div>
+      )}
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
