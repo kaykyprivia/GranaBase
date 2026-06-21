@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, ChevronDown, FileWarning, Filter, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { BarChart3, ChevronDown, FileWarning, Filter, HelpCircle, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { buildDaySeries, buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
@@ -238,6 +238,27 @@ export default function ReportsPage() {
     }
   }, [expensesByMonth.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const periodChangeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePeriodChange = (next: PeriodKey) => {
+    if (next === period) return;
+    if (periodChangeTimeout.current) clearTimeout(periodChangeTimeout.current);
+    setLoading(true);
+    // Allow the skeletons to paint before recomputing the (synchronous) derived data,
+    // so the period switch gives clear visual feedback instead of feeling frozen.
+    periodChangeTimeout.current = setTimeout(() => {
+      setPeriod(next);
+      setLoading(false);
+      periodChangeTimeout.current = null;
+    }, 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (periodChangeTimeout.current) clearTimeout(periodChangeTimeout.current);
+    };
+  }, []);
+
   const toggleMonth = (month: string) => {
     setOpenMonths((prev) => {
       const next = new Set(prev);
@@ -266,7 +287,7 @@ export default function ReportsPage() {
             <button
               key={p.key}
               type="button"
-              onClick={() => setPeriod(p.key)}
+              onClick={() => handlePeriodChange(p.key)}
               className={cn(
                 "rounded-xl border px-3.5 py-1.5 text-xs font-medium transition-all",
                 period === p.key
@@ -294,18 +315,28 @@ export default function ReportsPage() {
       </div>
 
       {/* KPI cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 transition-opacity duration-200 lg:grid-cols-5">
         <StatCard title="Receita total" value={formatCurrency(kpis.totalIncome)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Despesas totais" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Pendências" value={formatCurrency(kpis.pendingBills)} icon={FileWarning} variant="warning" loading={loading} />
         <StatCard title="Patrimônio" value={formatCurrency(kpis.totalInvested)} icon={PiggyBank} variant="accent" loading={loading} />
-        <StatCard
-          title="Taxa de folga"
-          value={`${kpis.savingsRate.toFixed(0)}%`}
-          icon={Wallet}
-          variant={kpis.savingsRate >= 20 ? "profit" : kpis.savingsRate >= 0 ? "warning" : "expense"}
-          loading={loading}
-        />
+        <div className="relative">
+          <StatCard
+            title="Taxa de folga"
+            value={`${kpis.savingsRate.toFixed(0)}%`}
+            icon={Wallet}
+            variant={kpis.savingsRate >= 20 ? "profit" : kpis.savingsRate >= 0 ? "warning" : "expense"}
+            loading={loading}
+          />
+          {!loading && (
+            <span
+              className="absolute right-3.5 top-3.5 cursor-help text-text-muted"
+              title="Taxa de Folga: percentual da receita que sobra após os gastos do período — (Receita - Despesas) / Receita. Negativo significa que os gastos superaram a receita."
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Cash flow area chart */}
