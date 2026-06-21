@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2b0a3d;
+
+  --acai-50: #f6effa;
+  --acai-100: #e9d6f3;
+  --acai-200: #d2ace6;
+  --acai-300: #b378d4;
+  --acai-400: #934dc0;
+  --acai-500: #722a9e;
+  --acai-600: #5a1f80;
+  --acai-700: #471968;
+  --acai-800: #36124f;
+  --acai-900: #2b0a3d;
+
+  --gold-400: #e8c468;
+  --gold-500: #d4a637;
+  --gold-600: #b1872a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-acai-50: var(--acai-50);
+  --color-acai-100: var(--acai-100);
+  --color-acai-200: var(--acai-200);
+  --color-acai-300: var(--acai-300);
+  --color-acai-400: var(--acai-400);
+  --color-acai-500: var(--acai-500);
+  --color-acai-600: var(--acai-600);
+  --color-acai-700: var(--acai-700);
+  --color-acai-800: var(--acai-800);
+  --color-acai-900: var(--acai-900);
+  --color-gold-400: var(--gold-400);
+  --color-gold-500: var(--gold-500);
+  --color-gold-600: var(--gold-600);
+  --font-sans: var(--font-poppins);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
