@@ -287,9 +287,8 @@ export default function GoalsPage() {
         </CardContent>
       </Card>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard title="Valor planejado" value={formatCurrency(totals.target)} icon={Target} variant="accent" loading={loading} />
-        <StatCard title="Patrimônio Atual" value={formatCurrency(totals.walletBalance)} icon={Wallet} variant="profit" loading={loading} subtitle="Saldo único" />
         <StatCard title="Metas ativas" value={String(totals.active)} icon={Target} variant="warning" loading={loading} />
         <StatCard title="Concluidas" value={String(totals.completed)} icon={CheckCircle2} variant="profit" loading={loading} />
       </div>
