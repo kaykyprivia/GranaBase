@@ -6,6 +6,7 @@ import { FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageIntro } from "@/components/shared/PageIntro";
 import { InstallmentsPanel, type InstallmentsPanelHandle } from "@/components/installments/InstallmentsPanel";
 import { BillsManager, type BillsManagerHandle } from "@/components/bills/BillsManager";
 
@@ -34,31 +35,27 @@ export default function BillsPage() {
 
   return (
     <div className="page-container animate-fade-in">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-warning/20 p-2.5">
-            <FileText className="h-5 w-5 text-warning" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">Contas</h1>
-            <p className="text-sm text-text-secondary">Contas, recorrências e parcelamentos.</p>
-          </div>
-        </div>
-
-        {activeTab === "bills" ? (
-          <Button onClick={() => billsManagerRef.current?.openCreateModal()} size="sm" variant="warning" className="shrink-0 gap-1.5">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Nova Conta</span>
-            <span className="sm:hidden">Nova</span>
-          </Button>
-        ) : (
-          <Button onClick={() => installmentsPanelRef.current?.openCreateModal()} size="sm" className="shrink-0 gap-1.5">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo parcelamento</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
-        )}
-      </div>
+      <PageIntro
+        icon={FileText}
+        iconTone="warning"
+        title="Contas"
+        description="Contas, recorrências e parcelamentos."
+        actions={
+          activeTab === "bills" ? (
+            <Button onClick={() => billsManagerRef.current?.openCreateModal()} size="sm" variant="warning" className="shrink-0 gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nova Conta</span>
+              <span className="sm:hidden">Nova</span>
+            </Button>
+          ) : (
+            <Button onClick={() => installmentsPanelRef.current?.openCreateModal()} size="sm" className="shrink-0 gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo parcelamento</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+          )
+        }
+      />
 
       <div className="mb-5 flex flex-col gap-3">
         <Tabs value={activeTab} onValueChange={(value) => handleSectionChange(value as ActiveTab)}>

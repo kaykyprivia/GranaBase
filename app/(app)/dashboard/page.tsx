@@ -9,7 +9,7 @@ import {
   AlertCircle, CheckCircle2, ChevronRight, Target, Plus, Heart,
   CalendarClock, Car, UtensilsCrossed, Gamepad2,
   Home, ShoppingCart, HeartPulse, GraduationCap,
-  Zap, MoreHorizontal,
+  Zap, MoreHorizontal, LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
@@ -19,6 +19,7 @@ import { getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments"
 import { appliesMaeFilter } from "@/lib/mae";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PageIntro } from "@/components/shared/PageIntro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -226,35 +227,34 @@ export default function DashboardPage() {
 
   return (
     <div className="page-container animate-fade-in">
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-            <p className="text-text-secondary text-sm mt-0.5">Visão geral das suas finanças</p>
-          </div>
+      <PageIntro
+        icon={LayoutDashboard}
+        iconTone="accent"
+        title="Dashboard"
+        description="Visão geral das suas finanças"
+        actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/income">
-              <Button variant="outline" size="sm" className="gap-1.5 text-profit border-profit/30 hover:bg-profit/10">
+              <Button variant="profit" size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />
                 Entrada
               </Button>
             </Link>
             <Link href="/expenses">
-              <Button variant="outline" size="sm" className="gap-1.5 text-expense border-expense/30 hover:bg-expense/10">
+              <Button variant="destructive" size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />
                 Gasto
               </Button>
             </Link>
             <Link href="/investments">
-              <Button variant="outline" size="sm" className="gap-1.5 text-accent border-accent/30 hover:bg-accent/10">
+              <Button variant="default" size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" />
                 Ativo
               </Button>
             </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Financial Health Card */}
       {!loading && stats.monthIncome > 0 && (() => {
