@@ -378,10 +378,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Chart — spans 2 cols */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-base">Resumo dos últimos 6 meses</CardTitle>
-            <Link href="/reports" className="-mr-2 flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary">
-              Análise completa
+            <Link href="/reports" className="-mr-2 flex shrink-0 items-center gap-1 px-2 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary">
+              <span className="hidden sm:inline">Análise completa</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </CardHeader>

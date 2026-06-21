@@ -330,7 +330,7 @@ export default function ReportsPage() {
           />
           {!loading && (
             <span
-              className="absolute right-3.5 top-3.5 cursor-help text-text-muted"
+              className="absolute bottom-3 right-3.5 cursor-help text-text-muted"
               title="Taxa de Folga: percentual da receita que sobra após os gastos do período — (Receita - Despesas) / Receita. Negativo significa que os gastos superaram a receita."
             >
               <HelpCircle className="h-3.5 w-3.5" />
