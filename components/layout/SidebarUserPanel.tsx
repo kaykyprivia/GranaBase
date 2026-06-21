@@ -196,7 +196,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-primary leading-tight">{userData.displayName}</p>
-          <p className="truncate text-[11px] text-text-muted mt-0.5">{userData.email}</p>
+          <p className="truncate text-[11px] text-text-muted mt-0.5" title={userData.email}>{userData.email}</p>
         </div>
 
         <ChevronUp

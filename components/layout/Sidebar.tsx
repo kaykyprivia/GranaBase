@@ -60,18 +60,17 @@ export function Sidebar() {
     <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col bg-surface border-r border-border shadow-[1px_0_0_rgba(255,255,255,0.03)]">
       {/* Logo */}
       <div className="shrink-0 flex items-center px-5 py-5 border-b border-border/70">
-        <BrandLogo className="h-14 rounded-xl" priority />
+        <BrandLogo className="h-14 rounded-2xl" priority />
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 min-h-0 px-2 py-4 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
-          if (item.href === "/investments") {
-            return <InvestmentsNavAccordion key={item.href} />;
-          }
-
           const isActive = pathname === item.href;
-          return (
+          const isStrategicStart = item.href === "/investments";
+          const link = item.href === "/investments" ? (
+            <InvestmentsNavAccordion key={item.href} />
+          ) : (
             <Link
               key={item.href}
               href={item.href}
@@ -92,6 +91,15 @@ export function Sidebar() {
               />
               {item.label}
             </Link>
+          );
+
+          return isStrategicStart ? (
+            <div key={`${item.href}-group`}>
+              <div className="my-2 h-px bg-border/50" />
+              {link}
+            </div>
+          ) : (
+            link
           );
         })}
       </nav>
