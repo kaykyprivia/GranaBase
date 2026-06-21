@@ -284,7 +284,7 @@ function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) 
       <div className="hidden grid-cols-[140px_140px_1fr_140px] gap-4 bg-border/30 px-5 py-3 text-xs font-medium uppercase tracking-wide text-text-secondary sm:grid">
         <span>Tipo</span>
         <span>Valor</span>
-        <span>Descricao</span>
+        <span>Descrição</span>
         <span>Data</span>
       </div>
       <div className="divide-y divide-border">
@@ -299,7 +299,7 @@ function ContributionsTable({ entries }: { entries: InvestmentContribution[] }) 
             <span className={entry.type === "deposit" ? "text-sm font-semibold text-profit" : "text-sm font-semibold text-expense"}>
               {entry.type === "deposit" ? "+" : "-"}{formatCurrency(entry.amount)}
             </span>
-            <span className="min-w-0 break-words text-sm text-text-primary">{entry.description ?? "Movimentacao da carteira"}</span>
+            <span className="min-w-0 break-words text-sm text-text-primary">{entry.description ?? "Movimentação da carteira"}</span>
             <span className="text-sm text-text-secondary">{formatContributionDate(entry.created_at)}</span>
           </div>
         ))}
@@ -753,7 +753,7 @@ export default function InvestmentsPage() {
         title="Investimentos"
         description="Carteira global, aportes centralizados e uma base preparada para dados reais de mercado."
         actions={
-          <Button onClick={openCreate} variant="secondary" className="gap-2">
+          <Button onClick={openCreate} variant="default" className="gap-2">
             <Plus className="h-4 w-4" />
             Novo ativo
           </Button>
@@ -1200,7 +1200,7 @@ export default function InvestmentsPage() {
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Excluir investimento"
-        description="Esta acao nao pode ser desfeita."
+        description="Esta ação não pode ser desfeita."
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}
