@@ -91,9 +91,29 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (values.payment_method === "cash") {
+      clear();
+      toast.success("Pedido realizado com sucesso!");
+      router.push(`/pedido/${order.id}`);
+      return;
+    }
+
+    const preferenceResponse = await fetch("/api/mercadopago/preference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id }),
+    });
+
+    if (!preferenceResponse.ok) {
+      toast.error("Pedido criado, mas houve erro ao iniciar o pagamento.");
+      setIsSubmitting(false);
+      router.push(`/pedido/${order.id}`);
+      return;
+    }
+
+    const { init_point } = await preferenceResponse.json();
     clear();
-    toast.success("Pedido realizado com sucesso!");
-    router.push(`/pedido/${order.id}`);
+    window.location.href = init_point;
   }
 
   return (

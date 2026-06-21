@@ -45,6 +45,8 @@ export type OrderStatus =
 
 export type PaymentMethod = "pix" | "card" | "cash";
 
+export type PaymentStatus = "pending" | "approved" | "rejected" | "cancelled" | "refunded";
+
 export interface OrderAddress {
   street: string;
   number: string;
@@ -82,6 +84,9 @@ export interface Order {
   cashback_used: number;
   total: number;
   payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  mp_preference_id: string | null;
+  mp_payment_id: string | null;
   address_json: OrderAddress;
   notes: string | null;
   created_at: string;

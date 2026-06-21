@@ -14,6 +14,14 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+const paymentStatusLabels: Record<string, string> = {
+  pending: "Aguardando pagamento",
+  approved: "Pagamento aprovado",
+  rejected: "Pagamento rejeitado",
+  cancelled: "Pagamento cancelado",
+  refunded: "Pagamento reembolsado",
+};
+
 export default async function PedidoPage({
   params,
 }: {
@@ -40,6 +48,14 @@ export default async function PedidoPage({
         <p className="mb-4 font-semibold text-acai-900">
           {statusLabels[typedOrder.status] ?? typedOrder.status}
         </p>
+        {typedOrder.payment_method !== "cash" && (
+          <>
+            <p className="text-sm text-acai-500">Pagamento</p>
+            <p className="mb-4 font-semibold text-acai-900">
+              {paymentStatusLabels[typedOrder.payment_status] ?? typedOrder.payment_status}
+            </p>
+          </>
+        )}
         <p className="text-sm text-acai-500">Total</p>
         <p className="font-semibold text-acai-900">{formatCurrency(typedOrder.total)}</p>
       </div>
