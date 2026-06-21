@@ -382,6 +382,8 @@ export interface Database {
           notes: string | null;
           ticker: string | null;
           quantity: number | null;
+          sold_at: string | null;
+          sold_amount: number | null;
           created_at: string;
         };
         Insert: {
@@ -394,6 +396,8 @@ export interface Database {
           notes?: string | null;
           ticker?: string | null;
           quantity?: number | null;
+          sold_at?: string | null;
+          sold_amount?: number | null;
           created_at?: string;
         };
         Update: {
@@ -406,11 +410,62 @@ export interface Database {
           notes?: string | null;
           ticker?: string | null;
           quantity?: number | null;
+          sold_at?: string | null;
+          sold_amount?: number | null;
           created_at?: string;
         };
         Relationships: [
           {
             foreignKeyName: "investments_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      investment_dividends: {
+        Row: {
+          id: string;
+          user_id: string;
+          ticker: string;
+          asset_name: string | null;
+          amount: number;
+          per_share: number | null;
+          payment_date: string;
+          label: "Dividendo" | "JCP" | "Rendimento" | "Outro";
+          source: "manual" | "yahoo";
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          ticker: string;
+          asset_name?: string | null;
+          amount: number;
+          per_share?: number | null;
+          payment_date: string;
+          label?: "Dividendo" | "JCP" | "Rendimento" | "Outro";
+          source?: "manual" | "yahoo";
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          ticker?: string;
+          asset_name?: string | null;
+          amount?: number;
+          per_share?: number | null;
+          payment_date?: string;
+          label?: "Dividendo" | "JCP" | "Rendimento" | "Outro";
+          source?: "manual" | "yahoo";
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "investment_dividends_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -580,6 +635,7 @@ export type Receivable = Tables<"receivables">;
 export type Installment = Tables<"installments">;
 export type InstallmentPayment = Tables<"installment_payments">;
 export type Investment = Tables<"investments">;
+export type InvestmentDividend = Tables<"investment_dividends">;
 export type InvestmentWallet = Tables<"investment_wallets">;
 export type InvestmentContribution = Tables<"investment_contributions">;
 export type FinancialGoal = Tables<"financial_goals">;
@@ -591,6 +647,7 @@ export type InsertReceivable = Inserts<"receivables">;
 export type InsertInstallment = Inserts<"installments">;
 export type InsertInstallmentPayment = Inserts<"installment_payments">;
 export type InsertInvestment = Inserts<"investments">;
+export type InsertInvestmentDividend = Inserts<"investment_dividends">;
 export type InsertInvestmentWallet = Inserts<"investment_wallets">;
 export type InsertInvestmentContribution = Inserts<"investment_contributions">;
 export type InsertFinancialGoal = Inserts<"financial_goals">;
