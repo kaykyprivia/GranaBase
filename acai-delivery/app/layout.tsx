@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
+import { CartProvider } from "@/lib/cart";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -28,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${poppins.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-white text-acai-900">
-        {children}
+        <CartProvider>{children}</CartProvider>
         <Toaster richColors position="top-center" />
       </body>
     </html>
