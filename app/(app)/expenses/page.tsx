@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BarChart, Bar, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
 import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload } from "lucide-react";
+import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
@@ -86,10 +87,15 @@ function dateTimeSortKey(entry: DisplayExpense) {
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
 function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
   if (!active || !payload?.length) return null;
+  const value = payload[0].value;
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-2 shadow-xl">
       <p className="text-xs text-text-secondary">{label}</p>
-      <p className="text-sm font-bold text-expense">{formatCurrency(payload[0].value)}</p>
+      {value > 0 ? (
+        <p className="text-sm font-bold text-expense">{formatCurrency(value)}</p>
+      ) : (
+        <p className="text-sm font-medium text-text-secondary">Sem registros</p>
+      )}
     </div>
   );
 }
@@ -366,33 +372,30 @@ export default function ExpensesPage() {
 
   return (
     <div className="page-container animate-fade-in">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-expense/20">
-            <TrendingDown className="h-5 w-5 text-expense" />
+      <PageIntro
+        icon={TrendingDown}
+        iconTone="expense"
+        title="Gastos"
+        description="Controle suas despesas"
+        actions={
+          <div className="flex items-center gap-2 shrink-0">
+            <Button onClick={() => setImportOpen(true)} size="sm" variant="outline" className="gap-1.5">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Importar extrato</span>
+              <span className="sm:hidden">Importar</span>
+            </Button>
+            <Button onClick={openCreate} size="sm" variant="destructive" className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Gasto</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">Gastos</h1>
-            <p className="text-sm text-text-secondary">Controle suas despesas</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button onClick={() => setImportOpen(true)} size="sm" variant="outline" className="gap-1.5">
-            <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Importar extrato</span>
-            <span className="sm:hidden">Importar</span>
-          </Button>
-          <Button onClick={openCreate} size="sm" variant="destructive" className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo Gasto</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <StatCard title="Total do Mês" value={formatCurrency(monthTotal)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingDown} variant="default" loading={loading} />
+        <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Maior categoria" value={topCategory} icon={TrendingDown} variant="warning" loading={loading} subtitle="Este mês" />
       </div>
 
@@ -404,7 +407,11 @@ export default function ExpensesPage() {
             <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
               <RechartTooltip content={<TrendTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-              <Bar dataKey="value" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36} minPointSize={(value) => (!value ? 4 : 0)}>
+                {trendData.map((d, i) => (
+                  <Cell key={i} fill={d.value > 0 ? "#EF4444" : "#374151"} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -413,13 +420,13 @@ export default function ExpensesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Mês" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
           <SelectContent>
             {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Categoria" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as categorias</SelectItem>
             {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
