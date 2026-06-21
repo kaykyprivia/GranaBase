@@ -68,7 +68,7 @@ export default function MaePage() {
               className={cn(
                 "min-w-[120px] border border-transparent px-4 py-2",
                 activeTab === "bills"
-                  ? "!border-warning/70 !bg-warning !text-slate-950 !shadow-sm"
+                  ? "!border-accent/70 !bg-accent !text-slate-950 !shadow-sm"
                   : "hover:bg-background/70"
               )}
             >
