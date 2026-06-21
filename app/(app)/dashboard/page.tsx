@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Wallet, TrendingUp, TrendingDown, FileText,
   PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight,
-  AlertCircle, ChevronRight, Target, Plus, Heart,
+  AlertCircle, CheckCircle2, ChevronRight, Target, Plus, Heart,
   CalendarClock, Car, UtensilsCrossed, Gamepad2,
   Home, ShoppingCart, HeartPulse, GraduationCap,
   Zap, MoreHorizontal,
@@ -36,9 +36,9 @@ const AreaChart = dynamic(
       income: string;
       expenses: string;
     }) => {
-      const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = m;
+      const { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } = m;
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={120}>
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
@@ -50,9 +50,7 @@ const AreaChart = dynamic(
                 <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-            <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
             <Tooltip
               contentStyle={{ backgroundColor: "#111827", border: "1px solid #1F2937", borderRadius: "8px", color: "#F8FAFC" }}
               formatter={(v: number) => [formatCurrency(v), ""]}
@@ -233,7 +231,7 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-            <p className="text-text-secondary text-sm mt-0.5">Visao geral das suas financas</p>
+            <p className="text-text-secondary text-sm mt-0.5">Visão geral das suas finanças</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/income">
@@ -295,9 +293,9 @@ export default function DashboardPage() {
                 style={{ width: `${spendingRatio}%`, background: color }}
               />
             </div>
-            <div className="mt-1.5 flex justify-between text-[10px] text-text-secondary">
-              <span>Gastos: {formatCurrency(stats.monthExpenses)}</span>
-              <span>Renda: {formatCurrency(stats.monthIncome)}</span>
+            <div className="mt-2 flex justify-between text-xs font-medium">
+              <span className="text-expense">Gastos: {formatCurrency(stats.monthExpenses)}</span>
+              <span className="text-profit">Renda: {formatCurrency(stats.monthIncome)}</span>
             </div>
           </div>
         );
@@ -311,7 +309,7 @@ export default function DashboardPage() {
           icon={Wallet}
           variant={currentBalance >= 0 ? "profit" : "expense"}
           loading={loading}
-          subtitle="Entradas - Saídas"
+          subtitle="Histórico geral (entradas - saídas)"
         />
         <StatCard
           title="Entradas do Mês"
@@ -344,6 +342,7 @@ export default function DashboardPage() {
           icon={FileText}
           variant="warning"
           loading={loading}
+          size="compact"
           subtitle={`${stats.pendingBills} conta${stats.pendingBills !== 1 ? "s" : ""}`}
         />
         <StatCard
@@ -352,14 +351,16 @@ export default function DashboardPage() {
           icon={DollarSign}
           variant="accent"
           loading={loading}
+          size="compact"
           subtitle={`${stats.futureInstallmentsCount} parcela${stats.futureInstallmentsCount !== 1 ? "s" : ""}`}
         />
         <StatCard
-          title="Patrimonio"
+          title="Patrimônio"
           value={formatCurrency(stats.investedTotal)}
           icon={PiggyBank}
           variant="accent"
           loading={loading}
+          size="compact"
           subtitle="Carteira global"
         />
         <StatCard
@@ -368,6 +369,8 @@ export default function DashboardPage() {
           icon={ArrowDownRight}
           variant="default"
           loading={loading}
+          size="compact"
+          subtitle="Histórico geral"
         />
       </div>
 
@@ -375,12 +378,16 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Chart — spans 2 cols */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Evolução nos últimos 6 meses</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Resumo dos últimos 6 meses</CardTitle>
+            <Link href="/reports" className="-mr-2 flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary">
+              Análise completa
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-[220px] w-full" />
+              <Skeleton className="h-[120px] w-full" />
             ) : chartData.some(d => d.income > 0 || d.expenses > 0) ? (
               <AreaChart data={chartData} income="income" expenses="expenses" />
             ) : (
@@ -410,10 +417,9 @@ export default function DashboardPage() {
               <CalendarClock className="h-4 w-4 text-text-secondary" />
               <CardTitle className="text-base">Contas Pendentes</CardTitle>
             </div>
-            <Link href="/bills">
-              <Button variant="ghost" size="icon-sm">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            <Link href="/bills" className="-mr-2 flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary">
+              Ver todas
+              <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -423,7 +429,7 @@ export default function DashboardPage() {
               </div>
             ) : upcomingBills.length === 0 ? (
               <EmptyState
-                icon={AlertCircle}
+                icon={CheckCircle2}
                 title="Sem contas pendentes"
                 description="Nenhuma conta pendente no momento"
               />

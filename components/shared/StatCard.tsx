@@ -9,6 +9,8 @@ interface StatCardProps {
   icon: LucideIcon;
   variant?: "default" | "profit" | "expense" | "warning" | "accent";
   loading?: boolean;
+  /** "compact" lowers visual weight for secondary/supporting metrics. */
+  size?: "default" | "compact";
   trend?: {
     value: string;
     positive: boolean;
@@ -50,9 +52,11 @@ export function StatCard({
   icon: Icon,
   variant = "default",
   loading = false,
+  size = "default",
   trend,
 }: StatCardProps) {
   const styles = variantStyles[variant];
+  const isCompact = size === "compact";
 
   if (loading) {
     return (
@@ -74,7 +78,7 @@ export function StatCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-text-muted font-medium mb-2 uppercase tracking-wider leading-snug">{title}</p>
-          <p className={cn("text-2xl font-bold tracking-tight tabular-nums", styles.value)}>{value}</p>
+          <p className={cn("font-bold tracking-tight tabular-nums", isCompact ? "text-lg" : "text-2xl", styles.value)}>{value}</p>
           {(subtitle || trend) && (
             <div className="flex items-center gap-2 mt-1">
               {subtitle && (
@@ -93,8 +97,8 @@ export function StatCard({
             </div>
           )}
         </div>
-        <div className={cn("p-2.5 rounded-xl ml-3 shrink-0", styles.icon)}>
-          <Icon className="h-5 w-5" strokeWidth={1.75} />
+        <div className={cn("rounded-xl ml-3 shrink-0", isCompact ? "p-2" : "p-2.5", styles.icon)}>
+          <Icon className={isCompact ? "h-4 w-4" : "h-5 w-5"} strokeWidth={1.75} />
         </div>
       </div>
     </div>
