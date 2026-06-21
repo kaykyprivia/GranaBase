@@ -78,7 +78,7 @@ export function StatCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-text-muted font-medium mb-2 uppercase tracking-wider leading-snug">{title}</p>
-          <p className={cn("font-bold tracking-tight tabular-nums", isCompact ? "text-lg" : "text-2xl", styles.value)}>{value}</p>
+          <p className={cn("whitespace-nowrap font-bold tracking-tight tabular-nums", isCompact ? "text-lg" : "text-2xl", styles.value)}>{value}</p>
           {(subtitle || trend) && (
             <div className="flex items-center gap-2 mt-1">
               {subtitle && (

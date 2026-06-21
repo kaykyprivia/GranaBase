@@ -309,7 +309,8 @@ export default function DashboardPage() {
           icon={Wallet}
           variant={currentBalance >= 0 ? "profit" : "expense"}
           loading={loading}
-          subtitle="Histórico geral (entradas - saídas)"
+          size="compact"
+          subtitle="Histórico geral"
         />
         <StatCard
           title="Entradas do Mês"
@@ -317,6 +318,7 @@ export default function DashboardPage() {
           icon={TrendingUp}
           variant="profit"
           loading={loading}
+          size="compact"
         />
         <StatCard
           title="Saídas do Mês"
@@ -324,6 +326,7 @@ export default function DashboardPage() {
           icon={TrendingDown}
           variant="expense"
           loading={loading}
+          size="compact"
         />
         <StatCard
           title="Saldo do Mês"
@@ -331,7 +334,8 @@ export default function DashboardPage() {
           icon={DollarSign}
           variant={stats.freeEstimate >= 0 ? "profit" : "expense"}
           loading={loading}
-          subtitle="Entradas - Saídas do mês"
+          size="compact"
+          subtitle="Entradas - Saídas"
         />
       </div>
 
