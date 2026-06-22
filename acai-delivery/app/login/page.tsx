@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,8 +34,7 @@ function LoginForm() {
     }
 
     toast.success("Login realizado com sucesso!");
-    router.push(searchParams.get("redirect") || "/");
-    router.refresh();
+    window.location.href = searchParams.get("redirect") || "/";
   }
 
   return (
