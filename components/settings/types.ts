@@ -20,6 +20,7 @@ export interface FinancialFormState {
   primaryCurrency: CurrencyCode;
   monthlyGoalDefault: number;
   defaultExpenseCategory: string;
+  customCategories: string[];
 }
 
 export const DEFAULT_PROFILE_FORM: ProfileFormState = {
@@ -39,4 +40,5 @@ export const DEFAULT_FINANCIAL_FORM: FinancialFormState = {
   primaryCurrency: "BRL",
   monthlyGoalDefault: 0,
   defaultExpenseCategory: "Outro",
+  customCategories: [],
 };

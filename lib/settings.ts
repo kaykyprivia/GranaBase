@@ -30,10 +30,10 @@ interface SettingsExportRow {
   detalhe_2: string;
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
+function formatCurrency(value: number, currency: "BRL" | "USD" = "BRL") {
+  return new Intl.NumberFormat(currency === "USD" ? "en-US" : "pt-BR", {
     style: "currency",
-    currency: "BRL",
+    currency,
   }).format(value);
 }
 

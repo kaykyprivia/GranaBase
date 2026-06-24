@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
+import { useCurrency } from "@/lib/hooks/useCurrency";
 import { incomeSchema, type IncomeFormData } from "@/lib/validations";
 import type { IncomeEntry, Receivable } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 
 export default function IncomePage() {
   const supabase = createClient();
+  const currency = useCurrency();
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
   const [receivedReceivables, setReceivedReceivables] = useState<DisplayIncome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,7 +220,7 @@ export default function IncomePage() {
 
   const openCreate = () => {
     setEditingEntry(null);
-    reset({ description: "", amount: 0, category: "", received_at: new Date().toISOString().split("T")[0], payment_method: "", notes: "" });
+    reset({ description: "", amount: 0, category: "", received_at: toLocalDateString(), payment_method: "", notes: "" });
     setModalOpen(true);
   };
 
@@ -342,8 +344,8 @@ export default function IncomePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatCard title="Total do Mês" value={formatCurrency(monthTotal)} icon={TrendingUp} variant="profit" loading={loading} />
-        <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingUp} variant="profit" loading={loading} />
+        <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingUp} variant="profit" loading={loading} />
+        <StatCard title="Total Geral" value={formatCurrency(totalAll, currency)} icon={TrendingUp} variant="profit" loading={loading} />
       </div>
 
       {/* Trend chart */}
@@ -405,7 +407,7 @@ export default function IncomePage() {
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
                   <div className="flex flex-1 flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                    <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-profit">{formatCurrency(total)}</span>
+                    <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-profit">{formatCurrency(total, currency)}</span>
                     <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
                   </div>
                   <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
@@ -429,7 +431,7 @@ export default function IncomePage() {
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount)}</p>
+                            <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount, currency)}</p>
                             <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)}</p>
                             <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                           </div>

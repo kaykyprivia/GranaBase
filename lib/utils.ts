@@ -5,10 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
+export function formatCurrency(value: number, currency: "BRL" | "USD" = "BRL"): string {
+  return new Intl.NumberFormat(currency === "USD" ? "en-US" : "pt-BR", {
     style: "currency",
-    currency: "BRL",
+    currency,
   }).format(value);
 }
 
@@ -55,6 +55,13 @@ export function addMonths(date: Date, months: number): Date {
   const result = new Date(date);
   result.setMonth(result.getMonth() + months);
   return result;
+}
+
+export function toLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function parseAmount(value: string): number {

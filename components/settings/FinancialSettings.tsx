@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Archive, Download, RotateCcw, Save } from "lucide-react";
+import { useState } from "react";
+import { Archive, Download, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { EXPENSE_CATEGORIES } from "@/lib/finance";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,6 @@ import { FormField } from "@/components/shared/FormField";
 import type { FinancialFormState } from "@/components/settings/types";
 
 const KNOWN_CATEGORIES = EXPENSE_CATEGORIES.filter((c) => c !== "Outro");
-
-function isCustomCategory(cat: string) {
-  return cat !== "" && !EXPENSE_CATEGORIES.includes(cat);
-}
 
 interface FinancialSettingsProps {
   value: FinancialFormState;
@@ -42,38 +38,27 @@ export function FinancialSettings({
   onReset,
   onExport,
 }: FinancialSettingsProps) {
-  const [customCategoryText, setCustomCategoryText] = useState(() =>
-    isCustomCategory(value.defaultExpenseCategory) ? value.defaultExpenseCategory : ""
-  );
-  const [showCustomInput, setShowCustomInput] = useState(() =>
-    isCustomCategory(value.defaultExpenseCategory) || value.defaultExpenseCategory === "Outro"
-  );
+  const [newCategoryText, setNewCategoryText] = useState("");
 
-  useEffect(() => {
-    const custom = isCustomCategory(value.defaultExpenseCategory);
-    setShowCustomInput(custom || value.defaultExpenseCategory === "Outro");
-    if (custom) setCustomCategoryText(value.defaultExpenseCategory);
-    else if (!showCustomInput) setCustomCategoryText("");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.defaultExpenseCategory]);
-
-  const selectValue = showCustomInput ? "Outro" : value.defaultExpenseCategory;
-
-  const handleCategoryChange = (next: string) => {
-    if (next === "Outro") {
-      setShowCustomInput(true);
-      setCustomCategoryText("");
-      onFieldChange("defaultExpenseCategory", "Outro");
-    } else {
-      setShowCustomInput(false);
-      setCustomCategoryText("");
-      onFieldChange("defaultExpenseCategory", next);
+  const handleAddCategory = () => {
+    const trimmed = newCategoryText.trim();
+    if (!trimmed) return;
+    const exists = [...EXPENSE_CATEGORIES, ...value.customCategories].some(
+      (cat) => cat.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      setNewCategoryText("");
+      return;
     }
+    onFieldChange("customCategories", [...value.customCategories, trimmed]);
+    setNewCategoryText("");
   };
 
-  const handleCustomTextChange = (typed: string) => {
-    setCustomCategoryText(typed);
-    onFieldChange("defaultExpenseCategory", typed.trim() || "Outro");
+  const handleRemoveCategory = (cat: string) => {
+    onFieldChange("customCategories", value.customCategories.filter((c) => c !== cat));
+    if (value.defaultExpenseCategory === cat) {
+      onFieldChange("defaultExpenseCategory", "Outro");
+    }
   };
 
   return (
@@ -113,7 +98,10 @@ export function FinancialSettings({
               </FormField>
 
               <FormField label="Categoria padrao ao lancar gasto">
-                <Select value={selectValue} onValueChange={handleCategoryChange}>
+                <Select
+                  value={value.defaultExpenseCategory}
+                  onValueChange={(next) => onFieldChange("defaultExpenseCategory", next)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -121,22 +109,61 @@ export function FinancialSettings({
                     {KNOWN_CATEGORIES.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
-                    <SelectItem value="Outro">Outro (personalizado)</SelectItem>
+                    {value.customCategories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                    <SelectItem value="Outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>
               </FormField>
             </div>
 
-            {showCustomInput && (
-              <FormField label="Nome da categoria personalizada" hint="Esta sera salva como sua categoria padrao.">
-                <Input
-                  value={customCategoryText}
-                  onChange={(e) => handleCustomTextChange(e.target.value)}
-                  placeholder="Ex: Academia, Pets, Farmacia..."
-                  autoFocus
-                />
-              </FormField>
-            )}
+            <FormField
+              label="Categorias personalizadas"
+              hint="Crie categorias proprias para usar ao lancar gastos."
+            >
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    value={newCategoryText}
+                    onChange={(e) => setNewCategoryText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCategory();
+                      }
+                    }}
+                    placeholder="Ex: Academia, Pets, Farmacia..."
+                  />
+                  <Button type="button" variant="outline" onClick={handleAddCategory} className="gap-2 shrink-0">
+                    <Plus className="h-4 w-4" />
+                    Adicionar
+                  </Button>
+                </div>
+
+                {value.customCategories.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {value.customCategories.map((cat) => (
+                      <li
+                        key={cat}
+                        className="flex items-center justify-between rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-sm text-text-primary"
+                      >
+                        <span className="truncate">{cat}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleRemoveCategory(cat)}
+                          className="text-text-secondary hover:text-expense hover:bg-expense/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </FormField>
 
             <FormField
               label="Controle de gastos mensais"

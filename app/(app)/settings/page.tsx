@@ -142,6 +142,7 @@ export default function SettingsPage() {
         primaryCurrency: settingsRow?.primary_currency ?? "BRL",
         monthlyGoalDefault: settingsRow?.monthly_goal_default ?? 0,
         defaultExpenseCategory: settingsRow?.default_expense_category ?? "Outro",
+        customCategories: Array.isArray(settingsRow?.custom_categories) ? settingsRow.custom_categories : [],
       };
 
       setUserId(user.id);
@@ -226,6 +227,7 @@ export default function SettingsPage() {
         primary_currency: financialForm.primaryCurrency,
         monthly_goal_default: financialForm.monthlyGoalDefault,
         default_expense_category: financialForm.defaultExpenseCategory,
+        custom_categories: financialForm.customCategories,
       });
       setInitialFinancialForm(financialForm);
       toast.success("Preferencias financeiras salvas.");

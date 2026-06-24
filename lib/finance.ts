@@ -1,13 +1,13 @@
 import type { Bill, ExpenseEntry, FinancialGoal, IncomeEntry, InstallmentPayment, Investment, InvestmentContribution, Receivable } from "@/types/database";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
-import { formatCurrency, getMonthYear, isOverdue } from "@/lib/utils";
+import { formatCurrency, getMonthYear, isOverdue, toLocalDateString } from "@/lib/utils";
 
 export { getEffectiveInstallmentStatus } from "@/lib/installments";
 
 export const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissao", "Pix", "Reembolso", "Outro"];
-export const EXPENSE_CATEGORIES = ["Alimentacao", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergencia", "Outro"];
+export const EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 export const BILL_CATEGORIES = ["Aluguel", "Energia", "Agua", "Internet", "Telefone", "Cartao", "Emprestimo", "Seguro", "Mensalidade", "Outro"];
 export const INVESTMENT_TYPES = ["Reserva", "Tesouro", "CDB", "FII", "ETF", "Acao", "Crypto", "Outro"];
 export const GOAL_CATEGORIES = ["Reserva", "Quitar divida", "Viagem", "Casa", "Carro", "Estudos", "Investimento", "Outro"];
@@ -101,7 +101,7 @@ export function buildDaySeries(
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(now);
     date.setDate(now.getDate() - (days - index - 1));
-    const key = date.toISOString().slice(0, 10);
+    const key = toLocalDateString(date);
     const label = days <= 31
       ? String(date.getDate())
       : `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;

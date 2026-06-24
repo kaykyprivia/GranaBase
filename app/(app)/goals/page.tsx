@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { coerceMutation, coerceData } from "@/lib/supabase/casts";
 import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, toLocalDateString } from "@/lib/utils";
 import { goalSchema, type GoalFormData } from "@/lib/validations";
 import type { FinancialGoal, Investment } from "@/types/database";
 import { GlobalContributionButton } from "@/components/wallet/WalletContributionProvider";
@@ -119,7 +119,7 @@ export default function GoalsPage() {
     setErrors({});
     setForm({
       ...EMPTY_GOAL_FORM,
-      deadline: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split("T")[0],
+      deadline: toLocalDateString(addMonths(new Date(), 3)),
     });
     setModalOpen(true);
   };

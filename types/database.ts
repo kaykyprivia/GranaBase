@@ -54,6 +54,7 @@ export interface Database {
           primary_currency: "BRL" | "USD";
           monthly_goal_default: number;
           default_expense_category: string;
+          custom_categories: string[];
           plan: "free" | "pro";
           created_at: string;
           updated_at: string;
@@ -70,6 +71,7 @@ export interface Database {
           primary_currency?: "BRL" | "USD";
           monthly_goal_default?: number;
           default_expense_category?: string;
+          custom_categories?: string[];
           plan?: "free" | "pro";
           created_at?: string;
           updated_at?: string;
@@ -86,6 +88,7 @@ export interface Database {
           primary_currency?: "BRL" | "USD";
           monthly_goal_default?: number;
           default_expense_category?: string;
+          custom_categories?: string[];
           plan?: "free" | "pro";
           created_at?: string;
           updated_at?: string;

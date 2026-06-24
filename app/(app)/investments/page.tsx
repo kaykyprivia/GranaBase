@@ -20,7 +20,7 @@ import type { AssetQuote } from "@/app/api/market/quotes/route";
 import type { CryptoQuote } from "@/app/api/market/crypto/route";
 import type { TreasuryTitle } from "@/app/api/market/treasury/route";
 import type { CurrencyConversionPayload } from "@/app/api/market/currency/route";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, toLocalDateString } from "@/lib/utils";
 import { investmentSchema, type InvestmentFormData } from "@/lib/validations";
 import type { Investment, InvestmentContribution } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -600,7 +600,7 @@ export default function InvestmentsPage() {
       name: "",
       amount: 0,
       investment_type: "",
-      invested_at: new Date().toISOString().split("T")[0],
+      invested_at: toLocalDateString(),
       ticker: "",
       quantity: undefined,
       notes: "",
@@ -699,7 +699,7 @@ export default function InvestmentsPage() {
     }
   };
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = toLocalDateString().slice(0, 7);
   const monthlyTotal = useMemo(
     () => entries
       .filter((entry) => entry.invested_at.startsWith(currentMonth))

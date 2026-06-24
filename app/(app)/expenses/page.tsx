@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
+import { useCurrency } from "@/lib/hooks/useCurrency";
 import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { appliesMaeFilter } from "@/lib/mae";
@@ -28,8 +29,16 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 
-const EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
+const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
+
+function buildExpenseCategories(customCategories: string[]): string[] {
+  const fixed = BASE_EXPENSE_CATEGORIES.filter((category) => category !== "Outro");
+  const extra = customCategories.filter(
+    (category) => category.trim() !== "" && !fixed.includes(category)
+  );
+  return [...fixed, ...extra, "Outro"];
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   Transporte:   "#F97316",
@@ -102,6 +111,7 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 
 export default function ExpensesPage() {
   const supabase = createClient();
+  const currency = useCurrency();
   const [entries, setEntries] = useState<ExpenseEntry[]>([]);
   const [paidBillsAndInstallments, setPaidBillsAndInstallments] = useState<DisplayExpense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,8 +131,10 @@ export default function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
 
   const monthOptions = getMonthOptions();
+  const expenseCategories = useMemo(() => buildExpenseCategories(customCategories), [customCategories]);
 
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
@@ -134,12 +146,16 @@ export default function ExpensesPage() {
     if (!user) return;
     setUserId(user.id);
 
-    const [expensesRes, billsRes, installmentsRes, paymentsRes] = await Promise.all([
+    const [expensesRes, billsRes, installmentsRes, paymentsRes, settingsRes] = await Promise.all([
       supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }),
       supabase.from("bills").select("*").eq("user_id", user.id).eq("status", "paid"),
       supabase.from("installments").select("*").eq("user_id", user.id),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
+      supabase.from("user_settings").select("custom_categories").eq("user_id", user.id).maybeSingle(),
     ]);
+
+    const settingsRow = coerceData<{ custom_categories?: string[] } | null>(settingsRes.data ?? null);
+    setCustomCategories(Array.isArray(settingsRow?.custom_categories) ? settingsRow.custom_categories : []);
 
     if (expensesRes.error) { toast.error("Erro ao carregar gastos"); return; }
     setEntries(expensesRes.data ?? []);
@@ -196,6 +212,11 @@ export default function ExpensesPage() {
     ...entries.map((e) => ({ ...e, source: "manual" as const })),
     ...paidBillsAndInstallments,
   ], [entries, paidBillsAndInstallments]);
+
+  const filterCategories = useMemo(() => {
+    const used = allEntries.map((e) => e.category).filter((c) => !expenseCategories.includes(c));
+    return [...expenseCategories, ...Array.from(new Set(used))];
+  }, [expenseCategories, allEntries]);
 
   const trendData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
@@ -257,7 +278,7 @@ export default function ExpensesPage() {
 
   const openCreate = () => {
     setEditingEntry(null);
-    reset({ description: "", amount: 0, category: "", spent_at: new Date().toISOString().split("T")[0], payment_method: "", notes: "" });
+    reset({ description: "", amount: 0, category: "", spent_at: toLocalDateString(), payment_method: "", notes: "" });
     setModalOpen(true);
   };
 
@@ -394,8 +415,8 @@ export default function ExpensesPage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        <StatCard title="Total do Mês" value={formatCurrency(monthTotal)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Total Geral" value={formatCurrency(totalAll)} icon={TrendingDown} variant="expense" loading={loading} />
+        <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
+        <StatCard title="Total Geral" value={formatCurrency(totalAll, currency)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Maior categoria" value={topCategory} icon={TrendingDown} variant="warning" loading={loading} subtitle="Este mês" />
       </div>
 
@@ -429,7 +450,7 @@ export default function ExpensesPage() {
           <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as categorias</SelectItem>
-            {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {filterCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
@@ -458,7 +479,7 @@ export default function ExpensesPage() {
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
                   <div className="flex flex-1 flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                    <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total)}</span>
+                    <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total, currency)}</span>
                     <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
                   </div>
                   <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
@@ -485,7 +506,7 @@ export default function ExpensesPage() {
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount)}</p>
+                              <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
                               <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
                               <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                             </div>
@@ -540,7 +561,7 @@ export default function ExpensesPage() {
                 <Controller name="category" control={control} render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger error={errors.category?.message}><SelectValue placeholder="Categoria" /></SelectTrigger>
-                    <SelectContent>{EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    <SelectContent>{expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 )} />
               </FormField>

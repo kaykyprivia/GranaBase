@@ -182,15 +182,23 @@ export default function DashboardPage() {
     const futureInstallmentsAmount = futureInstallments.reduce((sum, payment) => sum + payment.amount, 0);
     const investedTotal = (investmentsData ?? []).reduce((sum, inv) => sum + (inv as { amount: number }).amount, 0);
 
+    const paidBills = billRows.filter((bill) => bill.status === "paid" && bill.paid_at);
+    const monthPaidBillsAmount = paidBills
+      .filter((bill) => bill.paid_at!.startsWith(monthKey))
+      .reduce((sum, bill) => sum + bill.amount, 0);
+    const totalPaidBillsAmount = paidBills.reduce((sum, bill) => sum + bill.amount, 0);
+
     setStats({
-      totalIncome, totalExpenses,
-      monthIncome, monthExpenses,
+      totalIncome,
+      totalExpenses: totalExpenses + totalPaidBillsAmount,
+      monthIncome,
+      monthExpenses: monthExpenses + monthPaidBillsAmount,
       pendingBills: openBills.length,
       pendingBillsAmount,
       futureInstallmentsAmount,
       futureInstallmentsCount: futureInstallments.length,
       investedTotal,
-      freeEstimate: monthIncome - monthExpenses,
+      freeEstimate: monthIncome - (monthExpenses + monthPaidBillsAmount),
     });
 
     setUpcomingBills(

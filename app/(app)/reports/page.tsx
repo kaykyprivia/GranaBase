@@ -19,7 +19,7 @@ import { BarChart3, ChevronDown, FileWarning, Filter, HelpCircle, PiggyBank, Tre
 import { toast } from "sonner";
 import { buildDaySeries, buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, toLocalDateString } from "@/lib/utils";
 import type { Bill, ExpenseEntry, IncomeEntry, Investment } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,7 +130,7 @@ export default function ReportsPage() {
     if (period === "all") return "2000-01-01";
     const d = new Date();
     d.setMonth(d.getMonth() - currentPeriod.months);
-    return d.toISOString().slice(0, 10);
+    return toLocalDateString(d);
   }, [period, currentPeriod.months]);
 
   const periodExpenses = useMemo(

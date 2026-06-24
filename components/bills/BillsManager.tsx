@@ -5,7 +5,7 @@ import { AlertCircle, Calendar, Check, ChevronDown, FileText, Loader2, Pencil, R
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import { addMonths, cn, formatCurrency, formatDate, getDaysUntilDue, isOverdue } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, getDaysUntilDue, isOverdue, toLocalDateString } from "@/lib/utils";
 import { billSchema, type BillFormData } from "@/lib/validations";
 import { appliesMaeFilter, isMaeName, type MaeFilterMode } from "@/lib/mae";
 import { isDateOnHolidayList, type BrasilApiHoliday } from "@/lib/brasilapi";
@@ -105,7 +105,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
           user_id: user.id,
           name: bill.name,
           amount: bill.amount,
-          due_date: nextDate.toISOString().slice(0, 10),
+          due_date: toLocalDateString(nextDate),
           status: "pending" as const,
           category: bill.category,
           is_recurring: true,
@@ -281,7 +281,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
 
       if (bill?.is_recurring) {
         const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
-        const nextDueDateStr = nextDate.toISOString().slice(0, 10);
+        const nextDueDateStr = toLocalDateString(nextDate);
         await supabase.from("bills").insert(coerceMutation({
           user_id: userId,
           name: bill.name,
@@ -464,7 +464,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                   {bill.is_recurring && effective !== "paid" && (
                     <span className="flex items-center gap-1 text-accent">
                       <RefreshCw className="h-3 w-3" />
-                      Próximo: {formatDate(addMonths(new Date(bill.due_date + "T00:00:00"), 1).toISOString().slice(0, 10))}
+                      Próximo: {formatDate(toLocalDateString(addMonths(new Date(bill.due_date + "T00:00:00"), 1)))}
                     </span>
                   )}
                 </div>

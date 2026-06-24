@@ -15,7 +15,7 @@ import {
   summarizeInstallmentPayments,
   toggleDiscountStatus,
 } from "@/lib/installments";
-import { addMonths, cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
 import { appliesMaeFilter, isMaeName, type MaeFilterMode } from "@/lib/mae";
 import type { Installment, InstallmentPayment, InstallmentStatus } from "@/types/database";
@@ -149,7 +149,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
         user_id: userId,
         installment_id: installmentId,
         installment_number: index + 1,
-        due_date: dueDate.toISOString().split("T")[0],
+        due_date: toLocalDateString(dueDate),
         amount: unitAmount,
         status: "pending" as const,
       };
@@ -207,7 +207,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     setEditingPayment({ installmentDescription: item.description, payment });
     setPaymentStatus(normalizeInstallmentStatus(payment.status));
     setPaymentPaidAmount(payment.paid_amount ?? payment.amount);
-    setPaymentPaidDate(payment.paid_at ? payment.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setPaymentPaidDate(payment.paid_at ? payment.paid_at.slice(0, 10) : toLocalDateString());
     setPaymentNotes(payment.notes ?? "");
     setPaymentDialogOpen(true);
   };
