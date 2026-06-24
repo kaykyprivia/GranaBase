@@ -10,11 +10,15 @@ interface CurrencyInputProps
   error?: string;
 }
 
+function formatDisplayValue(numericValue: number): string {
+  return numericValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ className, value, onChange, error, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState(() => {
       if (!value) return "";
-      return value.toFixed(2).replace(".", ",");
+      return formatDisplayValue(value);
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,7 +30,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       }
       const cents = parseInt(raw, 10);
       const numericValue = cents / 100;
-      setDisplayValue(numericValue.toFixed(2).replace(".", ","));
+      setDisplayValue(formatDisplayValue(numericValue));
       onChange?.(numericValue);
     };
 
