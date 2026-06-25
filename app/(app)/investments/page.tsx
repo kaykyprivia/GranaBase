@@ -9,11 +9,19 @@ import { Calculator, PiggyBank, Pencil, Plus, Search, TrendingDown, Trash2, Tren
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
-import { getMonthOptions, INVESTMENT_TYPES } from "@/lib/finance";
+import {
+  getMonthOptions,
+  INVESTMENT_TYPES,
+  MARKET_TRACKED_INVESTMENT_TYPES,
+  CDI_LIQUID_INVESTMENT_TYPES,
+  SELIC_LIQUID_INVESTMENT_TYPES,
+} from "@/lib/finance";
 import {
   buildFallbackMarketOverview,
+  calculateAccruedFixedIncomeValue,
   calculateCdb100CdiReturn,
   calculateTesouroSelicReturn,
+  roundMarketMoney,
   type MarketOverview,
 } from "@/lib/market";
 import type { AssetQuote } from "@/app/api/market/quotes/route";
@@ -90,16 +98,48 @@ interface PositionGainLoss {
   gainLossPercent: number;
 }
 
-function getPositionGainLoss(entry: Investment, quote: LiveQuote | null): PositionGainLoss | null {
-  if (!quote || !entry.quantity || entry.quantity <= 0) {
+/**
+ * Para renda fixa com liquidez diaria (CDB/Reserva = CDI, Tesouro = SELIC), simula o valor
+ * atualizado compondo a taxa diaria desde a data do aporte, igual a uma caixinha do Mercado Pago.
+ */
+function getFixedIncomeCurrentValue(entry: Investment, marketOverview: MarketOverview): number | null {
+  if (MARKET_TRACKED_INVESTMENT_TYPES.includes(entry.investment_type)) {
     return null;
   }
 
-  const currentValue = entry.quantity * quote.price;
-  const gainLoss = currentValue - entry.amount;
-  const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
+  const rate = CDI_LIQUID_INVESTMENT_TYPES.includes(entry.investment_type)
+    ? marketOverview.cdi.annualizedValue
+    : SELIC_LIQUID_INVESTMENT_TYPES.includes(entry.investment_type)
+      ? marketOverview.selic.annualizedValue
+      : null;
 
-  return { currentValue, gainLoss, gainLossPercent };
+  if (rate === null) {
+    return null;
+  }
+
+  return calculateAccruedFixedIncomeValue(entry.amount, rate, entry.invested_at);
+}
+
+function getPositionGainLoss(
+  entry: Investment,
+  quote: LiveQuote | null,
+  marketOverview: MarketOverview
+): PositionGainLoss | null {
+  if (quote && entry.quantity && entry.quantity > 0) {
+    const currentValue = entry.quantity * quote.price;
+    const gainLoss = currentValue - entry.amount;
+    const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
+    return { currentValue, gainLoss, gainLossPercent };
+  }
+
+  const accruedValue = getFixedIncomeCurrentValue(entry, marketOverview);
+  if (accruedValue !== null && accruedValue > entry.amount) {
+    const gainLoss = accruedValue - entry.amount;
+    const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
+    return { currentValue: accruedValue, gainLoss, gainLossPercent };
+  }
+
+  return null;
 }
 
 function GainLossBadge({ gainLoss }: { gainLoss: PositionGainLoss }) {
@@ -118,6 +158,7 @@ function AssetCard({
   portfolioTotal,
   cryptoQuotes,
   assetQuotes,
+  marketOverview,
   onEdit,
   onSell,
   onDelete,
@@ -126,13 +167,14 @@ function AssetCard({
   portfolioTotal: number;
   cryptoQuotes: Record<string, CryptoQuote>;
   assetQuotes: Record<string, AssetQuote>;
+  marketOverview: MarketOverview;
   onEdit: (e: Investment) => void;
   onSell: (e: Investment) => void;
   onDelete: (id: string) => void;
 }) {
   const pct = portfolioTotal > 0 ? (entry.amount / portfolioTotal) * 100 : 0;
   const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
-  const gainLoss = getPositionGainLoss(entry, quote);
+  const gainLoss = getPositionGainLoss(entry, quote, marketOverview);
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border/60 bg-surface/60 p-4 transition-all hover:border-border hover:bg-border/20">
@@ -193,6 +235,7 @@ function InvestmentsTable({
   entries,
   cryptoQuotes,
   assetQuotes,
+  marketOverview,
   onEdit,
   onSell,
   onDelete,
@@ -200,6 +243,7 @@ function InvestmentsTable({
   entries: Investment[];
   cryptoQuotes: Record<string, CryptoQuote>;
   assetQuotes: Record<string, AssetQuote>;
+  marketOverview: MarketOverview;
   onEdit: (entry: Investment) => void;
   onSell: (entry: Investment) => void;
   onDelete: (id: string) => void;
@@ -216,7 +260,7 @@ function InvestmentsTable({
       <div className="divide-y divide-border">
         {entries.map((entry) => {
           const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
-          const gainLoss = getPositionGainLoss(entry, quote);
+          const gainLoss = getPositionGainLoss(entry, quote, marketOverview);
           return (
           <div
             key={entry.id}
@@ -381,16 +425,24 @@ export default function InvestmentsPage() {
   const watchedTicker = watch("ticker");
   const watchedType = watch("investment_type");
   const watchedQuantity = watch("quantity");
+  const isMarketTrackedType = MARKET_TRACKED_INVESTMENT_TYPES.includes(watchedType);
   const [tickerLookup, setTickerLookup] = useState<{ name: string | null; price: number | null } | null>(null);
   const [tickerLookupLoading, setTickerLookupLoading] = useState(false);
   const [tickerLookupNotFound, setTickerLookupNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!isMarketTrackedType) {
+      setValue("ticker", "");
+      setValue("quantity", undefined);
+    }
+  }, [isMarketTrackedType, setValue]);
 
   useEffect(() => {
     const ticker = watchedTicker?.trim().toUpperCase();
     setTickerLookup(null);
     setTickerLookupNotFound(false);
 
-    if (!ticker || ticker.length < 3) {
+    if (!isMarketTrackedType || !ticker || ticker.length < 3) {
       return;
     }
 
@@ -431,7 +483,7 @@ export default function InvestmentsPage() {
       clearTimeout(timer);
       setTickerLookupLoading(false);
     };
-  }, [watchedTicker, watchedType, getValues, setValue]);
+  }, [watchedTicker, watchedType, isMarketTrackedType, getValues, setValue]);
 
   const fetchEntries = useCallback(async () => {
     const {
@@ -641,19 +693,58 @@ export default function InvestmentsPage() {
         if (error) throw error;
         toast.success("Investimento atualizado");
       } else {
-        const { error } = await supabase.from("investments").insert(coerceMutation({
-          user_id: userId,
-          name: data.name,
-          amount: data.amount,
-          investment_type: data.investment_type,
-          invested_at: data.invested_at,
-          ticker: data.ticker?.trim().toUpperCase() || null,
-          quantity: data.quantity ?? null,
-          notes: data.notes || null,
-        }));
+        const normalizedName = data.name.trim().toLowerCase();
+        const isFixedIncome = !MARKET_TRACKED_INVESTMENT_TYPES.includes(data.investment_type);
+        const existingMatch = isFixedIncome
+          ? entries.find(
+              (entry) =>
+                entry.name.trim().toLowerCase() === normalizedName &&
+                entry.investment_type === data.investment_type
+            )
+          : undefined;
 
-        if (error) throw error;
-        toast.success("Investimento registrado");
+        if (existingMatch) {
+          // Mesmo ativo de renda fixa ja cadastrado (ex: caixinha CDB) - soma o aporte
+          // ao ativo existente em vez de criar um registro duplicado.
+          const rate = CDI_LIQUID_INVESTMENT_TYPES.includes(existingMatch.investment_type)
+            ? marketOverview.cdi.annualizedValue
+            : SELIC_LIQUID_INVESTMENT_TYPES.includes(existingMatch.investment_type)
+              ? marketOverview.selic.annualizedValue
+              : null;
+
+          const accruedPrincipal =
+            rate !== null
+              ? calculateAccruedFixedIncomeValue(existingMatch.amount, rate, existingMatch.invested_at)
+              : existingMatch.amount;
+
+          const newAmount = roundMarketMoney(accruedPrincipal + data.amount);
+
+          const { error } = await supabase
+            .from("investments")
+            .update(coerceMutation({
+              amount: newAmount,
+              invested_at: data.invested_at,
+              notes: data.notes || existingMatch.notes,
+            }))
+            .eq("id", existingMatch.id);
+
+          if (error) throw error;
+          toast.success(`Aporte somado a "${existingMatch.name}". Novo total: ${formatCurrency(newAmount)}`);
+        } else {
+          const { error } = await supabase.from("investments").insert(coerceMutation({
+            user_id: userId,
+            name: data.name,
+            amount: data.amount,
+            investment_type: data.investment_type,
+            invested_at: data.invested_at,
+            ticker: data.ticker?.trim().toUpperCase() || null,
+            quantity: data.quantity ?? null,
+            notes: data.notes || null,
+          }));
+
+          if (error) throw error;
+          toast.success("Investimento registrado");
+        }
       }
 
       setModalOpen(false);
@@ -706,7 +797,14 @@ export default function InvestmentsPage() {
       .reduce((sum, entry) => sum + entry.amount, 0),
     [entries, currentMonth]
   );
-  const portfolioTotal = useMemo(() => entries.reduce((sum, entry) => sum + entry.amount, 0), [entries]);
+  const portfolioTotal = useMemo(
+    () =>
+      entries.reduce((sum, entry) => {
+        const accrued = getFixedIncomeCurrentValue(entry, marketOverview);
+        return sum + (accrued ?? entry.amount);
+      }, 0),
+    [entries, marketOverview]
+  );
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
   const tesouroReturn = calculateTesouroSelicReturn(portfolioTotal || simulationAmount, marketOverview.selic.annualizedValue);
@@ -999,6 +1097,7 @@ export default function InvestmentsPage() {
                     entries={filtered}
                     cryptoQuotes={cryptoQuotes}
                     assetQuotes={assetQuotes}
+                    marketOverview={marketOverview}
                     onEdit={openEdit}
                     onSell={setSellingEntry}
                     onDelete={setDeleteId}
@@ -1063,6 +1162,7 @@ export default function InvestmentsPage() {
                           portfolioTotal={portfolioTotal}
                           cryptoQuotes={cryptoQuotes}
                           assetQuotes={assetQuotes}
+                          marketOverview={marketOverview}
                           onEdit={openEdit}
                           onSell={setSellingEntry}
                           onDelete={setDeleteId}
@@ -1088,60 +1188,64 @@ export default function InvestmentsPage() {
               <Input placeholder="Ex: Tesouro Selic" error={errors.name?.message} {...register("name")} />
             </FormField>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Ticker / Símbolo" error={errors.ticker?.message}>
-                <Input placeholder="Ex: PETR4, MXRF11, BTC" error={errors.ticker?.message} {...register("ticker")} />
-              </FormField>
-              <FormField label="Quantidade de cotas" error={errors.quantity?.message}>
-                <Input
-                  type="number"
-                  step="any"
-                  min={0}
-                  placeholder="Ex: 100"
-                  error={errors.quantity?.message}
-                  {...register("quantity", { valueAsNumber: true })}
-                />
-              </FormField>
-            </div>
+            {isMarketTrackedType && (
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField label="Ticker / Símbolo" error={errors.ticker?.message}>
+                    <Input placeholder="Ex: PETR4, MXRF11, BTC" error={errors.ticker?.message} {...register("ticker")} />
+                  </FormField>
+                  <FormField label="Quantidade de cotas" error={errors.quantity?.message}>
+                    <Input
+                      type="number"
+                      step="any"
+                      min={0}
+                      placeholder="Ex: 100"
+                      error={errors.quantity?.message}
+                      {...register("quantity", { valueAsNumber: true })}
+                    />
+                  </FormField>
+                </div>
 
-            {tickerLookupLoading && (
-              <p className="text-xs text-text-secondary">Buscando cotação...</p>
-            )}
-            {!tickerLookupLoading && tickerLookup && (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-xs">
-                <span className="text-text-secondary">
-                  {tickerLookup.name ? `${tickerLookup.name} · ` : ""}
-                  {tickerLookup.price !== null ? formatCurrency(tickerLookup.price) : "sem preço"}
-                </span>
-                {tickerLookup.name && (
-                  <button
-                    type="button"
-                    className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
-                    onClick={() => setValue("name", tickerLookup.name!)}
-                  >
-                    Usar nome
-                  </button>
+                {tickerLookupLoading && (
+                  <p className="text-xs text-text-secondary">Buscando cotação...</p>
                 )}
-                {tickerLookup.price !== null && (
-                  <button
-                    type="button"
-                    className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
-                    onClick={() =>
-                      setValue(
-                        "amount",
-                        watchedQuantity && watchedQuantity > 0
-                          ? Math.round(tickerLookup.price! * watchedQuantity * 100) / 100
-                          : tickerLookup.price!
-                      )
-                    }
-                  >
-                    Usar valor{watchedQuantity ? " (preço × qtd)" : ""}
-                  </button>
+                {!tickerLookupLoading && tickerLookup && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-surface/60 px-3 py-2 text-xs">
+                    <span className="text-text-secondary">
+                      {tickerLookup.name ? `${tickerLookup.name} · ` : ""}
+                      {tickerLookup.price !== null ? formatCurrency(tickerLookup.price) : "sem preço"}
+                    </span>
+                    {tickerLookup.name && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
+                        onClick={() => setValue("name", tickerLookup.name!)}
+                      >
+                        Usar nome
+                      </button>
+                    )}
+                    {tickerLookup.price !== null && (
+                      <button
+                        type="button"
+                        className="rounded-full border border-accent/40 px-2 py-0.5 text-accent hover:bg-accent/10"
+                        onClick={() =>
+                          setValue(
+                            "amount",
+                            watchedQuantity && watchedQuantity > 0
+                              ? Math.round(tickerLookup.price! * watchedQuantity * 100) / 100
+                              : tickerLookup.price!
+                          )
+                        }
+                      >
+                        Usar valor{watchedQuantity ? " (preço × qtd)" : ""}
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-            {!tickerLookupLoading && tickerLookupNotFound && (
-              <p className="text-xs text-text-secondary">Sem cotação disponível agora para esse ticker.</p>
+                {!tickerLookupLoading && tickerLookupNotFound && (
+                  <p className="text-xs text-text-secondary">Sem cotação disponível agora para esse ticker.</p>
+                )}
+              </>
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

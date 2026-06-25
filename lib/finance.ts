@@ -10,6 +10,12 @@ export const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissao", "Pix", 
 export const EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 export const BILL_CATEGORIES = ["Aluguel", "Energia", "Agua", "Internet", "Telefone", "Cartao", "Emprestimo", "Seguro", "Mensalidade", "Outro"];
 export const INVESTMENT_TYPES = ["Reserva", "Tesouro", "CDB", "FII", "ETF", "Acao", "Crypto", "Outro"];
+// Tipos de ativo que possuem ticker/cotacao de mercado (acoes, fundos, cripto).
+export const MARKET_TRACKED_INVESTMENT_TYPES = ["FII", "ETF", "Acao", "Crypto"];
+// Renda fixa com liquidez diaria atrelada ao CDI (ex: caixinha do Mercado Pago, CDB, reserva de emergencia).
+export const CDI_LIQUID_INVESTMENT_TYPES = ["CDB", "Reserva"];
+// Renda fixa atrelada a SELIC (Tesouro Selic).
+export const SELIC_LIQUID_INVESTMENT_TYPES = ["Tesouro"];
 export const GOAL_CATEGORIES = ["Reserva", "Quitar divida", "Viagem", "Casa", "Carro", "Estudos", "Investimento", "Outro"];
 export const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartao Debito", "Cartao Credito", "Transferencia", "Outro"];
 

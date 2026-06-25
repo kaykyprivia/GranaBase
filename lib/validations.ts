@@ -68,6 +68,16 @@ export const investmentSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const dividendSchema = z.object({
+  ticker: z.string().min(1, "Ticker é obrigatório"),
+  asset_name: z.string().optional(),
+  amount: z.number().positive("Valor deve ser positivo"),
+  per_share: z.number().nonnegative("Valor por cota não pode ser negativo").optional(),
+  payment_date: z.string().min(1, "Data é obrigatória"),
+  label: z.enum(["Dividendo", "JCP", "Rendimento", "Outro"]),
+  notes: z.string().optional(),
+});
+
 export const goalSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   target_amount: z.number().positive("Valor alvo deve ser positivo"),
@@ -90,5 +100,6 @@ export type BillFormData = z.infer<typeof billSchema>;
 export type ReceivableFormData = z.infer<typeof receivableSchema>;
 export type InstallmentFormData = z.infer<typeof installmentSchema>;
 export type InvestmentFormData = z.infer<typeof investmentSchema>;
+export type DividendFormData = z.infer<typeof dividendSchema>;
 export type GoalFormData = z.infer<typeof goalSchema>;
 export type WalletContributionFormData = z.infer<typeof walletContributionSchema>;

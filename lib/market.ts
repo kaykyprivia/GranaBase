@@ -78,6 +78,52 @@ export function calculateTesouroSelicReturn(
   return calculateCdb100CdiReturn(principal, annualRatePercent);
 }
 
+function countBusinessDaysBetween(start: Date, end: Date): number {
+  if (end <= start) {
+    return 0;
+  }
+
+  let count = 0;
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+  const endDay = new Date(end);
+  endDay.setHours(0, 0, 0, 0);
+
+  while (cursor < endDay) {
+    cursor.setDate(cursor.getDate() + 1);
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Valor atualizado de um ativo de renda fixa com liquidez diaria (ex: CDB 100% CDI),
+ * compondo a taxa diaria pelos dias uteis corridos desde o aporte.
+ */
+export function calculateAccruedFixedIncomeValue(
+  principal: number,
+  annualRatePercent: number,
+  investedAt: string,
+  asOf: Date = new Date()
+): number {
+  const safePrincipal = Math.max(principal, 0);
+  const startDate = new Date(`${investedAt}T00:00:00`);
+
+  if (Number.isNaN(startDate.getTime())) {
+    return roundMarketMoney(safePrincipal);
+  }
+
+  const annualRate = Math.max(annualRatePercent, 0) / 100;
+  const dailyRate = Math.pow(1 + annualRate, 1 / 252) - 1;
+  const businessDays = countBusinessDaysBetween(startDate, asOf);
+
+  return roundMarketMoney(safePrincipal * Math.pow(1 + dailyRate, businessDays));
+}
+
 export function buildFallbackMarketOverview(): MarketOverview {
   return {
     cdi: {
