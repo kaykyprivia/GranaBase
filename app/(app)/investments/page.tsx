@@ -120,26 +120,31 @@ function getFixedIncomeCurrentValue(entry: Investment, marketOverview: MarketOve
   return calculateAccruedFixedIncomeValue(entry.amount, rate, entry.invested_at);
 }
 
+/**
+ * Valor atual de um ativo: cotacao x quantidade para acoes/FIIs/ETF/cripto,
+ * valor com juros compostos para renda fixa (CDI/SELIC), ou o principal investido.
+ */
+function getEntryCurrentValue(entry: Investment, quote: LiveQuote | null, marketOverview: MarketOverview): number {
+  if (quote && entry.quantity && entry.quantity > 0) {
+    return entry.quantity * quote.price;
+  }
+
+  return getFixedIncomeCurrentValue(entry, marketOverview) ?? entry.amount;
+}
+
 function getPositionGainLoss(
   entry: Investment,
   quote: LiveQuote | null,
   marketOverview: MarketOverview
 ): PositionGainLoss | null {
-  if (quote && entry.quantity && entry.quantity > 0) {
-    const currentValue = entry.quantity * quote.price;
-    const gainLoss = currentValue - entry.amount;
-    const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
-    return { currentValue, gainLoss, gainLossPercent };
+  const currentValue = getEntryCurrentValue(entry, quote, marketOverview);
+  if (currentValue === entry.amount) {
+    return null;
   }
 
-  const accruedValue = getFixedIncomeCurrentValue(entry, marketOverview);
-  if (accruedValue !== null && accruedValue > entry.amount) {
-    const gainLoss = accruedValue - entry.amount;
-    const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
-    return { currentValue: accruedValue, gainLoss, gainLossPercent };
-  }
-
-  return null;
+  const gainLoss = currentValue - entry.amount;
+  const gainLossPercent = entry.amount > 0 ? (gainLoss / entry.amount) * 100 : 0;
+  return { currentValue, gainLoss, gainLossPercent };
 }
 
 function GainLossBadge({ gainLoss }: { gainLoss: PositionGainLoss }) {
@@ -800,25 +805,42 @@ export default function InvestmentsPage() {
   const portfolioTotal = useMemo(
     () =>
       entries.reduce((sum, entry) => {
-        const accrued = getFixedIncomeCurrentValue(entry, marketOverview);
-        return sum + (accrued ?? entry.amount);
-      }, 0),
-    [entries, marketOverview]
-  );
-  const investedPrincipal = useMemo(
-    () => entries.reduce((sum, entry) => sum + entry.amount, 0),
-    [entries]
-  );
-  const totalGainLoss = useMemo(
-    () =>
-      entries.reduce((sum, entry) => {
         const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
-        const gainLoss = getPositionGainLoss(entry, quote, marketOverview);
-        return sum + (gainLoss?.gainLoss ?? 0);
+        return sum + getEntryCurrentValue(entry, quote, marketOverview);
       }, 0),
     [entries, cryptoQuotes, assetQuotes, marketOverview]
   );
-  const totalGainLossPercent = investedPrincipal > 0 ? (totalGainLoss / investedPrincipal) * 100 : 0;
+  // Rendimento separado por natureza: juros compostos de renda fixa (CDI/SELIC)
+  // x valorizacao de mercado (acoes/FIIs/ETF/cripto), pois sao fontes de ganho diferentes.
+  const { fixedIncomeGainLoss, fixedIncomePrincipal, marketGainLoss, marketPrincipal } = useMemo(() => {
+    let fixedIncomeGain = 0;
+    let fixedIncomePrincipalSum = 0;
+    let marketGain = 0;
+    let marketPrincipalSum = 0;
+
+    for (const entry of entries) {
+      const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
+      const currentValue = getEntryCurrentValue(entry, quote, marketOverview);
+      const gain = currentValue - entry.amount;
+
+      if (MARKET_TRACKED_INVESTMENT_TYPES.includes(entry.investment_type)) {
+        marketGain += gain;
+        marketPrincipalSum += entry.amount;
+      } else {
+        fixedIncomeGain += gain;
+        fixedIncomePrincipalSum += entry.amount;
+      }
+    }
+
+    return {
+      fixedIncomeGainLoss: fixedIncomeGain,
+      fixedIncomePrincipal: fixedIncomePrincipalSum,
+      marketGainLoss: marketGain,
+      marketPrincipal: marketPrincipalSum,
+    };
+  }, [entries, cryptoQuotes, assetQuotes, marketOverview]);
+  const fixedIncomeGainLossPercent = fixedIncomePrincipal > 0 ? (fixedIncomeGainLoss / fixedIncomePrincipal) * 100 : 0;
+  const marketGainLossPercent = marketPrincipal > 0 ? (marketGainLoss / marketPrincipal) * 100 : 0;
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
   const tesouroReturn = calculateTesouroSelicReturn(portfolioTotal || simulationAmount, marketOverview.selic.annualizedValue);
@@ -873,7 +895,7 @@ export default function InvestmentsPage() {
       />
 
       {/* Stat cards */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard
           title="Patrimônio total"
           value={formatCurrency(portfolioTotal)}
@@ -890,12 +912,20 @@ export default function InvestmentsPage() {
           loading={loading}
         />
         <StatCard
-          title="Rendimento total"
-          value={formatCurrency(totalGainLoss)}
+          title="Rendimento CDI/CDB"
+          value={formatCurrency(fixedIncomeGainLoss)}
           icon={Percent}
-          variant={totalGainLoss >= 0 ? "profit" : "expense"}
+          variant={fixedIncomeGainLoss >= 0 ? "profit" : "expense"}
           loading={loading}
-          subtitle={`${totalGainLoss >= 0 ? "+" : ""}${totalGainLossPercent.toFixed(2)}% sobre o investido`}
+          subtitle={`${fixedIncomeGainLoss >= 0 ? "+" : ""}${fixedIncomeGainLossPercent.toFixed(2)}% · juros compostos`}
+        />
+        <StatCard
+          title="Rendimento Ações/FIIs"
+          value={formatCurrency(marketGainLoss)}
+          icon={Percent}
+          variant={marketGainLoss >= 0 ? "profit" : "expense"}
+          loading={loading}
+          subtitle={`${marketGainLoss >= 0 ? "+" : ""}${marketGainLossPercent.toFixed(2)}% · valorização de mercado`}
         />
         <StatCard
           title="Tipos de ativo"
