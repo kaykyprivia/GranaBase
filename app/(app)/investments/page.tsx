@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from "recharts";
-import { Calculator, PiggyBank, Pencil, Plus, Search, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { Calculator, PiggyBank, Pencil, Percent, Plus, Search, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -805,6 +805,20 @@ export default function InvestmentsPage() {
       }, 0),
     [entries, marketOverview]
   );
+  const investedPrincipal = useMemo(
+    () => entries.reduce((sum, entry) => sum + entry.amount, 0),
+    [entries]
+  );
+  const totalGainLoss = useMemo(
+    () =>
+      entries.reduce((sum, entry) => {
+        const quote = getEntryQuote(entry, cryptoQuotes, assetQuotes);
+        const gainLoss = getPositionGainLoss(entry, quote, marketOverview);
+        return sum + (gainLoss?.gainLoss ?? 0);
+      }, 0),
+    [entries, cryptoQuotes, assetQuotes, marketOverview]
+  );
+  const totalGainLossPercent = investedPrincipal > 0 ? (totalGainLoss / investedPrincipal) * 100 : 0;
   const uniqueTypes = [...new Set(entries.map((entry) => entry.investment_type))].sort();
   const cdiReturn = calculateCdb100CdiReturn(simulationAmount, marketOverview.cdi.annualizedValue);
   const tesouroReturn = calculateTesouroSelicReturn(portfolioTotal || simulationAmount, marketOverview.selic.annualizedValue);
@@ -859,7 +873,7 @@ export default function InvestmentsPage() {
       />
 
       {/* Stat cards */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Patrimônio total"
           value={formatCurrency(portfolioTotal)}
@@ -874,6 +888,14 @@ export default function InvestmentsPage() {
           icon={TrendingUp}
           variant={monthlyTotal >= 0 ? "accent" : "expense"}
           loading={loading}
+        />
+        <StatCard
+          title="Rendimento total"
+          value={formatCurrency(totalGainLoss)}
+          icon={Percent}
+          variant={totalGainLoss >= 0 ? "profit" : "expense"}
+          loading={loading}
+          subtitle={`${totalGainLoss >= 0 ? "+" : ""}${totalGainLossPercent.toFixed(2)}% sobre o investido`}
         />
         <StatCard
           title="Tipos de ativo"
