@@ -182,6 +182,7 @@ export default function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
   const [installmentSummaryOpen, setInstallmentSummaryOpen] = useState(false);
+  const [expandedInstallmentIds, setExpandedInstallmentIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
@@ -356,6 +357,33 @@ export default function ExpensesPage() {
       return next;
     });
   };
+
+  const toggleInstallmentExpanded = (installmentId: string) => {
+    setExpandedInstallmentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(installmentId)) next.delete(installmentId); else next.add(installmentId);
+      return next;
+    });
+  };
+
+  const installmentPaymentsDisplay = useMemo(() => {
+    const map = new Map<string, DisplayExpense[]>();
+    payments.forEach((payment) => {
+      const display = billsAndInstallmentsDisplay.find((d) => d.source === "installment" && d.id === payment.id);
+      if (!display) return;
+      const list = map.get(payment.installment_id) ?? [];
+      list.push(display);
+      map.set(payment.installment_id, list);
+    });
+    map.forEach((list) => {
+      list.sort((a, b) => {
+        const pa = payments.find((p) => p.id === a.id);
+        const pb = payments.find((p) => p.id === b.id);
+        return (pa?.installment_number ?? 0) - (pb?.installment_number ?? 0);
+      });
+    });
+    return map;
+  }, [payments, billsAndInstallmentsDisplay]);
 
   const currentMonthGroup = useMemo(() => groupedByMonth.find((g) => g.month === currentMonth), [groupedByMonth, currentMonth]);
   const futureMonthGroups = useMemo(
@@ -932,31 +960,94 @@ export default function ExpensesPage() {
           <div className={cn("grid transition-all duration-300 ease-in-out", installmentSummaryOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
             <div className="overflow-hidden">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 border-t border-border/40 p-3">
-                {installmentSummaries.map(({ installment, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => (
-                  <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
-                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        style={{
-                          background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
-                          color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
-                        }}>
-                        {paidCount}/{installment.installment_count}
-                      </span>
+                {installmentSummaries.map(({ installment, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => {
+                  const isExpanded = expandedInstallmentIds.has(installment.id);
+                  const installmentPayments = installmentPaymentsDisplay.get(installment.id) ?? [];
+                  return (
+                    <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
+                        <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          style={{
+                            background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
+                            color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
+                          }}>
+                          {paidCount}/{installment.installment_count}
+                        </span>
+                        <button type="button" onClick={() => toggleInstallmentExpanded(installment.id)}
+                          className="shrink-0 rounded-lg p-0.5 text-text-secondary transition-colors hover:bg-border/20 hover:text-text-primary"
+                          title={isExpanded ? "Recolher parcelas" : "Ver parcelas"}>
+                          <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", isExpanded ? "rotate-180" : "rotate-0")} />
+                        </button>
+                      </div>
+                      <Progress value={progress} className="mt-2 h-1.5"
+                        indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
+                        <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
+                        <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
+                      </div>
+                      {nextPayment && (
+                        <p className="mt-1 text-[10px] text-text-secondary">
+                          Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
+                        </p>
+                      )}
+
+                      <div className={cn("grid transition-all duration-300 ease-in-out", isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                        <div className="overflow-hidden">
+                          <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                            {installmentPayments.map((payment) => {
+                              const paymentNumber = payments.find((p) => p.id === payment.id)?.installment_number;
+                              const isDiscounted = payment.status === "paid" && payment.dueAmount !== undefined && payment.amount < payment.dueAmount;
+                              return (
+                                <div key={payment.id} className="flex items-center gap-2 py-1">
+                                  <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-secondary">
+                                    {paymentNumber}/{installment.installment_count}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} · {formatCurrency(payment.amount, currency)}</p>
+                                  </div>
+                                  {payment.status === "overdue" && <Badge variant="expense" className="text-[9px] px-1.5 py-0">Atrasada</Badge>}
+                                  {payment.status === "pending" && <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>}
+                                  {isDiscounted && <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>}
+                                  {payment.status === "paid" && !isDiscounted && <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>}
+                                  <div className="flex shrink-0 items-center gap-0.5">
+                                    {payment.status !== "paid" ? (
+                                      <>
+                                        <Button variant="ghost" size="icon-sm" onClick={() => openEditPending(payment)}
+                                          className="text-text-secondary hover:text-text-primary" title="Editar">
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon-sm" onClick={() => setDeletePendingItem(payment)}
+                                          className="text-text-secondary hover:text-expense hover:bg-expense/10" title="Excluir parcelamento">
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon-sm" onClick={() => openMarkPaid(payment)}
+                                          className="text-profit hover:bg-profit/10" title="Marcar como pago">
+                                          <Check className="h-3 w-3" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button variant="ghost" size="icon-sm" onClick={() => openEditPaid(payment)}
+                                          className="text-text-secondary hover:text-text-primary" title="Editar pagamento">
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon-sm" onClick={() => setRevertItem(payment)}
+                                          className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento — volta para pendente">
+                                          <RotateCcw className="h-3 w-3" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <Progress value={progress} className="mt-2 h-1.5"
-                      indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
-                      <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
-                      <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
-                    </div>
-                    {nextPayment && (
-                      <p className="mt-1 text-[10px] text-text-secondary">
-                        Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
