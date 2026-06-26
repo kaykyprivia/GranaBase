@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   TrendingUp,
   TrendingDown,
-  FileText,
   BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,7 +14,6 @@ const mobileNavItems = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/income", label: "Entradas", icon: TrendingUp },
   { href: "/expenses", label: "Gastos", icon: TrendingDown },
-  { href: "/bills", label: "Contas", icon: FileText },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
 ];
 
