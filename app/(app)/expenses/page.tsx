@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload, Check } from "lucide-react";
+import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload, Check, RotateCcw } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -786,15 +786,17 @@ export default function ExpensesPage() {
                           }} className="text-text-secondary hover:text-text-primary" title="Editar pagamento">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon-sm" onClick={() => {
-                            if (entry.source === "manual") {
-                              setDeleteId(entry.id);
-                            } else {
-                              setRevertItem(entry);
-                            }
-                          }} className="text-text-secondary hover:text-expense hover:bg-expense/10" title={entry.source === "manual" ? "Excluir" : "Desfazer pagamento"}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {entry.source === "manual" ? (
+                            <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)}
+                              className="text-text-secondary hover:text-expense hover:bg-expense/10" title="Excluir">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon-sm" onClick={() => setRevertItem(entry)}
+                              className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento — volta para pendente">
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>
