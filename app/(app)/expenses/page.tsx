@@ -315,6 +315,12 @@ export default function ExpensesPage() {
     });
   };
 
+  const orderedGroupedByMonth = useMemo(() => {
+    const currentGroup = groupedByMonth.find((g) => g.month === currentMonth);
+    const otherGroups = groupedByMonth.filter((g) => g.month !== currentMonth);
+    return currentGroup ? [currentGroup, ...otherGroups] : otherGroups;
+  }, [groupedByMonth, currentMonth]);
+
   const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
   const totalAll = realizedEntries.reduce((s, e) => s + e.amount, 0);
   const topCategory = (() => {
@@ -681,14 +687,22 @@ export default function ExpensesPage() {
         />
       ) : (
         <div className="space-y-2">
-          {groupedByMonth.map(({ month, label, items, total }) => {
+          {orderedGroupedByMonth.map(({ month, label, items, total }, index) => {
             const isOpen = openMonths.has(month);
+            const isCurrent = month === currentMonth;
+            const isFirstNonCurrent = !isCurrent && index > 0 && orderedGroupedByMonth[index - 1]?.month === currentMonth;
             return (
-              <div key={month} className="overflow-hidden rounded-2xl border border-border/50">
+              <div key={month}>
+                {isFirstNonCurrent && <div className="my-3 border-t border-border/60" />}
+                <div className={cn(
+                  "overflow-hidden rounded-2xl border",
+                  isCurrent ? "border-expense/40" : "border-border/50"
+                )}>
                 <button type="button" onClick={() => toggleMonth(month)}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
                   <div className="flex flex-1 flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
+                    {isCurrent && <Badge variant="expense" className="text-[10px]">Atual</Badge>}
                     <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total, currency)}</span>
                     <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
                   </div>
@@ -714,6 +728,9 @@ export default function ExpensesPage() {
                                 {entry.source === "installment" && <Badge variant="default" className="text-[10px]">Parcela</Badge>}
                                 {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
                                 {entry.status === "pending" && <Badge variant="secondary" className="text-[10px]">Pendente</Badge>}
+                                {entry.status === "paid" && entry.source === "installment" && entry.dueAmount !== undefined && entry.amount < entry.dueAmount && (
+                                  <Badge variant="paid_with_discount" className="text-[10px]">Pago com desconto</Badge>
+                                )}
                                 {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
                               </div>
                             </div>
@@ -757,6 +774,7 @@ export default function ExpensesPage() {
                       })}
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
             );
@@ -928,9 +946,19 @@ export default function ExpensesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-text-secondary">{markPaidItem?.description}</p>
+            {markPaidItem?.dueAmount !== undefined && (
+              <p className="text-xs text-text-secondary">
+                Valor original: <span className="font-semibold text-text-primary">{formatCurrency(markPaidItem.dueAmount, currency)}</span>
+              </p>
+            )}
             <FormField label="Valor pago" required>
               <CurrencyInput value={markPaidAmount} onChange={setMarkPaidAmount} />
             </FormField>
+            {markPaidItem?.source === "installment" && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
+              <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
+                Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
+              </p>
+            )}
             <FormField label="Data do pagamento" required>
               <Input type="date" value={markPaidDate} onChange={e => setMarkPaidDate(e.target.value)} />
             </FormField>
@@ -949,9 +977,19 @@ export default function ExpensesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-text-secondary">{editPaidItem?.description}</p>
+            {editPaidItem?.dueAmount !== undefined && (
+              <p className="text-xs text-text-secondary">
+                Valor original: <span className="font-semibold text-text-primary">{formatCurrency(editPaidItem.dueAmount, currency)}</span>
+              </p>
+            )}
             <FormField label="Valor pago" required>
               <CurrencyInput value={editPaidAmount} onChange={setEditPaidAmount} />
             </FormField>
+            {editPaidItem?.source === "installment" && editPaidItem.dueAmount !== undefined && editPaidAmount > 0 && editPaidAmount < editPaidItem.dueAmount && (
+              <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
+                Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(editPaidItem.dueAmount - editPaidAmount, currency)}
+              </p>
+            )}
             <FormField label="Data do pagamento" required>
               <Input type="date" value={editPaidDate} onChange={e => setEditPaidDate(e.target.value)} />
             </FormField>
