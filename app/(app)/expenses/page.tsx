@@ -14,7 +14,8 @@ import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { addMonths, cn, formatCurrency, formatDate, formatTime, isOverdue, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
 import { billSchema, expenseSchema, installmentSchema, type BillFormData, type ExpenseFormData, type InstallmentFormData } from "@/lib/validations";
-import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
+import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid, summarizeInstallmentPayments } from "@/lib/installments";
+import { Progress } from "@/components/ui/progress";
 import { appliesMaeFilter } from "@/lib/mae";
 import type { Bill, ExpenseEntry, Installment, InstallmentPayment } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -175,7 +176,9 @@ export default function ExpensesPage() {
   const [revertItem, setRevertItem] = useState<DisplayExpense | null>(null);
   const [reverting, setReverting] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -216,6 +219,18 @@ export default function ExpensesPage() {
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   const installmentsById = useMemo(() => new Map(installments.map((installment) => [installment.id, installment])), [installments]);
+
+  const installmentSummaries = useMemo(() => {
+    return installments
+      .filter((installment) => appliesMaeFilter(userId, "exclude-mae", installment.description))
+      .map((installment) => {
+        const installmentPayments = payments.filter((p) => p.installment_id === installment.id);
+        const summary = summarizeInstallmentPayments(installmentPayments, installment.installment_count, installment.total_amount);
+        return { installment, ...summary };
+      })
+      .filter((s) => s.remainingCount > 0)
+      .sort((a, b) => (a.nextPayment?.due_date ?? "").localeCompare(b.nextPayment?.due_date ?? ""));
+  }, [installments, payments, userId]);
 
   const billsAndInstallmentsDisplay = useMemo<DisplayExpense[]>(() => {
     const billItems: DisplayExpense[] = bills.map((bill) => {
@@ -283,6 +298,11 @@ export default function ExpensesPage() {
     return [...expenseCategories, ...Array.from(new Set(used))];
   }, [expenseCategories, allEntries]);
 
+  const filterPaymentMethods = useMemo(
+    () => Array.from(new Set(allEntries.map((e) => e.payment_method).filter((m): m is string => !!m))).sort(),
+    [allEntries]
+  );
+
   const trendData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
@@ -296,10 +316,12 @@ export default function ExpensesPage() {
 
   const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.spent_at.startsWith(monthFilter);
+    const matchStatus = statusFilter === "all" || e.status === statusFilter;
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
+    const matchPaymentMethod = paymentMethodFilter === "all" || e.payment_method === paymentMethodFilter;
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
-    return matchMonth && matchCat && matchSearch;
-  }), [allEntries, monthFilter, categoryFilter, search]);
+    return matchMonth && matchStatus && matchCat && matchPaymentMethod && matchSearch;
+  }), [allEntries, monthFilter, statusFilter, categoryFilter, paymentMethodFilter, search]);
 
   const groupedByMonth = useMemo(() => {
     const grouped: Record<string, DisplayExpense[]> = {};
@@ -890,23 +912,77 @@ export default function ExpensesPage() {
         </div>
       )}
 
+      {/* Installment progress */}
+      {!loading && installmentSummaries.length > 0 && (
+        <div className="mb-5 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Parcelamentos em andamento</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {installmentSummaries.map(({ installment, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => (
+              <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{
+                      background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
+                      color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
+                    }}>
+                    {paidCount}/{installment.installment_count}
+                  </span>
+                </div>
+                <Progress value={progress} className="mt-2 h-1.5"
+                  indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
+                <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
+                  <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
+                  <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
+                </div>
+                {nextPayment && (
+                  <p className="mt-1 text-[10px] text-text-secondary">
+                    Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
-          <SelectContent>
-            {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {filterCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Select value={monthFilter} onValueChange={setMonthFilter}>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
+            <SelectContent>
+              {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="paid">Pagos</SelectItem>
+              <SelectItem value="pending">Pendentes</SelectItem>
+              <SelectItem value="overdue">Atrasados</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
+            leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as categorias</SelectItem>
+              {filterCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+            <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Forma de pagamento" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as formas</SelectItem>
+              {filterPaymentMethods.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Grouped list */}
@@ -916,10 +992,10 @@ export default function ExpensesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Nenhum gasto encontrado"
-          description={search || monthFilter !== "all" || categoryFilter !== "all"
+          description={search || monthFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" || paymentMethodFilter !== "all"
             ? "Tente remover os filtros." : "Registre seu primeiro gasto."}
-          actionLabel={!search && monthFilter === "all" && categoryFilter === "all" ? "+ Novo Gasto" : undefined}
-          onAction={!search && monthFilter === "all" && categoryFilter === "all" ? openCreate : undefined}
+          actionLabel={!search && monthFilter === "all" && statusFilter === "all" && categoryFilter === "all" && paymentMethodFilter === "all" ? "+ Novo Gasto" : undefined}
+          onAction={!search && monthFilter === "all" && statusFilter === "all" && categoryFilter === "all" && paymentMethodFilter === "all" ? openCreate : undefined}
         />
       ) : (
         <div className="space-y-2">
