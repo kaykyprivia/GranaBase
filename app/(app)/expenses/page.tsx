@@ -1049,7 +1049,7 @@ export default function ExpensesPage() {
           {!editingEntry && (
             <div className="grid grid-cols-3 gap-2 -mt-2">
               {([
-                { value: "normal", label: "Normal" },
+                { value: "normal", label: "Gasto" },
                 { value: "parcelado", label: "Parcelado" },
                 { value: "fixa", label: "Conta Fixa" },
               ] as const).map((option) => (
