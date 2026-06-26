@@ -342,7 +342,9 @@ export default function ExpensesPage() {
       const d = new Date(fallbackNow.getFullYear(), fallbackNow.getMonth() - i, 1);
       months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
     }
-    const sorted = Array.from(months).sort((a, b) => b.localeCompare(a));
+    const future = Array.from(months).filter((m) => m > currentMonth).sort((a, b) => a.localeCompare(b));
+    const presentAndPast = Array.from(months).filter((m) => m <= currentMonth).sort((a, b) => b.localeCompare(a));
+    const sorted = [...future, ...presentAndPast];
     return [
       { value: "all", label: "Todos os meses" },
       ...sorted.map((m) => ({ value: m, label: formatMonthLabel(m) + (m > currentMonth ? " (futuro)" : "") })),
@@ -730,7 +732,7 @@ export default function ExpensesPage() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                        <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
+                        <Badge variant={entry.category === "Parcelamento" ? "secondary" : "expense"} className="text-[10px]">{entry.category}</Badge>
                         {entry.source === "bill" && <Badge variant="secondary" className="text-[10px]">Conta</Badge>}
                         {entry.source === "installment" && <Badge variant="secondary" className="text-[10px]">Parcela</Badge>}
                         {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
