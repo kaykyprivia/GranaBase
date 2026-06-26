@@ -779,37 +779,38 @@ export default function ExpensesPage() {
               {items.map(entry => {
                 const catColor = CATEGORY_COLORS[entry.category] ?? "#94A3B8";
                 const isDiscounted = entry.status === "paid" && entry.source === "installment" && entry.dueAmount !== undefined && entry.amount < entry.dueAmount;
+                const isGenericInstallmentCategory = entry.source === "installment" && entry.category === "Parcelamento";
                 return (
                   <div key={entry.id}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${catColor}18` }}>
+                    className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
+                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${catColor}18` }}>
                       <div className="h-2 w-2 rounded-full" style={{ background: catColor }} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                        <Badge variant={entry.category === "Parcelamento" ? "secondary" : "expense"} className="text-[10px]">{entry.category}</Badge>
-                        {entry.source === "bill" && <Badge variant="secondary" className="text-[10px]">Conta</Badge>}
-                        {entry.source === "installment" && <Badge variant="secondary" className="text-[10px]">Parcela</Badge>}
-                        {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
-                        {entry.status === "pending" && <Badge variant="pending" className="text-[10px]">Pendente</Badge>}
-                        {isDiscounted && <Badge variant="paid_with_discount" className="text-[10px]">Pago com desconto</Badge>}
+                      <p className="break-words text-[13px] sm:text-sm font-medium text-text-primary">{entry.description}</p>
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        <Badge variant={entry.category === "Parcelamento" ? "secondary" : "expense"} className="text-[9px] px-1.5 py-0">{entry.category}</Badge>
+                        {entry.source === "bill" && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Conta</Badge>}
+                        {entry.source === "installment" && !isGenericInstallmentCategory && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Parcela</Badge>}
+                        {entry.status === "overdue" && <Badge variant="expense" className="text-[9px] px-1.5 py-0">Atrasada</Badge>}
+                        {entry.status === "pending" && <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>}
+                        {isDiscounted && <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>}
                         {entry.status === "paid" && entry.source !== "manual" && !isDiscounted && (
-                          <Badge variant="paid" className="text-[10px]">Pago</Badge>
+                          <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>
                         )}
-                        {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
+                        {entry.payment_method && <span className="text-[9px] text-text-secondary">{entry.payment_method}</span>}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
                       {isDiscounted && entry.dueAmount !== undefined && (
-                        <p className="text-[10px] text-text-secondary/70 line-through">{formatCurrency(entry.dueAmount, currency)}</p>
+                        <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.dueAmount, currency)}</p>
                       )}
-                      <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
-                      <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
+                      <p className="text-[13px] sm:text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
+                      <p className="text-[9px] text-text-secondary">{formatDate(entry.spent_at)}</p>
                       {entry.actualDate ? (
-                        <p className="text-[10px] text-text-secondary/60">Gasto em {formatDate(entry.actualDate)}</p>
+                        <p className="text-[9px] text-text-secondary/60">Gasto em {formatDate(entry.actualDate)}</p>
                       ) : (
-                        entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
+                        entry.status === "paid" && <p className="text-[9px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
