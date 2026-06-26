@@ -104,6 +104,7 @@ interface DisplayExpense {
   status: "paid" | "pending" | "overdue";
   dueAmount?: number;
   actualDate?: string;
+  dueDateRef?: string;
 }
 
 function withNewDate(originalIso: string, newDateStr: string) {
@@ -249,6 +250,7 @@ export default function ExpensesPage() {
         source: "bill" as const,
         status,
         dueAmount: bill.amount,
+        dueDateRef: bill.due_date,
       };
     });
 
@@ -273,6 +275,7 @@ export default function ExpensesPage() {
           source: "installment" as const,
           status,
           dueAmount: payment.amount,
+          dueDateRef: payment.due_date,
         };
       });
 
@@ -837,6 +840,8 @@ export default function ExpensesPage() {
                       <p className="text-[9px] text-text-secondary">{formatDate(entry.spent_at)}</p>
                       {entry.actualDate ? (
                         <p className="text-[9px] text-text-secondary/60">Gasto em {formatDate(entry.actualDate)}</p>
+                      ) : entry.status === "paid" && entry.dueDateRef && entry.dueDateRef !== entry.spent_at ? (
+                        <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(entry.dueDateRef)}</p>
                       ) : (
                         entry.status === "paid" && <p className="text-[9px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
                       )}
@@ -1005,6 +1010,9 @@ export default function ExpensesPage() {
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} · {formatCurrency(payment.amount, currency)}</p>
+                                    {payment.status === "paid" && payment.dueDateRef && payment.dueDateRef !== payment.spent_at && (
+                                      <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(payment.dueDateRef)}</p>
+                                    )}
                                   </div>
                                   {payment.status === "overdue" && <Badge variant="expense" className="text-[9px] px-1.5 py-0">Atrasada</Badge>}
                                   {payment.status === "pending" && <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>}
