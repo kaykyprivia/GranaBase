@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
 import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload, Check } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
@@ -35,11 +36,20 @@ const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", 
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
 
-const EMPTY_INSTALLMENT_FORM: InstallmentFormData = {
+const installmentWithExtrasSchema = installmentSchema.extend({
+  category: z.string().min(1, "Categoria é obrigatória"),
+  payment_method: z.string().optional(),
+});
+type InstallmentExtrasFormData = z.infer<typeof installmentWithExtrasSchema>;
+type InstallmentFormState = InstallmentFormData & { category: string; payment_method: string };
+
+const EMPTY_INSTALLMENT_FORM: InstallmentFormState = {
   description: "",
   installment_amount: 0,
   installment_count: 0,
   first_due_date: "",
+  category: "",
+  payment_method: "",
   notes: "",
 };
 
@@ -74,18 +84,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   Emergência:   "#EF4444",
   Outro:        "#94A3B8",
 };
-
-function getMonthOptions() {
-  const opts: { value: string; label: string }[] = [{ value: "all", label: "Todos os meses" }];
-  const now = new Date();
-  const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-  for (let i = 0; i < 13; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    opts.push({ value: val, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` });
-  }
-  return opts;
-}
 
 function formatMonthLabel(key: string) {
   const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(key + "-15"));
@@ -145,9 +143,9 @@ export default function ExpensesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ExpenseEntry | null>(null);
   const [expenseType, setExpenseType] = useState<ExpenseType>("normal");
-  const [installmentForm, setInstallmentForm] = useState<InstallmentFormData>(EMPTY_INSTALLMENT_FORM);
+  const [installmentForm, setInstallmentForm] = useState<InstallmentFormState>(EMPTY_INSTALLMENT_FORM);
   const [installmentCountInput, setInstallmentCountInput] = useState("");
-  const [installmentFormErrors, setInstallmentFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
+  const [installmentFormErrors, setInstallmentFormErrors] = useState<Partial<Record<keyof InstallmentExtrasFormData, string>>>({});
   const [billForm, setBillForm] = useState<BillFormData>(EMPTY_BILL_FORM);
   const [billFormErrors, setBillFormErrors] = useState<Partial<Record<keyof BillFormData, string>>>({});
   const [creatingExtra, setCreatingExtra] = useState(false);
@@ -161,6 +159,10 @@ export default function ExpensesPage() {
   const [markPaidAmount, setMarkPaidAmount] = useState(0);
   const [markPaidDate, setMarkPaidDate] = useState("");
   const [markPaidSaving, setMarkPaidSaving] = useState(false);
+  const [editPendingItem, setEditPendingItem] = useState<DisplayExpense | null>(null);
+  const [editPendingAmount, setEditPendingAmount] = useState(0);
+  const [editPendingDueDate, setEditPendingDueDate] = useState("");
+  const [editPendingSaving, setEditPendingSaving] = useState(false);
   const [revertItem, setRevertItem] = useState<DisplayExpense | null>(null);
   const [reverting, setReverting] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
@@ -170,7 +172,6 @@ export default function ExpensesPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
-  const monthOptions = getMonthOptions();
   const expenseCategories = useMemo(() => buildExpenseCategories(customCategories), [customCategories]);
 
   const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
@@ -239,9 +240,9 @@ export default function ExpensesPage() {
           id: payment.id,
           description,
           amount: paid ? getInstallmentPaidAmount(payment) : payment.amount,
-          category: "Parcelamento",
+          category: installment?.category || "Parcelamento",
           spent_at: paid ? payment.paid_at!.slice(0, 10) : payment.due_date,
-          payment_method: null,
+          payment_method: installment?.payment_method ?? null,
           created_at: paid ? payment.paid_at! : payment.due_date,
           source: "installment" as const,
           status,
@@ -315,10 +316,25 @@ export default function ExpensesPage() {
     });
   };
 
-  const orderedGroupedByMonth = useMemo(() => {
-    const currentGroup = groupedByMonth.find((g) => g.month === currentMonth);
-    const otherGroups = groupedByMonth.filter((g) => g.month !== currentMonth);
-    return currentGroup ? [currentGroup, ...otherGroups] : otherGroups;
+  const currentMonthGroup = useMemo(() => groupedByMonth.find((g) => g.month === currentMonth), [groupedByMonth, currentMonth]);
+  const futureMonthGroups = useMemo(
+    () => groupedByMonth.filter((g) => g.month > currentMonth).sort((a, b) => a.month.localeCompare(b.month)),
+    [groupedByMonth, currentMonth]
+  );
+  const pastMonthGroups = useMemo(() => groupedByMonth.filter((g) => g.month < currentMonth), [groupedByMonth, currentMonth]);
+
+  const monthOptions = useMemo(() => {
+    const months = new Set<string>(groupedByMonth.map((g) => g.month));
+    const fallbackNow = new Date();
+    for (let i = 0; i < 13; i++) {
+      const d = new Date(fallbackNow.getFullYear(), fallbackNow.getMonth() - i, 1);
+      months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+    const sorted = Array.from(months).sort((a, b) => b.localeCompare(a));
+    return [
+      { value: "all", label: "Todos os meses" },
+      ...sorted.map((m) => ({ value: m, label: formatMonthLabel(m) + (m > currentMonth ? " (futuro)" : "") })),
+    ];
   }, [groupedByMonth, currentMonth]);
 
   const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
@@ -388,10 +404,10 @@ export default function ExpensesPage() {
       return;
     }
 
-    const result = installmentSchema.safeParse({ ...installmentForm, installment_count: count });
+    const result = installmentWithExtrasSchema.safeParse({ ...installmentForm, installment_count: count });
     if (!result.success) {
-      const errs: Partial<Record<keyof InstallmentFormData, string>> = {};
-      result.error.errors.forEach((err) => { errs[err.path[0] as keyof InstallmentFormData] = err.message; });
+      const errs: Partial<Record<keyof InstallmentExtrasFormData, string>> = {};
+      result.error.errors.forEach((err) => { errs[err.path[0] as keyof InstallmentExtrasFormData] = err.message; });
       setInstallmentFormErrors(errs);
       return;
     }
@@ -409,6 +425,8 @@ export default function ExpensesPage() {
           installment_count: result.data.installment_count,
           installment_amount: unitAmount,
           first_due_date: result.data.first_due_date,
+          category: result.data.category,
+          payment_method: result.data.payment_method || null,
           notes: result.data.notes || null,
         }))
         .select()
@@ -581,6 +599,38 @@ export default function ExpensesPage() {
     }
   };
 
+  const openEditPending = (entry: DisplayExpense) => {
+    setEditPendingItem(entry);
+    setEditPendingAmount(entry.amount);
+    setEditPendingDueDate(entry.spent_at);
+  };
+
+  const handleSaveEditPending = async () => {
+    if (!editPendingItem) return;
+    setEditPendingSaving(true);
+    try {
+      if (editPendingItem.source === "bill") {
+        const { error } = await supabase.from("bills").update(coerceMutation({
+          amount: editPendingAmount, due_date: editPendingDueDate,
+        })).eq("id", editPendingItem.id);
+        if (error) throw error;
+      } else if (editPendingItem.source === "installment") {
+        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+          amount: editPendingAmount, due_date: editPendingDueDate,
+        })).eq("id", editPendingItem.id);
+        if (error) throw error;
+      }
+
+      toast.success("Lançamento atualizado");
+      setEditPendingItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao atualizar lançamento");
+    } finally {
+      setEditPendingSaving(false);
+    }
+  };
+
   const handleRevert = async () => {
     if (!revertItem) return;
     setReverting(true);
@@ -605,6 +655,107 @@ export default function ExpensesPage() {
     } finally {
       setReverting(false);
     }
+  };
+
+  const renderMonthGroup = (group: { month: string; label: string; items: DisplayExpense[]; total: number }, isCurrent: boolean) => {
+    const { month, label, items, total } = group;
+    const isOpen = openMonths.has(month);
+    return (
+      <div key={month} className={cn(
+        "overflow-hidden rounded-2xl border",
+        isCurrent ? "border-expense/40" : "border-border/50"
+      )}>
+        <button type="button" onClick={() => toggleMonth(month)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
+            {isCurrent && <Badge variant="expense" className="text-[10px]">Atual</Badge>}
+            <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total, currency)}</span>
+            <span className="text-[10px] text-text-secondary">{items.length} {items.length === 1 ? "item" : "itens"}</span>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
+        </button>
+
+        <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+          <div className="overflow-hidden">
+            <div className="border-t border-border/40">
+              {items.map(entry => {
+                const catColor = CATEGORY_COLORS[entry.category] ?? "#94A3B8";
+                const isDiscounted = entry.status === "paid" && entry.source === "installment" && entry.dueAmount !== undefined && entry.amount < entry.dueAmount;
+                return (
+                  <div key={entry.id}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${catColor}18` }}>
+                      <div className="h-2 w-2 rounded-full" style={{ background: catColor }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
+                        {entry.source === "bill" && <Badge variant="secondary" className="text-[10px]">Conta</Badge>}
+                        {entry.source === "installment" && <Badge variant="secondary" className="text-[10px]">Parcela</Badge>}
+                        {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
+                        {entry.status === "pending" && <Badge variant="pending" className="text-[10px]">Pendente</Badge>}
+                        {isDiscounted && <Badge variant="paid_with_discount" className="text-[10px]">Pago com desconto</Badge>}
+                        {entry.status === "paid" && entry.source !== "manual" && !isDiscounted && (
+                          <Badge variant="paid" className="text-[10px]">Pago</Badge>
+                        )}
+                        {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {isDiscounted && entry.dueAmount !== undefined && (
+                        <p className="text-[10px] text-text-secondary/70 line-through">{formatCurrency(entry.dueAmount, currency)}</p>
+                      )}
+                      <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
+                      <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
+                      {entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {entry.status !== "paid" ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => openMarkPaid(entry)}
+                            className="gap-1 border-profit/40 text-profit hover:bg-profit/10" title="Marcar como pago">
+                            <Check className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Pagar</span>
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => openEditPending(entry)}
+                            className="text-text-secondary hover:text-text-primary" title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="icon-sm" onClick={() => {
+                            if (entry.source === "manual") {
+                              const original = entries.find((e) => e.id === entry.id);
+                              if (original) openEdit(original);
+                            } else {
+                              openEditPaid(entry);
+                            }
+                          }} className="text-text-secondary hover:text-text-primary" title="Editar pagamento">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => {
+                            if (entry.source === "manual") {
+                              setDeleteId(entry.id);
+                            } else {
+                              setRevertItem(entry);
+                            }
+                          }} className="text-text-secondary hover:text-expense hover:bg-expense/10" title={entry.source === "manual" ? "Excluir" : "Desfazer pagamento"}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -687,98 +838,27 @@ export default function ExpensesPage() {
         />
       ) : (
         <div className="space-y-2">
-          {orderedGroupedByMonth.map(({ month, label, items, total }, index) => {
-            const isOpen = openMonths.has(month);
-            const isCurrent = month === currentMonth;
-            const isFirstNonCurrent = !isCurrent && index > 0 && orderedGroupedByMonth[index - 1]?.month === currentMonth;
-            return (
-              <div key={month}>
-                {isFirstNonCurrent && <div className="my-3 border-t border-border/60" />}
-                <div className={cn(
-                  "overflow-hidden rounded-2xl border",
-                  isCurrent ? "border-expense/40" : "border-border/50"
-                )}>
-                <button type="button" onClick={() => toggleMonth(month)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
-                  <div className="flex flex-1 flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                    {isCurrent && <Badge variant="expense" className="text-[10px]">Atual</Badge>}
-                    <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total, currency)}</span>
-                    <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
-                </button>
+          {currentMonthGroup && renderMonthGroup(currentMonthGroup, true)}
 
-                <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
-                  <div className="overflow-hidden">
-                    <div className="border-t border-border/40">
-                      {items.map(entry => {
-                        const catColor = CATEGORY_COLORS[entry.category] ?? "#94A3B8";
-                        return (
-                          <div key={entry.id}
-                            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${catColor}18` }}>
-                              <div className="h-2 w-2 rounded-full" style={{ background: catColor }} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
-                                {entry.source === "bill" && <Badge variant="warning" className="text-[10px]">Conta</Badge>}
-                                {entry.source === "installment" && <Badge variant="default" className="text-[10px]">Parcela</Badge>}
-                                {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
-                                {entry.status === "pending" && <Badge variant="secondary" className="text-[10px]">Pendente</Badge>}
-                                {entry.status === "paid" && entry.source === "installment" && entry.dueAmount !== undefined && entry.amount < entry.dueAmount && (
-                                  <Badge variant="paid_with_discount" className="text-[10px]">Pago com desconto</Badge>
-                                )}
-                                {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
-                              <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
-                              {entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>}
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              {entry.status !== "paid" ? (
-                                <Button variant="ghost" size="icon-sm" onClick={() => openMarkPaid(entry)}
-                                  className="text-profit hover:bg-profit/10 hover:text-profit" title="Marcar como pago">
-                                  <Check className="h-3.5 w-3.5" />
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => {
-                                    if (entry.source === "manual") {
-                                      const original = entries.find((e) => e.id === entry.id);
-                                      if (original) openEdit(original);
-                                    } else {
-                                      openEditPaid(entry);
-                                    }
-                                  }} className="text-text-secondary hover:text-text-primary">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon-sm" onClick={() => {
-                                    if (entry.source === "manual") {
-                                      setDeleteId(entry.id);
-                                    } else {
-                                      setRevertItem(entry);
-                                    }
-                                  }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-                </div>
+          {futureMonthGroups.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Lançamentos futuros</span>
+                <div className="h-px flex-1 bg-border/60" />
               </div>
-            );
-          })}
+              {futureMonthGroups.map((group) => renderMonthGroup(group, false))}
+            </>
+          )}
+
+          {pastMonthGroups.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Meses anteriores</span>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
+              {pastMonthGroups.map((group) => renderMonthGroup(group, false))}
+            </>
+          )}
         </div>
       )}
 
@@ -852,7 +932,7 @@ export default function ExpensesPage() {
               </FormField>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" variant="destructive" loading={isSubmitting}>{editingEntry ? "Salvar" : "Registrar"}</Button>
+                <Button type="submit" variant="destructive" loading={isSubmitting}>{editingEntry ? "Salvar" : "Registrar gasto"}</Button>
               </DialogFooter>
             </form>
           )}
@@ -877,6 +957,20 @@ export default function ExpensesPage() {
                 <Input type="date" error={installmentFormErrors.first_due_date} value={installmentForm.first_due_date}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, first_due_date: e.target.value }))} />
               </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Categoria" error={installmentFormErrors.category} required>
+                  <Select value={installmentForm.category} onValueChange={(value) => setInstallmentForm((c) => ({ ...c, category: value }))}>
+                    <SelectTrigger error={installmentFormErrors.category}><SelectValue placeholder="Categoria" /></SelectTrigger>
+                    <SelectContent>{expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Método de pagamento" error={installmentFormErrors.payment_method}>
+                  <Select value={installmentForm.payment_method} onValueChange={(value) => setInstallmentForm((c) => ({ ...c, payment_method: value }))}>
+                    <SelectTrigger error={installmentFormErrors.payment_method}><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FormField>
+              </div>
               <FormField label="Observações">
                 <Textarea placeholder="Notas opcionais..." rows={2} value={installmentForm.notes ?? ""}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, notes: e.target.value }))} />
@@ -951,7 +1045,7 @@ export default function ExpensesPage() {
                 Valor original: <span className="font-semibold text-text-primary">{formatCurrency(markPaidItem.dueAmount, currency)}</span>
               </p>
             )}
-            <FormField label="Valor pago" required>
+            <FormField label="Valor pago" required hint={markPaidItem?.source === "installment" ? "Altere o valor se pagou com desconto ou acréscimo." : undefined}>
               <CurrencyInput value={markPaidAmount} onChange={setMarkPaidAmount} />
             </FormField>
             {markPaidItem?.source === "installment" && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
@@ -1005,6 +1099,27 @@ export default function ExpensesPage() {
         title="Desfazer pagamento"
         description={`"${revertItem?.description}" vai voltar para pendente em ${revertItem?.source === "bill" ? "Contas" : "Parcelamentos"} e vai sair da lista de Gastos. Os dados da conta/parcelamento não são excluídos.`}
         confirmLabel="Desfazer pagamento" onConfirm={handleRevert} loading={reverting} />
+
+      <Dialog open={editPendingItem !== null} onOpenChange={open => !open && setEditPendingItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar lançamento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">{editPendingItem?.description}</p>
+            <FormField label="Valor" required>
+              <CurrencyInput value={editPendingAmount} onChange={setEditPendingAmount} />
+            </FormField>
+            <FormField label="Vencimento" required>
+              <Input type="date" value={editPendingDueDate} onChange={e => setEditPendingDueDate(e.target.value)} />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditPendingItem(null)}>Cancelar</Button>
+            <Button type="button" variant="destructive" loading={editPendingSaving} onClick={handleSaveEditPending}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ImportStatementDialog
         open={importOpen}

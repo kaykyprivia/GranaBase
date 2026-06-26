@@ -288,6 +288,8 @@ export interface Database {
           installment_count: number;
           installment_amount: number;
           first_due_date: string;
+          category: string | null;
+          payment_method: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -299,6 +301,8 @@ export interface Database {
           installment_count: number;
           installment_amount: number;
           first_due_date: string;
+          category?: string | null;
+          payment_method?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -310,6 +314,8 @@ export interface Database {
           installment_count?: number;
           installment_amount?: number;
           first_due_date?: string;
+          category?: string | null;
+          payment_method?: string | null;
           notes?: string | null;
           created_at?: string;
         };
