@@ -164,6 +164,8 @@ export default function ExpensesPage() {
   const [editPendingAmount, setEditPendingAmount] = useState(0);
   const [editPendingDueDate, setEditPendingDueDate] = useState("");
   const [editPendingSaving, setEditPendingSaving] = useState(false);
+  const [deletePendingItem, setDeletePendingItem] = useState<DisplayExpense | null>(null);
+  const [deletingPending, setDeletingPending] = useState(false);
   const [revertItem, setRevertItem] = useState<DisplayExpense | null>(null);
   const [reverting, setReverting] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
@@ -641,6 +643,33 @@ export default function ExpensesPage() {
     }
   };
 
+  const handleDeletePending = async () => {
+    if (!deletePendingItem) return;
+    setDeletingPending(true);
+    try {
+      if (deletePendingItem.source === "bill") {
+        const { error } = await supabase.from("bills").delete().eq("id", deletePendingItem.id);
+        if (error) throw error;
+        toast.success("Conta excluída");
+      } else if (deletePendingItem.source === "installment") {
+        const payment = payments.find((p) => p.id === deletePendingItem.id);
+        if (payment) {
+          await supabase.from("installment_payments").delete().eq("installment_id", payment.installment_id);
+          const { error } = await supabase.from("installments").delete().eq("id", payment.installment_id);
+          if (error) throw error;
+        }
+        toast.success("Parcelamento excluído");
+      }
+
+      setDeletePendingItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao excluir");
+    } finally {
+      setDeletingPending(false);
+    }
+  };
+
   const handleRevert = async () => {
     if (!revertItem) return;
     setReverting(true);
@@ -736,6 +765,11 @@ export default function ExpensesPage() {
                           <Button variant="ghost" size="icon-sm" onClick={() => openEditPending(entry)}
                             className="text-text-secondary hover:text-text-primary" title="Editar">
                             <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => setDeletePendingItem(entry)}
+                            className="text-text-secondary hover:text-expense hover:bg-expense/10"
+                            title={entry.source === "installment" ? "Excluir parcelamento" : "Excluir conta"}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       ) : (
@@ -1134,6 +1168,15 @@ export default function ExpensesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog open={deletePendingItem !== null} onOpenChange={open => !open && setDeletePendingItem(null)}
+        title={deletePendingItem?.source === "installment" ? "Excluir parcelamento" : "Excluir conta"}
+        description={
+          deletePendingItem?.source === "installment"
+            ? `Isso vai excluir TODAS as parcelas de "${deletePendingItem?.description}", não só esta. Esta ação não pode ser desfeita.`
+            : "Tem certeza? Esta ação não pode ser desfeita."
+        }
+        confirmLabel="Excluir" onConfirm={handleDeletePending} loading={deletingPending} />
 
       <ImportStatementDialog
         open={importOpen}
