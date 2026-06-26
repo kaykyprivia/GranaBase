@@ -32,6 +32,7 @@ import { FormField } from "@/components/shared/FormField";
 
 const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
+const INSTALLMENT_PAYMENT_METHODS = ["Cartão de Crédito", "Boleto"];
 const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
@@ -1051,7 +1052,7 @@ export default function ExpensesPage() {
                 <FormField label="Método de pagamento" error={installmentFormErrors.payment_method}>
                   <Select value={installmentForm.payment_method} onValueChange={(value) => setInstallmentForm((c) => ({ ...c, payment_method: value }))}>
                     <SelectTrigger error={installmentFormErrors.payment_method}><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 </FormField>
               </div>
@@ -1214,7 +1215,7 @@ export default function ExpensesPage() {
                 <FormField label="Método de pagamento">
                   <Select value={editPendingPaymentMethod} onValueChange={setEditPendingPaymentMethod}>
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 </FormField>
               )}
