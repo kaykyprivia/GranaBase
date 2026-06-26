@@ -101,6 +101,7 @@ interface DisplayExpense {
   source: "manual" | "bill" | "installment";
   status: "paid" | "pending" | "overdue";
   dueAmount?: number;
+  actualDate?: string;
 }
 
 function withNewDate(originalIso: string, newDateStr: string) {
@@ -254,7 +255,16 @@ export default function ExpensesPage() {
   }, [bills, payments, installmentsById, userId]);
 
   const allEntries = useMemo<DisplayExpense[]>(() => [
-    ...entries.map((e) => ({ ...e, source: "manual" as const, status: "paid" as const })),
+    ...entries.map((e) => {
+      const isCardWithDueDate = e.payment_method === "Cartão Crédito" && !!e.card_due_date;
+      return {
+        ...e,
+        source: "manual" as const,
+        status: "paid" as const,
+        spent_at: isCardWithDueDate ? e.card_due_date! : e.spent_at,
+        actualDate: isCardWithDueDate ? e.spent_at : undefined,
+      };
+    }),
     ...billsAndInstallmentsDisplay,
   ], [entries, billsAndInstallmentsDisplay]);
 
@@ -709,7 +719,11 @@ export default function ExpensesPage() {
                       )}
                       <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
-                      {entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>}
+                      {entry.actualDate ? (
+                        <p className="text-[10px] text-text-secondary/60">Gasto em {formatDate(entry.actualDate)}</p>
+                      ) : (
+                        entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {entry.status !== "paid" ? (
