@@ -147,6 +147,7 @@ export interface Database {
           category: string;
           spent_at: string;
           payment_method: string | null;
+          card_due_date: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -158,6 +159,7 @@ export interface Database {
           category: string;
           spent_at: string;
           payment_method?: string | null;
+          card_due_date?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -169,6 +171,7 @@ export interface Database {
           category?: string;
           spent_at?: string;
           payment_method?: string | null;
+          card_due_date?: string | null;
           notes?: string | null;
           created_at?: string;
         };

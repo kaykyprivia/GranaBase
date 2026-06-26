@@ -4,15 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload } from "lucide-react";
+import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload, Check } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, formatTime, isOverdue, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
-import { expenseSchema, type ExpenseFormData } from "@/lib/validations";
+import { billSchema, expenseSchema, installmentSchema, type BillFormData, type ExpenseFormData, type InstallmentFormData } from "@/lib/validations";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { appliesMaeFilter } from "@/lib/mae";
 import type { Bill, ExpenseEntry, Installment, InstallmentPayment } from "@/types/database";
@@ -31,6 +31,29 @@ import { FormField } from "@/components/shared/FormField";
 
 const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
+const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
+
+type ExpenseType = "normal" | "parcelado" | "fixa";
+
+const EMPTY_INSTALLMENT_FORM: InstallmentFormData = {
+  description: "",
+  installment_amount: 0,
+  installment_count: 0,
+  first_due_date: "",
+  notes: "",
+};
+
+const EMPTY_BILL_FORM: BillFormData = {
+  name: "",
+  amount: 0,
+  due_date: "",
+  category: "",
+  is_recurring: false,
+  notes: "",
+};
+
+const calculateInstallmentTotal = (installmentAmount: number, installmentCount: number) =>
+  Math.round(installmentAmount * installmentCount * 100) / 100;
 
 function buildExpenseCategories(customCategories: string[]): string[] {
   const fixed = BASE_EXPENSE_CATEGORIES.filter((category) => category !== "Outro");
@@ -78,6 +101,7 @@ interface DisplayExpense {
   payment_method: string | null;
   created_at: string;
   source: "manual" | "bill" | "installment";
+  status: "paid" | "pending" | "overdue";
   dueAmount?: number;
 }
 
@@ -113,17 +137,30 @@ export default function ExpensesPage() {
   const supabase = createClient();
   const currency = useCurrency();
   const [entries, setEntries] = useState<ExpenseEntry[]>([]);
-  const [paidBillsAndInstallments, setPaidBillsAndInstallments] = useState<DisplayExpense[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [payments, setPayments] = useState<InstallmentPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ExpenseEntry | null>(null);
+  const [expenseType, setExpenseType] = useState<ExpenseType>("normal");
+  const [installmentForm, setInstallmentForm] = useState<InstallmentFormData>(EMPTY_INSTALLMENT_FORM);
+  const [installmentCountInput, setInstallmentCountInput] = useState("");
+  const [installmentFormErrors, setInstallmentFormErrors] = useState<Partial<Record<keyof InstallmentFormData, string>>>({});
+  const [billForm, setBillForm] = useState<BillFormData>(EMPTY_BILL_FORM);
+  const [billFormErrors, setBillFormErrors] = useState<Partial<Record<keyof BillFormData, string>>>({});
+  const [creatingExtra, setCreatingExtra] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editPaidItem, setEditPaidItem] = useState<DisplayExpense | null>(null);
   const [editPaidAmount, setEditPaidAmount] = useState(0);
   const [editPaidDate, setEditPaidDate] = useState("");
   const [editPaidSaving, setEditPaidSaving] = useState(false);
+  const [markPaidItem, setMarkPaidItem] = useState<DisplayExpense | null>(null);
+  const [markPaidAmount, setMarkPaidAmount] = useState(0);
+  const [markPaidDate, setMarkPaidDate] = useState("");
+  const [markPaidSaving, setMarkPaidSaving] = useState(false);
   const [revertItem, setRevertItem] = useState<DisplayExpense | null>(null);
   const [reverting, setReverting] = useState(false);
   const [monthFilter, setMonthFilter] = useState("all");
@@ -136,10 +173,11 @@ export default function ExpensesPage() {
   const monthOptions = getMonthOptions();
   const expenseCategories = useMemo(() => buildExpenseCategories(customCategories), [customCategories]);
 
-  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
-    defaultValues: { description: "", amount: 0, category: "", spent_at: "", payment_method: "", notes: "" },
+    defaultValues: { description: "", amount: 0, category: "", spent_at: "", payment_method: "", card_due_date: "", notes: "" },
   });
+  const paymentMethodValue = watch("payment_method");
 
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -148,7 +186,7 @@ export default function ExpensesPage() {
 
     const [expensesRes, billsRes, installmentsRes, paymentsRes, settingsRes] = await Promise.all([
       supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }),
-      supabase.from("bills").select("*").eq("user_id", user.id).eq("status", "paid"),
+      supabase.from("bills").select("*").eq("user_id", user.id),
       supabase.from("installments").select("*").eq("user_id", user.id),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
       supabase.from("user_settings").select("custom_categories").eq("user_id", user.id).maybeSingle(),
@@ -159,59 +197,67 @@ export default function ExpensesPage() {
 
     if (expensesRes.error) { toast.error("Erro ao carregar gastos"); return; }
     setEntries(expensesRes.data ?? []);
-
-    const bills = coerceData<Bill[]>(billsRes.data ?? []);
-    const installments = coerceData<Installment[]>(installmentsRes.data ?? []);
-    const payments = coerceData<InstallmentPayment[]>(paymentsRes.data ?? []);
-    const installmentsById = new Map(installments.map((installment) => [installment.id, installment]));
-
-    const billExpenses: DisplayExpense[] = bills
-      .filter((bill) => bill.paid_at && appliesMaeFilter(user.id, "exclude-mae", bill.name))
-      .map((bill) => ({
-        id: bill.id,
-        description: bill.name,
-        amount: bill.amount,
-        category: bill.category,
-        spent_at: bill.paid_at!.slice(0, 10),
-        payment_method: null,
-        created_at: bill.paid_at!,
-        source: "bill" as const,
-        dueAmount: bill.amount,
-      }));
-
-    const installmentExpenses: DisplayExpense[] = payments
-      .filter((payment) =>
-        isInstallmentPaid(getEffectiveInstallmentStatus(payment)) &&
-        payment.paid_at &&
-        appliesMaeFilter(user.id, "exclude-mae", installmentsById.get(payment.installment_id)?.description)
-      )
-      .map((payment) => {
-        const installment = installmentsById.get(payment.installment_id);
-        return {
-          id: payment.id,
-          description: installment
-            ? `${installment.description} (${payment.installment_number}/${installment.installment_count})`
-            : `Parcela ${payment.installment_number}`,
-          amount: getInstallmentPaidAmount(payment),
-          category: "Parcelamento",
-          spent_at: payment.paid_at!.slice(0, 10),
-          payment_method: null,
-          created_at: payment.paid_at!,
-          source: "installment" as const,
-          dueAmount: payment.amount,
-        };
-      });
-
-    setPaidBillsAndInstallments([...billExpenses, ...installmentExpenses]);
+    setBills(coerceData<Bill[]>(billsRes.data ?? []).filter((bill) => appliesMaeFilter(user.id, "exclude-mae", bill.name)));
+    setInstallments(coerceData<Installment[]>(installmentsRes.data ?? []));
+    setPayments(coerceData<InstallmentPayment[]>(paymentsRes.data ?? []));
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
+  const installmentsById = useMemo(() => new Map(installments.map((installment) => [installment.id, installment])), [installments]);
+
+  const billsAndInstallmentsDisplay = useMemo<DisplayExpense[]>(() => {
+    const billItems: DisplayExpense[] = bills.map((bill) => {
+      const paid = bill.status === "paid";
+      const status: DisplayExpense["status"] = paid ? "paid" : isOverdue(bill.due_date) ? "overdue" : "pending";
+      return {
+        id: bill.id,
+        description: bill.name,
+        amount: bill.amount,
+        category: bill.category,
+        spent_at: paid ? bill.paid_at!.slice(0, 10) : bill.due_date,
+        payment_method: null,
+        created_at: paid ? bill.paid_at! : bill.due_date,
+        source: "bill" as const,
+        status,
+        dueAmount: bill.amount,
+      };
+    });
+
+    const paymentItems: DisplayExpense[] = payments
+      .filter((payment) => appliesMaeFilter(userId, "exclude-mae", installmentsById.get(payment.installment_id)?.description))
+      .map((payment) => {
+        const installment = installmentsById.get(payment.installment_id);
+        const paid = isInstallmentPaid(payment.status);
+        const effective = getEffectiveInstallmentStatus(payment);
+        const status: DisplayExpense["status"] = paid ? "paid" : effective === "overdue" ? "overdue" : "pending";
+        const description = installment
+          ? `${installment.description} (${payment.installment_number}/${installment.installment_count})`
+          : `Parcela ${payment.installment_number}`;
+        return {
+          id: payment.id,
+          description,
+          amount: paid ? getInstallmentPaidAmount(payment) : payment.amount,
+          category: "Parcelamento",
+          spent_at: paid ? payment.paid_at!.slice(0, 10) : payment.due_date,
+          payment_method: null,
+          created_at: paid ? payment.paid_at! : payment.due_date,
+          source: "installment" as const,
+          status,
+          dueAmount: payment.amount,
+        };
+      });
+
+    return [...billItems, ...paymentItems];
+  }, [bills, payments, installmentsById, userId]);
+
   const allEntries = useMemo<DisplayExpense[]>(() => [
-    ...entries.map((e) => ({ ...e, source: "manual" as const })),
-    ...paidBillsAndInstallments,
-  ], [entries, paidBillsAndInstallments]);
+    ...entries.map((e) => ({ ...e, source: "manual" as const, status: "paid" as const })),
+    ...billsAndInstallmentsDisplay,
+  ], [entries, billsAndInstallmentsDisplay]);
+
+  const realizedEntries = useMemo(() => allEntries.filter((e) => e.status === "paid"), [allEntries]);
 
   const filterCategories = useMemo(() => {
     const used = allEntries.map((e) => e.category).filter((c) => !expenseCategories.includes(c));
@@ -224,10 +270,10 @@ export default function ExpensesPage() {
       d.setMonth(d.getMonth() - (5 - i));
       const key = d.toISOString().slice(0, 7);
       const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
-      const value = allEntries.filter(e => e.spent_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
+      const value = realizedEntries.filter(e => e.spent_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
       return { month: label, value };
     });
-  }, [allEntries]);
+  }, [realizedEntries]);
 
   const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.spent_at.startsWith(monthFilter);
@@ -252,11 +298,14 @@ export default function ExpensesPage() {
       }));
   }, [filtered]);
 
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   useEffect(() => {
-    if (groupedByMonth.length > 0) {
-      setOpenMonths(new Set([groupedByMonth[0].month]));
-    }
-  }, [groupedByMonth.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (groupedByMonth.length === 0) return;
+    const hasCurrentMonth = groupedByMonth.some((g) => g.month === currentMonth);
+    setOpenMonths(new Set([hasCurrentMonth ? currentMonth : groupedByMonth[0].month]));
+  }, [groupedByMonth.length, currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleMonth = (month: string) => {
     setOpenMonths(prev => {
@@ -266,25 +315,33 @@ export default function ExpensesPage() {
     });
   };
 
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthTotal = allEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
+  const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
+  const totalAll = realizedEntries.reduce((s, e) => s + e.amount, 0);
   const topCategory = (() => {
     const map: Record<string, number> = {};
-    allEntries.filter(e => e.spent_at.startsWith(currentMonth)).forEach(e => { map[e.category] = (map[e.category] || 0) + e.amount; });
+    realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).forEach(e => { map[e.category] = (map[e.category] || 0) + e.amount; });
     return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
   })();
 
   const openCreate = () => {
     setEditingEntry(null);
-    reset({ description: "", amount: 0, category: "", spent_at: toLocalDateString(), payment_method: "", notes: "" });
+    setExpenseType("normal");
+    reset({ description: "", amount: 0, category: "", spent_at: toLocalDateString(), payment_method: "", card_due_date: "", notes: "" });
+    setInstallmentForm(EMPTY_INSTALLMENT_FORM);
+    setInstallmentCountInput("");
+    setInstallmentFormErrors({});
+    setBillForm(EMPTY_BILL_FORM);
+    setBillFormErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (entry: ExpenseEntry) => {
     setEditingEntry(entry);
-    reset({ description: entry.description, amount: entry.amount, category: entry.category, spent_at: entry.spent_at, payment_method: entry.payment_method ?? "", notes: entry.notes ?? "" });
+    setExpenseType("normal");
+    reset({
+      description: entry.description, amount: entry.amount, category: entry.category, spent_at: entry.spent_at,
+      payment_method: entry.payment_method ?? "", card_due_date: entry.card_due_date ?? "", notes: entry.notes ?? "",
+    });
     setModalOpen(true);
   };
 
@@ -293,7 +350,9 @@ export default function ExpensesPage() {
       if (editingEntry) {
         const { error } = await supabase.from("expense_entries").update(coerceMutation({
           description: data.description, amount: data.amount, category: data.category,
-          spent_at: data.spent_at, payment_method: data.payment_method || null, notes: data.notes || null,
+          spent_at: data.spent_at, payment_method: data.payment_method || null,
+          card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null,
+          notes: data.notes || null,
         })).eq("id", editingEntry.id);
         if (error) throw error;
         toast.success("Gasto atualizado");
@@ -301,7 +360,9 @@ export default function ExpensesPage() {
         const { error } = await supabase.from("expense_entries").insert(coerceMutation({
           user_id: userId, description: data.description, amount: data.amount,
           category: data.category, spent_at: data.spent_at,
-          payment_method: data.payment_method || null, notes: data.notes || null,
+          payment_method: data.payment_method || null,
+          card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null,
+          notes: data.notes || null,
         }));
         if (error) throw error;
         toast.success("Gasto registrado");
@@ -310,6 +371,101 @@ export default function ExpensesPage() {
       await fetchEntries();
     } catch {
       toast.error("Erro ao salvar gasto. Tente novamente.");
+    }
+  };
+
+  const handleCreateInstallment = async () => {
+    setInstallmentFormErrors({});
+    const count = Number(installmentCountInput);
+    if (!Number.isInteger(count) || count <= 0) {
+      setInstallmentFormErrors({ installment_count: "Quantidade de parcelas deve ser positiva" });
+      return;
+    }
+
+    const result = installmentSchema.safeParse({ ...installmentForm, installment_count: count });
+    if (!result.success) {
+      const errs: Partial<Record<keyof InstallmentFormData, string>> = {};
+      result.error.errors.forEach((err) => { errs[err.path[0] as keyof InstallmentFormData] = err.message; });
+      setInstallmentFormErrors(errs);
+      return;
+    }
+
+    setCreatingExtra(true);
+    try {
+      const unitAmount = result.data.installment_amount;
+      const totalAmount = calculateInstallmentTotal(unitAmount, result.data.installment_count);
+      const { data: createdData, error } = await supabase
+        .from("installments")
+        .insert(coerceMutation({
+          user_id: userId,
+          description: result.data.description,
+          total_amount: totalAmount,
+          installment_count: result.data.installment_count,
+          installment_amount: unitAmount,
+          first_due_date: result.data.first_due_date,
+          notes: result.data.notes || null,
+        }))
+        .select()
+        .single();
+
+      const created = createdData ? coerceData<Installment>(createdData) : null;
+      if (error || !created) throw error ?? new Error("Não foi possível criar o parcelamento.");
+
+      const paymentsRows = Array.from({ length: result.data.installment_count }, (_, index) => {
+        const dueDate = addMonths(new Date(`${result.data.first_due_date}T00:00:00`), index);
+        return {
+          user_id: userId,
+          installment_id: created.id,
+          installment_number: index + 1,
+          due_date: toLocalDateString(dueDate),
+          amount: unitAmount,
+          status: "pending" as const,
+        };
+      });
+      const { error: paymentsError } = await supabase.from("installment_payments").insert(coerceMutation(paymentsRows));
+      if (paymentsError) throw paymentsError;
+
+      toast.success(`Parcelamento criado com ${result.data.installment_count} parcelas`);
+      setModalOpen(false);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao criar parcelamento. Tente novamente.");
+    } finally {
+      setCreatingExtra(false);
+    }
+  };
+
+  const handleCreateBill = async () => {
+    setBillFormErrors({});
+    const result = billSchema.safeParse(billForm);
+    if (!result.success) {
+      const errs: Partial<Record<keyof BillFormData, string>> = {};
+      result.error.errors.forEach((err) => { errs[err.path[0] as keyof BillFormData] = err.message; });
+      setBillFormErrors(errs);
+      return;
+    }
+
+    setCreatingExtra(true);
+    try {
+      const { error } = await supabase.from("bills").insert(coerceMutation({
+        user_id: userId,
+        name: result.data.name,
+        amount: result.data.amount,
+        due_date: result.data.due_date,
+        category: result.data.category,
+        is_recurring: result.data.is_recurring,
+        notes: result.data.notes || null,
+        status: "pending" as const,
+      }));
+      if (error) throw error;
+
+      toast.success("Conta criada");
+      setModalOpen(false);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao criar conta. Tente novamente.");
+    } finally {
+      setCreatingExtra(false);
     }
   };
 
@@ -362,6 +518,60 @@ export default function ExpensesPage() {
       toast.error("Erro ao atualizar pagamento");
     } finally {
       setEditPaidSaving(false);
+    }
+  };
+
+  const openMarkPaid = (entry: DisplayExpense) => {
+    setMarkPaidItem(entry);
+    setMarkPaidAmount(entry.dueAmount ?? entry.amount);
+    setMarkPaidDate(toLocalDateString());
+  };
+
+  const handleConfirmMarkPaid = async () => {
+    if (!markPaidItem) return;
+    setMarkPaidSaving(true);
+    try {
+      const paidAtIso = withNewDate(new Date().toISOString(), markPaidDate);
+
+      if (markPaidItem.source === "bill") {
+        const bill = bills.find((b) => b.id === markPaidItem.id);
+        const { error } = await supabase.from("bills").update(coerceMutation({
+          status: "paid" as const, paid_at: paidAtIso, amount: markPaidAmount,
+        })).eq("id", markPaidItem.id);
+        if (error) throw error;
+
+        if (bill?.is_recurring) {
+          const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
+          await supabase.from("bills").insert(coerceMutation({
+            user_id: userId,
+            name: bill.name,
+            amount: bill.amount,
+            due_date: toLocalDateString(nextDate),
+            status: "pending" as const,
+            category: bill.category,
+            is_recurring: true,
+            notes: bill.notes ?? null,
+          }));
+          toast.success("Conta paga! Próximo mês já gerado automaticamente.");
+        } else {
+          toast.success("Conta marcada como paga!");
+        }
+      } else if (markPaidItem.source === "installment") {
+        const dueAmount = markPaidItem.dueAmount ?? markPaidAmount;
+        const status = markPaidAmount < dueAmount ? "paid_with_discount" : "paid";
+        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+          status, paid_amount: markPaidAmount, paid_at: paidAtIso,
+        })).eq("id", markPaidItem.id);
+        if (error) throw error;
+        toast.success("Parcela paga!");
+      }
+
+      setMarkPaidItem(null);
+      await fetchEntries();
+    } catch {
+      toast.error("Erro ao marcar como pago");
+    } finally {
+      setMarkPaidSaving(false);
     }
   };
 
@@ -502,34 +712,45 @@ export default function ExpensesPage() {
                                 <Badge variant="expense" className="text-[10px]">{entry.category}</Badge>
                                 {entry.source === "bill" && <Badge variant="warning" className="text-[10px]">Conta</Badge>}
                                 {entry.source === "installment" && <Badge variant="default" className="text-[10px]">Parcela</Badge>}
+                                {entry.status === "overdue" && <Badge variant="expense" className="text-[10px]">Atrasada</Badge>}
+                                {entry.status === "pending" && <Badge variant="secondary" className="text-[10px]">Pendente</Badge>}
                                 {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
                               <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
                               <p className="text-[10px] text-text-secondary">{formatDate(entry.spent_at)}</p>
-                              <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
+                              {entry.status === "paid" && <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>}
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              <Button variant="ghost" size="icon-sm" onClick={() => {
-                                if (entry.source === "manual") {
-                                  const original = entries.find((e) => e.id === entry.id);
-                                  if (original) openEdit(original);
-                                } else {
-                                  openEditPaid(entry);
-                                }
-                              }} className="text-text-secondary hover:text-text-primary">
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon-sm" onClick={() => {
-                                if (entry.source === "manual") {
-                                  setDeleteId(entry.id);
-                                } else {
-                                  setRevertItem(entry);
-                                }
-                              }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {entry.status !== "paid" ? (
+                                <Button variant="ghost" size="icon-sm" onClick={() => openMarkPaid(entry)}
+                                  className="text-profit hover:bg-profit/10 hover:text-profit" title="Marcar como pago">
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button variant="ghost" size="icon-sm" onClick={() => {
+                                    if (entry.source === "manual") {
+                                      const original = entries.find((e) => e.id === entry.id);
+                                      if (original) openEdit(original);
+                                    } else {
+                                      openEditPaid(entry);
+                                    }
+                                  }} className="text-text-secondary hover:text-text-primary">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon-sm" onClick={() => {
+                                    if (entry.source === "manual") {
+                                      setDeleteId(entry.id);
+                                    } else {
+                                      setRevertItem(entry);
+                                    }
+                                  }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );
@@ -548,49 +769,178 @@ export default function ExpensesPage() {
           <DialogHeader>
             <DialogTitle>{editingEntry ? "Editar Gasto" : "Novo Gasto"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FormField label="Descrição" error={errors.description?.message} required>
-              <Input placeholder="Ex: Almoço restaurante" error={errors.description?.message} {...register("description")} />
-            </FormField>
-            <FormField label="Valor" error={errors.amount?.message} required>
-              <Controller name="amount" control={control}
-                render={({ field }) => <CurrencyInput value={field.value} onChange={field.onChange} error={errors.amount?.message} />} />
-            </FormField>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Categoria" error={errors.category?.message} required>
-                <Controller name="category" control={control} render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger error={errors.category?.message}><SelectValue placeholder="Categoria" /></SelectTrigger>
-                    <SelectContent>{expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+
+          {!editingEntry && (
+            <div className="grid grid-cols-3 gap-2 -mt-2">
+              {([
+                { value: "normal", label: "Normal" },
+                { value: "parcelado", label: "Parcelado" },
+                { value: "fixa", label: "Conta Fixa" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setExpenseType(option.value)}
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
+                    expenseType === option.value
+                      ? "border-expense bg-expense/10 text-expense"
+                      : "border-border/60 text-text-secondary hover:bg-border/20"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {expenseType === "normal" && (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <FormField label="Descrição" error={errors.description?.message} required>
+                <Input placeholder="Ex: Almoço restaurante" error={errors.description?.message} {...register("description")} />
+              </FormField>
+              <FormField label="Valor" error={errors.amount?.message} required>
+                <Controller name="amount" control={control}
+                  render={({ field }) => <CurrencyInput value={field.value} onChange={field.onChange} error={errors.amount?.message} />} />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Categoria" error={errors.category?.message} required>
+                  <Controller name="category" control={control} render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger error={errors.category?.message}><SelectValue placeholder="Categoria" /></SelectTrigger>
+                      <SelectContent>{expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )} />
+                </FormField>
+                <FormField label="Data do gasto" error={errors.spent_at?.message} required>
+                  <Input type="date" error={errors.spent_at?.message} {...register("spent_at")} />
+                </FormField>
+              </div>
+              <FormField label="Método de pagamento" error={errors.payment_method?.message} required>
+                <Controller name="payment_method" control={control} render={({ field }) => (
+                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                    <SelectTrigger error={errors.payment_method?.message}><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 )} />
               </FormField>
-              <FormField label="Data do gasto" error={errors.spent_at?.message} required>
-                <Input type="date" error={errors.spent_at?.message} {...register("spent_at")} />
+              {paymentMethodValue === "Cartão Crédito" && (
+                <FormField label="Vencimento da fatura" hint="Opcional — edite se for diferente da data do gasto">
+                  <Input type="date" {...register("card_due_date")} />
+                </FormField>
+              )}
+              <FormField label="Observações">
+                <Textarea placeholder="Notas opcionais..." rows={2} {...register("notes")} />
               </FormField>
-            </div>
-            <FormField label="Método de pagamento" error={errors.payment_method?.message} required>
-              <Controller name="payment_method" control={control} render={({ field }) => (
-                <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                  <SelectTrigger error={errors.payment_method?.message}><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" variant="destructive" loading={isSubmitting}>{editingEntry ? "Salvar" : "Registrar"}</Button>
+              </DialogFooter>
+            </form>
+          )}
+
+          {expenseType === "parcelado" && (
+            <form onSubmit={(e) => { e.preventDefault(); void handleCreateInstallment(); }} className="space-y-4">
+              <FormField label="Descrição" error={installmentFormErrors.description} required>
+                <Input placeholder="Ex: Notebook novo" value={installmentForm.description} error={installmentFormErrors.description}
+                  onChange={(e) => setInstallmentForm((c) => ({ ...c, description: e.target.value }))} />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Valor da parcela" error={installmentFormErrors.installment_amount} required>
+                  <CurrencyInput value={installmentForm.installment_amount} error={installmentFormErrors.installment_amount}
+                    onChange={(value) => setInstallmentForm((c) => ({ ...c, installment_amount: value }))} />
+                </FormField>
+                <FormField label="Quantidade de parcelas" error={installmentFormErrors.installment_count} required>
+                  <Input type="number" min={1} placeholder="Ex: 12" value={installmentCountInput} error={installmentFormErrors.installment_count}
+                    onChange={(e) => setInstallmentCountInput(e.target.value)} />
+                </FormField>
+              </div>
+              <FormField label="Data da 1ª parcela" error={installmentFormErrors.first_due_date} required>
+                <Input type="date" error={installmentFormErrors.first_due_date} value={installmentForm.first_due_date}
+                  onChange={(e) => setInstallmentForm((c) => ({ ...c, first_due_date: e.target.value }))} />
+              </FormField>
+              <FormField label="Observações">
+                <Textarea placeholder="Notas opcionais..." rows={2} value={installmentForm.notes ?? ""}
+                  onChange={(e) => setInstallmentForm((c) => ({ ...c, notes: e.target.value }))} />
+              </FormField>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" variant="destructive" loading={creatingExtra}>Criar parcelamento</Button>
+              </DialogFooter>
+            </form>
+          )}
+
+          {expenseType === "fixa" && (
+            <form onSubmit={(e) => { e.preventDefault(); void handleCreateBill(); }} className="space-y-4">
+              <FormField label="Nome da conta" error={billFormErrors.name} required>
+                <Input placeholder="Ex: Aluguel" value={billForm.name} error={billFormErrors.name}
+                  onChange={(e) => setBillForm((c) => ({ ...c, name: e.target.value }))} />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Valor" error={billFormErrors.amount} required>
+                  <CurrencyInput value={billForm.amount} error={billFormErrors.amount}
+                    onChange={(value) => setBillForm((c) => ({ ...c, amount: value }))} />
+                </FormField>
+                <FormField label="Vencimento" error={billFormErrors.due_date} required>
+                  <Input type="date" error={billFormErrors.due_date} value={billForm.due_date}
+                    onChange={(e) => setBillForm((c) => ({ ...c, due_date: e.target.value }))} />
+                </FormField>
+              </div>
+              <FormField label="Categoria" error={billFormErrors.category} required>
+                <Select value={billForm.category} onValueChange={(value) => setBillForm((c) => ({ ...c, category: value }))}>
+                  <SelectTrigger error={billFormErrors.category}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{BILL_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
-              )} />
-            </FormField>
-            <FormField label="Observações">
-              <Textarea placeholder="Notas opcionais..." rows={2} {...register("notes")} />
-            </FormField>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-              <Button type="submit" variant="destructive" loading={isSubmitting}>{editingEntry ? "Salvar" : "Registrar"}</Button>
-            </DialogFooter>
-          </form>
+              </FormField>
+              <label className="flex cursor-pointer items-center gap-3">
+                <div
+                  onClick={() => setBillForm((c) => ({ ...c, is_recurring: !c.is_recurring }))}
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                    billForm.is_recurring ? "border-accent bg-accent" : "border-border"
+                  )}
+                >
+                  {billForm.is_recurring && <Check className="h-3 w-3 text-background" />}
+                </div>
+                <span className="text-sm font-medium text-text-primary">Conta recorrente mensal</span>
+              </label>
+              <FormField label="Observações">
+                <Textarea placeholder="Notas opcionais..." rows={2} value={billForm.notes ?? ""}
+                  onChange={(e) => setBillForm((c) => ({ ...c, notes: e.target.value }))} />
+              </FormField>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" variant="destructive" loading={creatingExtra}>Criar conta</Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
       <ConfirmDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}
         title="Excluir gasto" description="Tem certeza? Esta ação não pode ser desfeita."
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
+
+      <Dialog open={markPaidItem !== null} onOpenChange={open => !open && setMarkPaidItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Marcar como pago</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">{markPaidItem?.description}</p>
+            <FormField label="Valor pago" required>
+              <CurrencyInput value={markPaidAmount} onChange={setMarkPaidAmount} />
+            </FormField>
+            <FormField label="Data do pagamento" required>
+              <Input type="date" value={markPaidDate} onChange={e => setMarkPaidDate(e.target.value)} />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMarkPaidItem(null)}>Cancelar</Button>
+            <Button type="button" variant="destructive" loading={markPaidSaving} onClick={handleConfirmMarkPaid}>Confirmar pagamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editPaidItem !== null} onOpenChange={open => !open && setEditPaidItem(null)}>
         <DialogContent>

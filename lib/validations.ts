@@ -30,6 +30,7 @@ export const expenseSchema = z.object({
   category: z.string().min(1, "Categoria é obrigatória"),
   spent_at: z.string().min(1, "Data é obrigatória"),
   payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
+  card_due_date: z.string().optional(),
   notes: z.string().optional(),
 });
 
