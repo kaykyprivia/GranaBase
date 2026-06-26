@@ -169,7 +169,6 @@ export default function ExpensesPage() {
   const [editPendingDueDate, setEditPendingDueDate] = useState("");
   const [editPendingCategory, setEditPendingCategory] = useState("");
   const [editPendingPaymentMethod, setEditPendingPaymentMethod] = useState("");
-  const [editPendingRecurring, setEditPendingRecurring] = useState(false);
   const [editPendingNotes, setEditPendingNotes] = useState("");
   const [editPendingSaving, setEditPendingSaving] = useState(false);
   const [deletePendingItem, setDeletePendingItem] = useState<DisplayExpense | null>(null);
@@ -551,7 +550,7 @@ export default function ExpensesPage() {
         amount: result.data.amount,
         due_date: result.data.due_date,
         category: result.data.category,
-        is_recurring: result.data.is_recurring,
+        is_recurring: true,
         notes: result.data.notes || null,
         status: "pending" as const,
       }));
@@ -683,7 +682,6 @@ export default function ExpensesPage() {
       setEditPendingName(bill?.name ?? entry.description);
       setEditPendingCategory(bill?.category ?? entry.category);
       setEditPendingPaymentMethod("");
-      setEditPendingRecurring(bill?.is_recurring ?? false);
       setEditPendingNotes(bill?.notes ?? "");
     } else if (entry.source === "installment") {
       const payment = payments.find((p) => p.id === entry.id);
@@ -691,7 +689,6 @@ export default function ExpensesPage() {
       setEditPendingName(installment?.description ?? entry.description);
       setEditPendingCategory(installment?.category ?? entry.category);
       setEditPendingPaymentMethod(installment?.payment_method ?? "");
-      setEditPendingRecurring(false);
       setEditPendingNotes(installment?.notes ?? "");
     }
   };
@@ -703,7 +700,7 @@ export default function ExpensesPage() {
       if (editPendingItem.source === "bill") {
         const { error } = await supabase.from("bills").update(coerceMutation({
           name: editPendingName, amount: editPendingAmount, due_date: editPendingDueDate,
-          category: editPendingCategory, is_recurring: editPendingRecurring, notes: editPendingNotes || null,
+          category: editPendingCategory, notes: editPendingNotes || null,
         })).eq("id", editPendingItem.id);
         if (error) throw error;
       } else if (editPendingItem.source === "installment") {
@@ -1261,7 +1258,7 @@ export default function ExpensesPage() {
 
           {expenseType === "fixa" && (
             <form onSubmit={(e) => { e.preventDefault(); void handleCreateBill(); }} className="space-y-4">
-              <FormField label="Nome da conta" error={billFormErrors.name} required>
+              <FormField label="Nome da conta fixa" error={billFormErrors.name} required>
                 <Input placeholder="Ex: Aluguel" value={billForm.name} error={billFormErrors.name}
                   onChange={(e) => setBillForm((c) => ({ ...c, name: e.target.value }))} />
               </FormField>
@@ -1281,18 +1278,6 @@ export default function ExpensesPage() {
                   <SelectContent>{BILL_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </FormField>
-              <label className="flex cursor-pointer items-center gap-3">
-                <div
-                  onClick={() => setBillForm((c) => ({ ...c, is_recurring: !c.is_recurring }))}
-                  className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
-                    billForm.is_recurring ? "border-accent bg-accent" : "border-border"
-                  )}
-                >
-                  {billForm.is_recurring && <Check className="h-3 w-3 text-background" />}
-                </div>
-                <span className="text-sm font-medium text-text-primary">Conta recorrente mensal</span>
-              </label>
               <FormField label="Observações">
                 <Textarea placeholder="Notas opcionais..." rows={2} value={billForm.notes ?? ""}
                   onChange={(e) => setBillForm((c) => ({ ...c, notes: e.target.value }))} />
@@ -1383,7 +1368,7 @@ export default function ExpensesPage() {
             <DialogTitle>{editPendingItem?.source === "bill" ? "Editar conta" : "Editar parcelamento"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <FormField label={editPendingItem?.source === "bill" ? "Nome da conta" : "Descrição"} required>
+            <FormField label={editPendingItem?.source === "bill" ? "Nome da conta fixa" : "Descrição"} required>
               <Input value={editPendingName} onChange={e => setEditPendingName(e.target.value)} />
             </FormField>
             <div className="grid grid-cols-2 gap-4">
@@ -1412,20 +1397,6 @@ export default function ExpensesPage() {
                 </FormField>
               )}
             </div>
-            {editPendingItem?.source === "bill" && (
-              <label className="flex cursor-pointer items-center gap-3">
-                <div
-                  onClick={() => setEditPendingRecurring((c) => !c)}
-                  className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
-                    editPendingRecurring ? "border-accent bg-accent" : "border-border"
-                  )}
-                >
-                  {editPendingRecurring && <Check className="h-3 w-3 text-background" />}
-                </div>
-                <span className="text-sm font-medium text-text-primary">Conta recorrente mensal</span>
-              </label>
-            )}
             <FormField label="Observações">
               <Textarea placeholder="Notas opcionais..." rows={2} value={editPendingNotes} onChange={e => setEditPendingNotes(e.target.value)} />
             </FormField>
