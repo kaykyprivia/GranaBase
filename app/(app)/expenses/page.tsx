@@ -161,8 +161,13 @@ export default function ExpensesPage() {
   const [markPaidDate, setMarkPaidDate] = useState("");
   const [markPaidSaving, setMarkPaidSaving] = useState(false);
   const [editPendingItem, setEditPendingItem] = useState<DisplayExpense | null>(null);
+  const [editPendingName, setEditPendingName] = useState("");
   const [editPendingAmount, setEditPendingAmount] = useState(0);
   const [editPendingDueDate, setEditPendingDueDate] = useState("");
+  const [editPendingCategory, setEditPendingCategory] = useState("");
+  const [editPendingPaymentMethod, setEditPendingPaymentMethod] = useState("");
+  const [editPendingRecurring, setEditPendingRecurring] = useState(false);
+  const [editPendingNotes, setEditPendingNotes] = useState("");
   const [editPendingSaving, setEditPendingSaving] = useState(false);
   const [deletePendingItem, setDeletePendingItem] = useState<DisplayExpense | null>(null);
   const [deletingPending, setDeletingPending] = useState(false);
@@ -617,6 +622,23 @@ export default function ExpensesPage() {
     setEditPendingItem(entry);
     setEditPendingAmount(entry.amount);
     setEditPendingDueDate(entry.spent_at);
+
+    if (entry.source === "bill") {
+      const bill = bills.find((b) => b.id === entry.id);
+      setEditPendingName(bill?.name ?? entry.description);
+      setEditPendingCategory(bill?.category ?? entry.category);
+      setEditPendingPaymentMethod("");
+      setEditPendingRecurring(bill?.is_recurring ?? false);
+      setEditPendingNotes(bill?.notes ?? "");
+    } else if (entry.source === "installment") {
+      const payment = payments.find((p) => p.id === entry.id);
+      const installment = payment ? installmentsById.get(payment.installment_id) : undefined;
+      setEditPendingName(installment?.description ?? entry.description);
+      setEditPendingCategory(installment?.category ?? entry.category);
+      setEditPendingPaymentMethod(installment?.payment_method ?? "");
+      setEditPendingRecurring(false);
+      setEditPendingNotes(installment?.notes ?? "");
+    }
   };
 
   const handleSaveEditPending = async () => {
@@ -625,14 +647,24 @@ export default function ExpensesPage() {
     try {
       if (editPendingItem.source === "bill") {
         const { error } = await supabase.from("bills").update(coerceMutation({
-          amount: editPendingAmount, due_date: editPendingDueDate,
+          name: editPendingName, amount: editPendingAmount, due_date: editPendingDueDate,
+          category: editPendingCategory, is_recurring: editPendingRecurring, notes: editPendingNotes || null,
         })).eq("id", editPendingItem.id);
         if (error) throw error;
       } else if (editPendingItem.source === "installment") {
+        const payment = payments.find((p) => p.id === editPendingItem.id);
         const { error } = await supabase.from("installment_payments").update(coerceMutation({
           amount: editPendingAmount, due_date: editPendingDueDate,
         })).eq("id", editPendingItem.id);
         if (error) throw error;
+
+        if (payment) {
+          const { error: installmentError } = await supabase.from("installments").update(coerceMutation({
+            description: editPendingName, category: editPendingCategory,
+            payment_method: editPendingPaymentMethod || null, notes: editPendingNotes || null,
+          })).eq("id", payment.installment_id);
+          if (installmentError) throw installmentError;
+        }
       }
 
       toast.success("Lançamento atualizado");
@@ -1155,15 +1187,54 @@ export default function ExpensesPage() {
       <Dialog open={editPendingItem !== null} onOpenChange={open => !open && setEditPendingItem(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar lançamento</DialogTitle>
+            <DialogTitle>{editPendingItem?.source === "bill" ? "Editar conta" : "Editar parcelamento"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">{editPendingItem?.description}</p>
-            <FormField label="Valor" required>
-              <CurrencyInput value={editPendingAmount} onChange={setEditPendingAmount} />
+            <FormField label={editPendingItem?.source === "bill" ? "Nome da conta" : "Descrição"} required>
+              <Input value={editPendingName} onChange={e => setEditPendingName(e.target.value)} />
             </FormField>
-            <FormField label="Vencimento" required>
-              <Input type="date" value={editPendingDueDate} onChange={e => setEditPendingDueDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label={editPendingItem?.source === "bill" ? "Valor" : "Valor desta parcela"} required>
+                <CurrencyInput value={editPendingAmount} onChange={setEditPendingAmount} />
+              </FormField>
+              <FormField label={editPendingItem?.source === "bill" ? "Vencimento" : "Vencimento desta parcela"} required>
+                <Input type="date" value={editPendingDueDate} onChange={e => setEditPendingDueDate(e.target.value)} />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Categoria" required>
+                <Select value={editPendingCategory} onValueChange={setEditPendingCategory}>
+                  <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+                  <SelectContent>
+                    {(editPendingItem?.source === "bill" ? BILL_CATEGORIES : expenseCategories).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              {editPendingItem?.source === "installment" && (
+                <FormField label="Método de pagamento">
+                  <Select value={editPendingPaymentMethod} onValueChange={setEditPendingPaymentMethod}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FormField>
+              )}
+            </div>
+            {editPendingItem?.source === "bill" && (
+              <label className="flex cursor-pointer items-center gap-3">
+                <div
+                  onClick={() => setEditPendingRecurring((c) => !c)}
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                    editPendingRecurring ? "border-accent bg-accent" : "border-border"
+                  )}
+                >
+                  {editPendingRecurring && <Check className="h-3 w-3 text-background" />}
+                </div>
+                <span className="text-sm font-medium text-text-primary">Conta recorrente mensal</span>
+              </label>
+            )}
+            <FormField label="Observações">
+              <Textarea placeholder="Notas opcionais..." rows={2} value={editPendingNotes} onChange={e => setEditPendingNotes(e.target.value)} />
             </FormField>
           </div>
           <DialogFooter>
