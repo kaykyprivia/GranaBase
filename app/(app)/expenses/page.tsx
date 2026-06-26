@@ -181,6 +181,7 @@ export default function ExpensesPage() {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
+  const [installmentSummaryOpen, setInstallmentSummaryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
@@ -914,34 +915,49 @@ export default function ExpensesPage() {
 
       {/* Installment progress */}
       {!loading && installmentSummaries.length > 0 && (
-        <div className="mb-5 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Parcelamentos em andamento</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {installmentSummaries.map(({ installment, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => (
-              <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                    style={{
-                      background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
-                      color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
-                    }}>
-                    {paidCount}/{installment.installment_count}
-                  </span>
-                </div>
-                <Progress value={progress} className="mt-2 h-1.5"
-                  indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
-                  <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
-                  <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
-                </div>
-                {nextPayment && (
-                  <p className="mt-1 text-[10px] text-text-secondary">
-                    Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
-                  </p>
-                )}
+        <div className="mb-5 overflow-hidden rounded-2xl border border-border/50">
+          <button type="button" onClick={() => setInstallmentSummaryOpen((o) => !o)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Parcelamentos em andamento</span>
+              <span className="text-[10px] text-text-secondary">{installmentSummaries.length} ativo{installmentSummaries.length !== 1 ? "s" : ""}</span>
+              <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">
+                Falta {formatCurrency(installmentSummaries.reduce((s, i) => s + i.remainingAmount, 0), currency)}
+              </span>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", installmentSummaryOpen ? "rotate-180" : "rotate-0")} />
+          </button>
+
+          <div className={cn("grid transition-all duration-300 ease-in-out", installmentSummaryOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+            <div className="overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 border-t border-border/40 p-3">
+                {installmentSummaries.map(({ installment, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => (
+                  <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        style={{
+                          background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
+                          color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
+                        }}>
+                        {paidCount}/{installment.installment_count}
+                      </span>
+                    </div>
+                    <Progress value={progress} className="mt-2 h-1.5"
+                      indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
+                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
+                      <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
+                      <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
+                    </div>
+                    {nextPayment && (
+                      <p className="mt-1 text-[10px] text-text-secondary">
+                        Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}
