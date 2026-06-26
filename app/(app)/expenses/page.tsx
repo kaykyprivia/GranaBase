@@ -1150,7 +1150,7 @@ export default function ExpensesPage() {
               {([
                 { value: "normal", label: "Gasto" },
                 { value: "parcelado", label: "Parcelado" },
-                { value: "fixa", label: "Conta Fixa" },
+                { value: "fixa", label: "Conta" },
               ] as const).map((option) => (
                 <button
                   key={option.value}
