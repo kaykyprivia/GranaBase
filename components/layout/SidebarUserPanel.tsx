@@ -190,7 +190,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
           menuOpen && "border-border bg-background/80"
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/90 to-sky-500 text-[13px] font-bold text-slate-950 shadow-sm ring-2 ring-accent/20">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400/90 to-sky-500 text-[13px] font-bold text-slate-950 shadow-sm ring-2 ring-accent/20">
           {userData.initials}
         </div>
 
@@ -212,7 +212,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
           <Link
             href="/settings#profile"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.05] hover:text-text-primary"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-border/60 hover:text-text-primary"
           >
             <UserCircle2 className="h-4 w-4 shrink-0" />
             Meu Perfil
@@ -220,7 +220,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
           <Link
             href="/settings"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.05] hover:text-text-primary"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-border/60 hover:text-text-primary"
           >
             <Settings className="h-4 w-4 shrink-0" />
             Configurações

@@ -28,6 +28,7 @@ import { PageIntro } from "@/components/shared/PageIntro";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared/StatCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useChartColors } from "@/hooks/useChartColors";
 
 const PIE_COLORS = ["#38BDF8", "#22C55E", "#FACC15", "#EF4444", "#A78BFA", "#F97316", "#EC4899", "#14B8A6"];
 
@@ -78,6 +79,7 @@ function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
 
 export default function ReportsPage() {
   const supabase = useMemo(() => createClient(), []);
+  const chartColors = useChartColors();
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<ReportsPayload>({
     income: [],
@@ -355,17 +357,17 @@ export default function ReportsPage() {
               <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                 <defs>
                   <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22C55E" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.profit} stopOpacity={0.28} />
+                    <stop offset="95%" stopColor={chartColors.profit} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="expenseFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.expense} stopOpacity={0.28} />
+                    <stop offset="95%" stopColor={chartColors.expense} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1F2937" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} interval={period === "1m" ? 4 : period === "3m" ? 14 : 0} />
-                <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
+                <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: chartColors.axis, fontSize: 11 }} axisLine={false} tickLine={false} interval={period === "1m" ? 4 : period === "3m" ? 14 : 0} />
+                <YAxis tick={{ fill: chartColors.axis, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
                 <Tooltip
                   content={({ active, payload, label }) => (
                     <ChartTooltip
@@ -374,13 +376,13 @@ export default function ReportsPage() {
                       payload={payload?.map((p) => ({
                         name: p.name === "income" ? "Receita" : "Despesas",
                         value: p.value as number,
-                        color: p.name === "income" ? "#22C55E" : "#EF4444",
+                        color: p.name === "income" ? chartColors.profit : chartColors.expense,
                       }))}
                     />
                   )}
                 />
-                <Area type="monotone" dataKey="income" stroke="#22C55E" fill="url(#incomeFill)" strokeWidth={2.4} name="income" />
-                <Area type="monotone" dataKey="expenses" stroke="#EF4444" fill="url(#expenseFill)" strokeWidth={2.4} name="expenses" />
+                <Area type="monotone" dataKey="income" stroke={chartColors.profit} fill="url(#incomeFill)" strokeWidth={2.4} name="income" />
+                <Area type="monotone" dataKey="expenses" stroke={chartColors.expense} fill="url(#expenseFill)" strokeWidth={2.4} name="expenses" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -478,9 +480,9 @@ export default function ReportsPage() {
               <>
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={categoryMonthData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                    <CartesianGrid stroke="#1F2937" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
+                    <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fill: chartColors.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: chartColors.axis, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} width={48} />
                     <Tooltip
                       content={({ active, payload, label }) => (
                         <ChartTooltip

@@ -28,7 +28,7 @@ export function InvestmentsNavAccordion({ onNavigate }: InvestmentsNavAccordionP
           "relative flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
           isInvestmentsSection
             ? "bg-accent/10 text-accent"
-            : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
+            : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
         )}
       >
         {isInvestmentsSection && (
@@ -60,8 +60,8 @@ export function InvestmentsNavAccordion({ onNavigate }: InvestmentsNavAccordionP
                 className={cn(
                   "block rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-white/10 font-medium text-text-primary"
-                    : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                    ? "bg-border/70 font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-border/50 hover:text-text-primary"
                 )}
               >
                 {item.label}

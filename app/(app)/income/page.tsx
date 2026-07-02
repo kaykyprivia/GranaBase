@@ -12,6 +12,7 @@ import { ImportStatementDialog } from "@/components/import/ImportStatementDialog
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
+import { useChartColors } from "@/hooks/useChartColors";
 import { incomeSchema, type IncomeFormData } from "@/lib/validations";
 import type { IncomeEntry, Receivable } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,7 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 export default function IncomePage() {
   const supabase = createClient();
   const currency = useCurrency();
+  const chartColors = useChartColors();
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
   const [receivedReceivables, setReceivedReceivables] = useState<DisplayIncome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -354,11 +356,11 @@ export default function IncomePage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Últimos 6 meses</p>
           <ResponsiveContainer width="100%" height={80}>
             <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-              <RechartTooltip content={<TrendTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartColors.axis }} axisLine={false} tickLine={false} />
+              <RechartTooltip content={<TrendTooltip />} cursor={{ fill: chartColors.cursor }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36} minPointSize={(value) => (!value ? 4 : 0)}>
                 {trendData.map((d, i) => (
-                  <Cell key={i} fill={d.value > 0 ? "#22C55E" : "#374151"} />
+                  <Cell key={i} fill={d.value > 0 ? chartColors.profit : chartColors.mutedBar} />
                 ))}
               </Bar>
             </BarChart>

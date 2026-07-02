@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { SidebarUserPanel } from "@/components/layout/SidebarUserPanel";
 import { InvestmentsNavAccordion } from "@/components/layout/InvestmentsNavAccordion";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { MAE_USER_ID } from "@/lib/mae";
 
 const navItems = [
@@ -55,7 +56,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col bg-surface border-r border-border shadow-[1px_0_0_rgba(255,255,255,0.03)]">
+    <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col bg-surface border-r border-border shadow-[1px_0_0_rgba(15,23,42,0.04)] dark:shadow-[1px_0_0_rgba(255,255,255,0.03)]">
       {/* Logo */}
       <div className="shrink-0 flex items-center px-5 py-5 border-b border-border/70">
         <BrandLogo className="h-14 rounded-2xl" priority />
@@ -76,7 +77,7 @@ export function Sidebar() {
                 "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
                 isActive
                   ? "bg-accent/10 text-accent"
-                  : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
+                  : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
               )}
             >
               {isActive && (
@@ -104,6 +105,10 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="shrink-0 px-2 pb-4 border-t border-border/70 pt-3">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <span className="text-xs font-medium text-text-muted">Tema</span>
+          <ThemeToggle />
+        </div>
         <SidebarUserPanel onLogout={handleLogout} />
       </div>
     </aside>

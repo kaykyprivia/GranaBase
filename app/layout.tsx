@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Toaster } from "sonner";
 import { PwaRegistration } from "@/components/pwa/PwaRegistration";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ThemedToaster } from "@/components/theme/ThemedToaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,7 +42,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0ea5e9",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0F1E" },
+  ],
 };
 
 export default function RootLayout({
@@ -50,22 +54,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className="bg-background text-text-primary antialiased">
-        <PwaRegistration />
-        {children}
-        <Toaster
-          theme="dark"
-          richColors
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: "#111827",
-              border: "1px solid #1F2937",
-              color: "#F8FAFC",
-            },
-          }}
-        />
+        <ThemeProvider>
+          <PwaRegistration />
+          {children}
+          <ThemedToaster />
+        </ThemeProvider>
       </body>
     </html>
   );

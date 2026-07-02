@@ -3,17 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { InstallAppSettings } from "@/components/settings/InstallAppSettings";
+import { PreferenceSettings } from "@/components/settings/PreferenceSettings";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { FinancialSettings } from "@/components/settings/FinancialSettings";
 import {
   DEFAULT_PROFILE_FORM,
+  DEFAULT_PREFERENCE_FORM,
   DEFAULT_FINANCIAL_FORM,
   type PlanType,
   type ProfileFormState,
+  type PreferenceFormState,
   type FinancialFormState,
 } from "@/components/settings/types";
 import { Badge } from "@/components/ui/badge";
@@ -84,10 +88,12 @@ async function findProfileRecord(
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { setTheme } = useTheme();
   const [supabase] = useState(() => createClient());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [savingFinancial, setSavingFinancial] = useState(false);
   const [exportingFinancial, setExportingFinancial] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
@@ -97,6 +103,8 @@ export default function SettingsPage() {
   const [profileMatchField, setProfileMatchField] = useState<ProfileMatchField>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
   const [initialProfileForm, setInitialProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
+  const [preferenceForm, setPreferenceForm] = useState<PreferenceFormState>(DEFAULT_PREFERENCE_FORM);
+  const [initialPreferenceForm, setInitialPreferenceForm] = useState<PreferenceFormState>(DEFAULT_PREFERENCE_FORM);
   const [financialForm, setFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
   const [initialFinancialForm, setInitialFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
   const [plan, setPlan] = useState<PlanType>("free");
@@ -145,6 +153,12 @@ export default function SettingsPage() {
         customCategories: Array.isArray(settingsRow?.custom_categories) ? settingsRow.custom_categories : [],
       };
 
+      const nextPreferenceForm: PreferenceFormState = {
+        themePreference: settingsRow?.theme_preference ?? "dark",
+        currencyFormat: settingsRow?.currency_format ?? "BRL",
+        weekStart: settingsRow?.week_start ?? "monday",
+      };
+
       setUserId(user.id);
       setProfileMatchField(profileLookup.matchField);
       setPlan(
@@ -158,6 +172,8 @@ export default function SettingsPage() {
       setLastAccess(user.last_sign_in_at ?? null);
       setProfileForm(nextProfileForm);
       setInitialProfileForm(nextProfileForm);
+      setPreferenceForm(nextPreferenceForm);
+      setInitialPreferenceForm(nextPreferenceForm);
       setFinancialForm(nextFinancialForm);
       setInitialFinancialForm(nextFinancialForm);
     } catch (error) {
@@ -170,6 +186,7 @@ export default function SettingsPage() {
   useEffect(() => { void loadSettings(); }, [loadSettings]);
 
   const profileDirty = JSON.stringify(profileForm) !== JSON.stringify(initialProfileForm);
+  const preferenceDirty = JSON.stringify(preferenceForm) !== JSON.stringify(initialPreferenceForm);
   const financialDirty = JSON.stringify(financialForm) !== JSON.stringify(initialFinancialForm);
 
   const updateUserSettings = async (payload: Partial<InsertUserSettings & UpdateUserSettings>) => {
@@ -186,6 +203,13 @@ export default function SettingsPage() {
 
   const handleFinancialFieldChange = <K extends keyof FinancialFormState>(field: K, fieldValue: FinancialFormState[K]) => {
     setFinancialForm((current) => ({ ...current, [field]: fieldValue }));
+  };
+
+  const handlePreferenceFieldChange = <K extends keyof PreferenceFormState>(field: K, fieldValue: PreferenceFormState[K]) => {
+    setPreferenceForm((current) => ({ ...current, [field]: fieldValue }));
+    if (field === "themePreference") {
+      setTheme(fieldValue as PreferenceFormState["themePreference"]);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -217,6 +241,23 @@ export default function SettingsPage() {
       toast.error(getSupabaseErrorMessage(error));
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setSavingPreferences(true);
+    try {
+      await updateUserSettings({
+        theme_preference: preferenceForm.themePreference,
+        currency_format: preferenceForm.currencyFormat,
+        week_start: preferenceForm.weekStart,
+      });
+      setInitialPreferenceForm(preferenceForm);
+      toast.success("Preferencias salvas.");
+    } catch (error) {
+      toast.error(getSupabaseErrorMessage(error));
+    } finally {
+      setSavingPreferences(false);
     }
   };
 
@@ -379,7 +420,7 @@ export default function SettingsPage() {
             {profileForm.avatarUrl ? (
               <img src={profileForm.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full bg-gradient-to-br from-accent via-sky-400 to-cyan-300 flex items-center justify-center text-base font-bold text-slate-950">
+              <div className="h-full w-full bg-gradient-to-br from-sky-400 via-sky-300 to-cyan-300 flex items-center justify-center text-base font-bold text-slate-950">
                 {loading ? "…" : initials}
               </div>
             )}
@@ -435,6 +476,18 @@ export default function SettingsPage() {
             onFieldChange={handleProfileFieldChange}
             onSave={() => void handleSaveProfile()}
             onReset={() => setProfileForm(initialProfileForm)}
+          />
+          <PreferenceSettings
+            value={preferenceForm}
+            loading={loading}
+            saving={savingPreferences}
+            dirty={preferenceDirty}
+            onFieldChange={handlePreferenceFieldChange}
+            onSave={() => void handleSavePreferences()}
+            onReset={() => {
+              setPreferenceForm(initialPreferenceForm);
+              setTheme(initialPreferenceForm.themePreference);
+            }}
           />
           <FinancialSettings
             value={financialForm}

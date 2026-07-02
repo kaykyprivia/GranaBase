@@ -19,7 +19,7 @@ interface StatCardProps {
 
 const variantStyles = {
   default: {
-    icon: "bg-white/[0.06] text-text-secondary",
+    icon: "bg-border/60 text-text-secondary",
     value: "text-text-primary",
     glow: "",
   },

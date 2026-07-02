@@ -13,6 +13,7 @@ import { ImportStatementDialog } from "@/components/import/ImportStatementDialog
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { addMonths, cn, formatCurrency, formatDate, formatTime, isOverdue, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
+import { useChartColors } from "@/hooks/useChartColors";
 import { billSchema, expenseSchema, installmentSchema, type BillFormData, type ExpenseFormData, type InstallmentFormData } from "@/lib/validations";
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid, summarizeInstallmentPayments } from "@/lib/installments";
 import { Progress } from "@/components/ui/progress";
@@ -138,6 +139,7 @@ function TrendTooltip({ active, payload, label }: TrendTooltipProps) {
 export default function ExpensesPage() {
   const supabase = createClient();
   const currency = useCurrency();
+  const chartColors = useChartColors();
   const [entries, setEntries] = useState<ExpenseEntry[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [installments, setInstallments] = useState<Installment[]>([]);
@@ -932,11 +934,11 @@ export default function ExpensesPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Últimos 6 meses</p>
           <ResponsiveContainer width="100%" height={80}>
             <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-              <RechartTooltip content={<TrendTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartColors.axis }} axisLine={false} tickLine={false} />
+              <RechartTooltip content={<TrendTooltip />} cursor={{ fill: chartColors.cursor }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36} minPointSize={(value) => (!value ? 4 : 0)}>
                 {trendData.map((d, i) => (
-                  <Cell key={i} fill={d.value > 0 ? "#EF4444" : "#374151"} />
+                  <Cell key={i} fill={d.value > 0 ? chartColors.expense : chartColors.mutedBar} />
                 ))}
               </Bar>
             </BarChart>
@@ -969,11 +971,10 @@ export default function ExpensesPage() {
                     <div key={installment.id} className="rounded-2xl border border-border/50 px-4 py-3">
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{installment.description}</p>
-                        <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                          style={{
-                            background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
-                            color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
-                          }}>
+                        <span className={cn(
+                          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                          progress >= 80 ? "bg-profit/20 text-profit" : progress >= 40 ? "bg-warning/20 text-warning" : "bg-accent/20 text-accent"
+                        )}>
                           {paidCount}/{installment.installment_count}
                         </span>
                         <button type="button" onClick={() => toggleInstallmentExpanded(installment.id)}

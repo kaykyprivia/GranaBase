@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { InvestmentsNavAccordion } from "@/components/layout/InvestmentsNavAccordion";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { MAE_USER_ID } from "@/lib/mae";
 
 const navItems = [
@@ -73,6 +74,7 @@ export function Header({ pageTitle }: HeaderProps) {
             {pageTitle && (
               <span className="text-sm font-medium text-text-secondary">{pageTitle}</span>
             )}
+            <ThemeToggle />
             <button className="p-2 rounded-lg text-text-secondary hover:bg-border transition-colors">
               <Bell className="h-4.5 w-4.5" style={{ height: "18px", width: "18px" }} />
             </button>
@@ -92,7 +94,7 @@ export function Header({ pageTitle }: HeaderProps) {
               <BrandLogo className="h-12 rounded-2xl" priority />
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg text-text-secondary hover:bg-white/[0.05]"
+                className="p-2 rounded-lg text-text-secondary hover:bg-border/60"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -115,7 +117,7 @@ export function Header({ pageTitle }: HeaderProps) {
                         "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                         isActive
                           ? "bg-accent/10 text-accent"
-                          : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
+                          : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
                       )}
                     >
                       {isActive && (

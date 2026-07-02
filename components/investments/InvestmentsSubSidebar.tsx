@@ -53,13 +53,13 @@ export function InvestmentsSubSidebar({ activeTab, onTabChange, embedded = false
               className={cn(
                 "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-white/10 text-text-primary"
-                  : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                  ? "bg-border/70 text-text-primary"
+                  : "text-text-secondary hover:bg-border/50 hover:text-text-primary"
               )}
             >
               <span className={cn(
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                isActive ? "bg-white/12 text-text-primary" : "text-text-secondary group-hover:text-text-primary"
+                isActive ? "bg-border/80 text-text-primary" : "text-text-secondary group-hover:text-text-primary"
               )}>
                 <Icon className="h-4 w-4" />
               </span>

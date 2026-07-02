@@ -51,6 +51,7 @@ import {
 } from "@/components/investments/InvestmentsSubSidebar";
 import { MarketTicker } from "@/components/investments/MarketTicker";
 import { PortfolioAllocationChart } from "@/components/investments/PortfolioAllocationChart";
+import { useChartColors } from "@/hooks/useChartColors";
 
 interface LiveQuote {
   price: number;
@@ -376,6 +377,7 @@ function MonthlyChartTooltip({ active, payload, label }: MonthlyChartTooltipProp
 export default function InvestmentsPage() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
+  const chartColors = useChartColors();
   const [entries, setEntries] = useState<Investment[]>([]);
   const [contributions, setContributions] = useState<InvestmentContribution[]>([]);
   const [marketOverview, setMarketOverview] = useState<MarketOverview>(() => buildFallbackMarketOverview());
@@ -1029,17 +1031,17 @@ export default function InvestmentsPage() {
                             <BarChart data={monthlyChartData} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
                               <XAxis
                                 dataKey="month"
-                                tick={{ fontSize: 11, fill: "#94A3B8" }}
+                                tick={{ fontSize: 11, fill: chartColors.axis }}
                                 axisLine={false}
                                 tickLine={false}
                               />
-                              <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                              <Bar dataKey="value" fill="#38BDF8" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                              <RechartsTooltip content={<MonthlyChartTooltip />} cursor={{ fill: chartColors.cursor }} />
+                              <Bar dataKey="value" fill={chartColors.accent} radius={[4, 4, 0, 0]} maxBarSize={44}>
                                 <LabelList
                                   dataKey="value"
                                   position="top"
                                   formatter={(v: number) => v > 0 ? `R$${(v / 1000).toFixed(1)}k` : ""}
-                                  style={{ fontSize: 10, fill: "#94A3B8" }}
+                                  style={{ fontSize: 10, fill: chartColors.axis }}
                                 />
                               </Bar>
                             </BarChart>

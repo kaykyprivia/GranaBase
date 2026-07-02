@@ -40,7 +40,7 @@ export function BottomNav() {
                 style={{ height: "20px", width: "20px" }}
                 className={cn(
                   "transition-all",
-                  isActive && "drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]"
+                  isActive && "drop-shadow-[0_0_8px_rgba(2,132,199,0.55)] dark:drop-shadow-[0_0_8px_rgba(125,211,252,0.6)]"
                 )}
               />
               <span className={cn("text-[10px] font-medium leading-none", isActive ? "text-accent" : "")}>

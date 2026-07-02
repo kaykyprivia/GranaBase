@@ -498,16 +498,24 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
           );
         };
 
-        const Section = ({ title, color, bills: sectionBills }: { title: string; color: string; bills: Bill[] }) => {
+        const TONE_CLASSES = {
+          expense: { dot: "bg-expense", text: "text-expense" },
+          warning: { dot: "bg-warning", text: "text-warning" },
+          caution: { dot: "bg-caution", text: "text-caution" },
+          accent: { dot: "bg-accent", text: "text-accent" },
+        } as const;
+
+        const Section = ({ title, tone, bills: sectionBills }: { title: string; tone: keyof typeof TONE_CLASSES; bills: Bill[] }) => {
           if (sectionBills.length === 0) return null;
+          const toneClasses = TONE_CLASSES[tone];
           return (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{title}</p>
+                <span className={cn("h-2 w-2 rounded-full shrink-0", toneClasses.dot)} />
+                <p className={cn("text-xs font-semibold uppercase tracking-wider", toneClasses.text)}>{title}</p>
                 <span className="text-xs text-text-secondary">({sectionBills.length})</span>
                 <div className="h-px flex-1 bg-border/40" />
-                <span className="text-xs font-semibold" style={{ color }}>
+                <span className={cn("text-xs font-semibold", toneClasses.text)}>
                   {formatCurrency(sectionBills.reduce((s, b) => s + b.amount, 0))}
                 </span>
               </div>
@@ -546,10 +554,10 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
 
         return (
           <div className="space-y-5">
-            <Section title="Atrasadas" color="#EF4444" bills={overdue} />
-            <Section title="Vence hoje" color="#FACC15" bills={today} />
-            <Section title="Vence esta semana" color="#F97316" bills={week} />
-            <Section title="Próximas" color="#38BDF8" bills={upcoming} />
+            <Section title="Atrasadas" tone="expense" bills={overdue} />
+            <Section title="Vence hoje" tone="warning" bills={today} />
+            <Section title="Vence esta semana" tone="caution" bills={week} />
+            <Section title="Próximas" tone="accent" bills={upcoming} />
             <PaidSection bills={paid} />
           </div>
         );

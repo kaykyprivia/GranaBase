@@ -188,7 +188,7 @@ export function ImportStatementDialog({ open, onOpenChange, kind, userId, onImpo
         </DialogHeader>
 
         <div className="space-y-4">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-sm text-text-secondary transition-colors hover:border-border/80 hover:bg-white/[0.03]">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-sm text-text-secondary transition-colors hover:border-border/80 hover:bg-border/30">
             <Upload className="h-4 w-4" />
             <span>{fileName ?? "Selecione um arquivo .ofx, .qfx ou .csv"}</span>
             <input

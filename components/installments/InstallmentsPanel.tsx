@@ -593,11 +593,10 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-text-primary break-words">{item.description}</h3>
                         <span
-                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                          style={{
-                            background: `${progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8"}20`,
-                            color: progress >= 80 ? "#22C55E" : progress >= 40 ? "#FACC15" : "#38BDF8",
-                          }}
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                            progress >= 80 ? "bg-profit/20 text-profit" : progress >= 40 ? "bg-warning/20 text-warning" : "bg-accent/20 text-accent"
+                          )}
                         >
                           {paidCount}/{item.installment_count} pagas
                         </span>

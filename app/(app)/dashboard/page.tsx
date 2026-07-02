@@ -17,6 +17,7 @@ import { buildMonthSeries, getEffectiveInstallmentStatus } from "@/lib/finance";
 import { calculateGoalMetrics } from "@/lib/goals";
 import { getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments";
 import { appliesMaeFilter } from "@/lib/mae";
+import { useChartColors } from "@/hooks/useChartColors";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageIntro } from "@/components/shared/PageIntro";
@@ -28,40 +29,46 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
 import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment, Receivable } from "@/types/database";
 
+interface DashboardAreaChartProps {
+  data: ChartData[];
+  income: string;
+  expenses: string;
+  recharts: typeof import("recharts");
+}
+
+function DashboardAreaChartImpl({ data, income, expenses, recharts }: DashboardAreaChartProps) {
+  const { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } = recharts;
+  const colors = useChartColors();
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+        <defs>
+          <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={colors.profit} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={colors.profit} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={colors.expense} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={colors.expense} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <XAxis dataKey="month" tick={{ fill: colors.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <Tooltip
+          contentStyle={{ backgroundColor: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: "8px", color: colors.tooltipText }}
+          formatter={(v: number) => [formatCurrency(v), ""]}
+        />
+        <Area type="monotone" dataKey={income} name="Entradas" stroke={colors.profit} strokeWidth={2} fill="url(#colorIncome)" />
+        <Area type="monotone" dataKey={expenses} name="Saídas" stroke={colors.expense} strokeWidth={2} fill="url(#colorExpense)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 const AreaChart = dynamic(
-  () => import("recharts").then((m) => ({
-    default: ({
-      data, income, expenses,
-    }: {
-      data: ChartData[];
-      income: string;
-      expenses: string;
-    }) => {
-      const { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } = m;
-      return (
-        <ResponsiveContainer width="100%" height={120}>
-          <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ backgroundColor: "#111827", border: "1px solid #1F2937", borderRadius: "8px", color: "#F8FAFC" }}
-              formatter={(v: number) => [formatCurrency(v), ""]}
-            />
-            <Area type="monotone" dataKey={income} name="Entradas" stroke="#22C55E" strokeWidth={2} fill="url(#colorIncome)" />
-            <Area type="monotone" dataKey={expenses} name="Saídas" stroke="#EF4444" strokeWidth={2} fill="url(#colorExpense)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      );
-    },
+  () => import("recharts").then((recharts) => ({
+    default: (props: Omit<DashboardAreaChartProps, "recharts">) => (
+      <DashboardAreaChartImpl {...props} recharts={recharts} />
+    ),
   })),
   { ssr: false }
 );
@@ -102,6 +109,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const chartColors = useChartColors();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalIncome: 0, totalExpenses: 0, monthIncome: 0, monthExpenses: 0,
@@ -270,7 +278,7 @@ export default function DashboardPage() {
         const savingsRate = Math.max(0, 100 - spendingRatio);
         const isGreat = savingsRate >= 30;
         const isOk = savingsRate >= 10;
-        const color = isGreat ? "#22C55E" : isOk ? "#FACC15" : "#EF4444";
+        const color = isGreat ? chartColors.profit : isOk ? chartColors.warning : chartColors.expense;
         const label = isGreat ? "Ótimo" : isOk ? "Atenção" : "Cuidado";
         const sublabel = isGreat
           ? `Você está economizando ${savingsRate.toFixed(0)}% da sua renda este mês`
@@ -531,7 +539,7 @@ export default function DashboardPage() {
                   const isIncome = tx.type === "income";
                   const date = isIncome ? (tx as IncomeEntry).received_at : (tx as ExpenseEntry).spent_at;
                   const catMeta = isIncome
-                    ? { icon: ArrowUpRight, color: "#22C55E" }
+                    ? { icon: ArrowUpRight, color: chartColors.profit }
                     : getCategoryMeta(tx.category);
                   const CatIcon = catMeta.icon;
                   return (
@@ -591,7 +599,7 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 {goals.map(goal => {
                   const metrics = calculateGoalMetrics(goal, stats.investedTotal);
-                  const color = metrics.progress >= 80 ? "#22C55E" : metrics.progress >= 40 ? "#FACC15" : "#EF4444";
+                  const color = metrics.progress >= 80 ? chartColors.profit : metrics.progress >= 40 ? chartColors.warning : chartColors.expense;
                   return (
                     <div key={goal.id}>
                       <div className="flex items-center justify-between mb-1">
