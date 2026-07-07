@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, TrendingUp, TrendingDown,
-  PiggyBank, Target, BarChart3, Settings, LogOut, Heart, HandCoins,
+  PiggyBank, Target, BarChart3, Settings, LogOut, Heart, HandCoins, Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -25,6 +25,7 @@ const navItems = [
   { href: "/investments", label: "Investimentos", icon: PiggyBank },
   { href: "/goals", label: "Metas", icon: Target },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
+  { href: "/planilhas", label: "Planilhas", icon: Calculator },
   { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
