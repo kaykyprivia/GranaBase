@@ -104,6 +104,7 @@ interface DisplayExpense {
   source: "manual" | "bill" | "installment";
   status: "paid" | "pending" | "overdue";
   dueAmount?: number;
+  scheduledAmount?: number;
   actualDate?: string;
   dueDateRef?: string;
 }
@@ -276,6 +277,7 @@ export default function ExpensesPage() {
           source: "installment" as const,
           status,
           dueAmount: payment.amount,
+          scheduledAmount: installment?.installment_amount,
           dueDateRef: payment.due_date,
         };
       });
@@ -808,7 +810,7 @@ export default function ExpensesPage() {
             <div className="border-t border-border/40">
               {items.map(entry => {
                 const catColor = CATEGORY_COLORS[entry.category] ?? "#94A3B8";
-                const isDiscounted = entry.status === "paid" && entry.source === "installment" && entry.dueAmount !== undefined && entry.amount < entry.dueAmount;
+                const isDiscounted = entry.status === "paid" && entry.source === "installment" && entry.scheduledAmount !== undefined && entry.amount < entry.scheduledAmount;
                 const isGenericInstallmentCategory = entry.source === "installment" && entry.category === "Parcelamento";
                 return (
                   <div key={entry.id}
@@ -832,8 +834,8 @@ export default function ExpensesPage() {
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      {isDiscounted && entry.dueAmount !== undefined && (
-                        <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.dueAmount, currency)}</p>
+                      {isDiscounted && entry.scheduledAmount !== undefined && (
+                        <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.scheduledAmount, currency)}</p>
                       )}
                       <p className="text-[13px] sm:text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-[9px] text-text-secondary">{formatDate(entry.spent_at)}</p>
@@ -1000,7 +1002,7 @@ export default function ExpensesPage() {
                           <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
                             {installmentPayments.map((payment) => {
                               const paymentNumber = payments.find((p) => p.id === payment.id)?.installment_number;
-                              const isDiscounted = payment.status === "paid" && payment.dueAmount !== undefined && payment.amount < payment.dueAmount;
+                              const isDiscounted = payment.status === "paid" && payment.scheduledAmount !== undefined && payment.amount < payment.scheduledAmount;
                               return (
                                 <div key={payment.id} className="flex items-center gap-2 py-1">
                                   <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-secondary">
