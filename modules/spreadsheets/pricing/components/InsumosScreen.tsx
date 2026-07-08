@@ -7,6 +7,7 @@ import { SidePanel } from "../../engine/SidePanel";
 import type { Column } from "../../engine/types";
 import { useInsumos } from "../hooks/useInsumos";
 import { InsumoDetailPanel } from "./InsumoDetailPanel";
+import { runMutation } from "../runMutation";
 import type { Insumo, InsumoInput } from "../types";
 
 const NOVO_INSUMO: InsumoInput = {
@@ -16,7 +17,6 @@ const NOVO_INSUMO: InsumoInput = {
   quantidadeCompra: 1,
   pesoBruto: null,
   pesoLiquido: null,
-  fornecedor: null,
   categoria: null,
   observacao: null,
 };
@@ -47,7 +47,6 @@ const columns: Column<Insumo>[] = [
     width: 110,
     getValue: (r) => r.quantidadeCompra,
   },
-  { id: "fornecedor", label: "Fornecedor", type: "text", editable: true, width: 160, getValue: (r) => r.fornecedor },
   { id: "categoria", label: "Categoria", type: "text", editable: true, width: 140, getValue: (r) => r.categoria },
 ];
 
@@ -60,12 +59,16 @@ export function InsumosScreen() {
   function handleCellChange(rowIndex: number, columnId: string, value: string | number) {
     const insumo = insumos[rowIndex];
     if (!insumo) return;
-    void update(insumo.id, { [columnId]: value } as Partial<InsumoInput>);
+    void runMutation(update(insumo.id, { [columnId]: value } as Partial<InsumoInput>), {
+      errorMessage: "Não foi possível salvar o insumo. Tente novamente.",
+    });
   }
 
   async function handleCreate() {
-    const created = await create(NOVO_INSUMO);
-    setSelectedId(created.id);
+    const created = await runMutation(create(NOVO_INSUMO), {
+      errorMessage: "Não foi possível criar o insumo. Tente novamente.",
+    });
+    if (created) setSelectedId(created.id);
   }
 
   if (loading) {
@@ -102,9 +105,16 @@ export function InsumosScreen() {
           <InsumoDetailPanel
             key={selected.id}
             insumo={selected}
-            onUpdate={(patch) => void update(selected.id, patch)}
+            onUpdate={(patch) =>
+              void runMutation(update(selected.id, patch), {
+                errorMessage: "Não foi possível salvar o insumo. Tente novamente.",
+              })
+            }
             onDelete={() => {
-              void remove(selected.id);
+              void runMutation(remove(selected.id), {
+                successMessage: "Insumo excluído.",
+                errorMessage: "Não foi possível excluir o insumo. Tente novamente.",
+              });
               setSelectedId(null);
             }}
           />

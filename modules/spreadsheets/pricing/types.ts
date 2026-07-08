@@ -16,7 +16,6 @@ export interface Insumo {
   quantidadeCompra: number;
   pesoBruto: number | null;
   pesoLiquido: number | null;
-  fornecedor: string | null;
   categoria: string | null;
   observacao: string | null;
   createdAt: string;

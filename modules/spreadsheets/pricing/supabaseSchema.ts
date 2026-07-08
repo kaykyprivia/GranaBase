@@ -16,7 +16,6 @@ export interface PricingDatabase {
           quantidade_compra: number;
           peso_bruto: number | null;
           peso_liquido: number | null;
-          fornecedor: string | null;
           categoria: string | null;
           observacao: string | null;
           created_at: string;

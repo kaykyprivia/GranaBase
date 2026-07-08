@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { useConfiguracoes } from "../hooks/useConfiguracoes";
 import type { ConfiguracoesInput, RegimeTributario } from "../types";
+import { Field, NumberField, inputClass } from "./FormFields";
+import { runMutation } from "../runMutation";
 
 const REGIMES: { value: RegimeTributario; label: string }[] = [
   { value: "mei", label: "MEI" },
@@ -38,7 +40,10 @@ export function ConfiguracoesScreen() {
     if (!form) return;
     setSaving(true);
     try {
-      await save(form);
+      await runMutation(save(form), {
+        successMessage: "Preferências salvas.",
+        errorMessage: "Não foi possível salvar as preferências. Tente novamente.",
+      });
     } finally {
       setSaving(false);
     }
@@ -68,42 +73,34 @@ export function ConfiguracoesScreen() {
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Imposto efetivo sobre venda (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={form.impostosPctPadrao}
-            onChange={(e) => setForm({ ...form, impostosPctPadrao: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Despesas fixas rateadas (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={form.despesasFixasPctPadrao}
-            onChange={(e) => setForm({ ...form, despesasFixasPctPadrao: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Despesas variáveis / comissão (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={form.despesasVariaveisPctPadrao}
-            onChange={(e) => setForm({ ...form, despesasVariaveisPctPadrao: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Margem de lucro desejada (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={form.margemDesejadaPctPadrao}
-            onChange={(e) => setForm({ ...form, margemDesejadaPctPadrao: Number(e.target.value) })}
-          />
-        </Field>
+        <NumberField
+          label="Imposto efetivo sobre venda (%)"
+          value={form.impostosPctPadrao}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && setForm({ ...form, impostosPctPadrao: value })}
+        />
+        <NumberField
+          label="Despesas fixas rateadas (%)"
+          value={form.despesasFixasPctPadrao}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && setForm({ ...form, despesasFixasPctPadrao: value })}
+        />
+        <NumberField
+          label="Despesas variáveis / comissão (%)"
+          value={form.despesasVariaveisPctPadrao}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && setForm({ ...form, despesasVariaveisPctPadrao: value })}
+        />
+        <NumberField
+          label="Margem de lucro desejada (%)"
+          value={form.margemDesejadaPctPadrao}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && setForm({ ...form, margemDesejadaPctPadrao: value })}
+        />
       </div>
 
       <button
@@ -116,17 +113,5 @@ export function ConfiguracoesScreen() {
         {saving ? "Salvando…" : "Salvar padrões"}
       </button>
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-text-secondary">{label}</span>
-      {children}
-    </label>
   );
 }

@@ -18,7 +18,6 @@ function mapRow(row: InsumoRow): Insumo {
     quantidadeCompra: row.quantidade_compra,
     pesoBruto: row.peso_bruto,
     pesoLiquido: row.peso_liquido,
-    fornecedor: row.fornecedor,
     categoria: row.categoria,
     observacao: row.observacao,
     createdAt: row.created_at,
@@ -76,7 +75,6 @@ export function useInsumos() {
             quantidade_compra: input.quantidadeCompra,
             peso_bruto: input.pesoBruto,
             peso_liquido: input.pesoLiquido,
-            fornecedor: input.fornecedor,
             categoria: input.categoria,
             observacao: input.observacao,
           })
@@ -104,7 +102,6 @@ export function useInsumos() {
             ...(patch.quantidadeCompra !== undefined && { quantidade_compra: patch.quantidadeCompra }),
             ...(patch.pesoBruto !== undefined && { peso_bruto: patch.pesoBruto }),
             ...(patch.pesoLiquido !== undefined && { peso_liquido: patch.pesoLiquido }),
-            ...(patch.fornecedor !== undefined && { fornecedor: patch.fornecedor }),
             ...(patch.categoria !== undefined && { categoria: patch.categoria }),
             ...(patch.observacao !== undefined && { observacao: patch.observacao }),
           })

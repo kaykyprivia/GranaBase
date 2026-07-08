@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import type { Insumo, InsumoInput, UnidadeMedida } from "../types";
 import { calcularFatorCorrecao } from "../calculations";
 import { cn } from "../../engine/cn";
+import { Field, NumberField, inputClass } from "./FormFields";
 
 const UNIDADES: UnidadeMedida[] = ["g", "kg", "ml", "L", "un"];
 
@@ -58,24 +59,19 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Valor de compra (R$)">
-          <input
-            type="number"
-            step="0.01"
-            className={inputClass}
-            value={local.precoCompra}
-            onChange={(e) => commit({ precoCompra: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label={`Quantidade comprada (${local.unidadeMedida})`}>
-          <input
-            type="number"
-            step="0.001"
-            className={inputClass}
-            value={local.quantidadeCompra}
-            onChange={(e) => commit({ quantidadeCompra: Number(e.target.value) })}
-          />
-        </Field>
+        <NumberField
+          label="Valor de compra (R$)"
+          value={local.precoCompra}
+          min={0}
+          onCommit={(value) => value !== null && commit({ precoCompra: value })}
+        />
+        <NumberField
+          label={`Quantidade comprada (${local.unidadeMedida})`}
+          value={local.quantidadeCompra}
+          step="0.001"
+          min={0.001}
+          onCommit={(value) => value !== null && commit({ quantidadeCompra: value })}
+        />
       </div>
 
       <div className="rounded-xl border border-border/60 bg-surface-2/40 p-3">
@@ -83,38 +79,28 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
           Perda / rendimento (opcional)
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Peso bruto (comprado)">
-            <input
-              type="number"
-              step="0.001"
-              className={inputClass}
-              value={local.pesoBruto ?? ""}
-              onChange={(e) => commit({ pesoBruto: e.target.value ? Number(e.target.value) : null })}
-            />
-          </Field>
-          <Field label="Peso líquido (aproveitável)">
-            <input
-              type="number"
-              step="0.001"
-              className={inputClass}
-              value={local.pesoLiquido ?? ""}
-              onChange={(e) => commit({ pesoLiquido: e.target.value ? Number(e.target.value) : null })}
-            />
-          </Field>
+          <NumberField
+            label="Peso bruto (comprado)"
+            value={local.pesoBruto}
+            step="0.001"
+            min={0}
+            allowNull
+            onCommit={(value) => commit({ pesoBruto: value })}
+          />
+          <NumberField
+            label="Peso líquido (aproveitável)"
+            value={local.pesoLiquido}
+            step="0.001"
+            min={0}
+            allowNull
+            onCommit={(value) => commit({ pesoLiquido: value })}
+          />
         </div>
         <p className="mt-2 text-xs text-text-secondary">
           Fator de correção: <span className="font-semibold text-text-primary">{fatorCorrecao.toFixed(3)}</span>
           {fatorCorrecao > 1 && " — o custo real por unidade aproveitável é maior que o preço de compra."}
         </p>
       </div>
-
-      <Field label="Fornecedor">
-        <input
-          className={inputClass}
-          value={local.fornecedor ?? ""}
-          onChange={(e) => commit({ fornecedor: e.target.value || null })}
-        />
-      </Field>
 
       <Field label="Observação">
         <textarea
@@ -133,17 +119,5 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
         Excluir insumo
       </button>
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-text-secondary">{label}</span>
-      {children}
-    </label>
   );
 }

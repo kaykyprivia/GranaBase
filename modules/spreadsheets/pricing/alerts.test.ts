@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calcularPrecificacao } from "@/modules/spreadsheets/pricing/calculations";
-import { detectarFornecedorCaro, evaluateProductHealth } from "@/modules/spreadsheets/pricing/alerts";
+import { detectarInsumoAcimaDaMedia, evaluateProductHealth } from "@/modules/spreadsheets/pricing/alerts";
 
 function buildResult(overrides: Partial<Parameters<typeof calcularPrecificacao>[0]> = {}) {
   return calcularPrecificacao({
@@ -27,7 +27,7 @@ describe("evaluateProductHealth", () => {
     const result = buildResult({ margemDesejadaPct: 2 });
     const alerts = evaluateProductHealth(result, null, {
       margemLiquidaMinimaPct: 15,
-      fornecedorCaroLimiarPct: 20,
+      insumoAcimaDaMediaLimiarPct: 20,
     });
     expect(alerts.some((a) => a.tipo === "margem_baixa")).toBe(true);
   });
@@ -47,20 +47,20 @@ describe("evaluateProductHealth", () => {
   });
 });
 
-describe("detectarFornecedorCaro", () => {
-  it("flags a supplier priced well above similar ingredients", () => {
-    const alert = detectarFornecedorCaro({ nome: "Leite em pó", custoUnitario: 30 }, [20, 21, 19]);
+describe("detectarInsumoAcimaDaMedia", () => {
+  it("flags an ingredient priced well above similar ingredients", () => {
+    const alert = detectarInsumoAcimaDaMedia({ nome: "Leite em pó", custoUnitario: 30 }, [20, 21, 19]);
     expect(alert).not.toBeNull();
-    expect(alert?.tipo).toBe("fornecedor_caro");
+    expect(alert?.tipo).toBe("insumo_acima_da_media");
   });
 
   it("returns null when price is within the threshold", () => {
-    const alert = detectarFornecedorCaro({ nome: "Leite em pó", custoUnitario: 21 }, [20, 21, 19]);
+    const alert = detectarInsumoAcimaDaMedia({ nome: "Leite em pó", custoUnitario: 21 }, [20, 21, 19]);
     expect(alert).toBeNull();
   });
 
   it("returns null when there is nothing to compare against", () => {
-    const alert = detectarFornecedorCaro({ nome: "Leite em pó", custoUnitario: 21 }, []);
+    const alert = detectarInsumoAcimaDaMedia({ nome: "Leite em pó", custoUnitario: 21 }, []);
     expect(alert).toBeNull();
   });
 });

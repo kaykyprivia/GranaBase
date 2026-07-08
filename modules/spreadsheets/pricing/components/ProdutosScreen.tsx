@@ -9,6 +9,7 @@ import { useProdutos } from "../hooks/useProdutos";
 import { useInsumos } from "../hooks/useInsumos";
 import { calcularPrecificacao, type InsumoNaFichaTecnica } from "../calculations";
 import { ProdutoDetailPanel } from "./ProdutoDetailPanel";
+import { runMutation } from "../runMutation";
 import type { Produto, ProdutoInput } from "../types";
 
 const NOVO_PRODUTO: ProdutoInput = {
@@ -81,12 +82,16 @@ export function ProdutosScreen() {
   function handleCellChange(rowIndex: number, columnId: string, value: string | number) {
     const produto = produtos[rowIndex];
     if (!produto || columnId === "precoSugerido") return;
-    void update(produto.id, { [columnId]: value } as Partial<ProdutoInput>);
+    void runMutation(update(produto.id, { [columnId]: value } as Partial<ProdutoInput>), {
+      errorMessage: "Não foi possível salvar o produto. Tente novamente.",
+    });
   }
 
   async function handleCreate() {
-    const created = await create(NOVO_PRODUTO);
-    setSelectedId(created.id);
+    const created = await runMutation(create(NOVO_PRODUTO), {
+      errorMessage: "Não foi possível criar o produto. Tente novamente.",
+    });
+    if (created) setSelectedId(created.id);
   }
 
   if (loadingProdutos || loadingInsumos) {
@@ -124,16 +129,33 @@ export function ProdutosScreen() {
             key={selected.id}
             produto={selected}
             insumos={insumos}
-            onUpdate={(patch) => void update(selected.id, patch)}
+            onUpdate={(patch) =>
+              void runMutation(update(selected.id, patch), {
+                errorMessage: "Não foi possível salvar o produto. Tente novamente.",
+              })
+            }
             onDelete={() => {
-              void remove(selected.id);
+              void runMutation(remove(selected.id), {
+                successMessage: "Produto excluído.",
+                errorMessage: "Não foi possível excluir o produto. Tente novamente.",
+              });
               setSelectedId(null);
             }}
-            onAddInsumo={(insumoId, quantidade) => void addInsumoNaFicha(selected.id, insumoId, quantidade)}
-            onUpdateQuantidade={(fichaItemId, quantidade) =>
-              void updateQuantidadeNaFicha(fichaItemId, selected.id, quantidade)
+            onAddInsumo={(insumoId, quantidade) =>
+              void runMutation(addInsumoNaFicha(selected.id, insumoId, quantidade), {
+                errorMessage: "Não foi possível adicionar o insumo. Tente novamente.",
+              })
             }
-            onRemoveInsumo={(fichaItemId) => void removeInsumoDaFicha(fichaItemId, selected.id)}
+            onUpdateQuantidade={(fichaItemId, quantidade) =>
+              void runMutation(updateQuantidadeNaFicha(fichaItemId, selected.id, quantidade), {
+                errorMessage: "Não foi possível atualizar a quantidade. Tente novamente.",
+              })
+            }
+            onRemoveInsumo={(fichaItemId) =>
+              void runMutation(removeInsumoDaFicha(fichaItemId, selected.id), {
+                errorMessage: "Não foi possível remover o insumo da ficha técnica. Tente novamente.",
+              })
+            }
           />
         )}
       </SidePanel>

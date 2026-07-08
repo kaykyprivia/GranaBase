@@ -1,6 +1,6 @@
 import type { PricingResult } from "./calculations";
 
-export type AlertType = "prejuizo" | "margem_baixa" | "precificacao_impossivel" | "fornecedor_caro";
+export type AlertType = "prejuizo" | "margem_baixa" | "precificacao_impossivel" | "insumo_acima_da_media";
 export type AlertSeverity = "aviso" | "critico";
 
 export interface Alert {
@@ -11,12 +11,12 @@ export interface Alert {
 
 export interface AlertThresholds {
   margemLiquidaMinimaPct: number;
-  fornecedorCaroLimiarPct: number;
+  insumoAcimaDaMediaLimiarPct: number;
 }
 
 export const DEFAULT_ALERT_THRESHOLDS: AlertThresholds = {
   margemLiquidaMinimaPct: 15,
-  fornecedorCaroLimiarPct: 20,
+  insumoAcimaDaMediaLimiarPct: 20,
 };
 
 /**
@@ -66,7 +66,7 @@ export interface InsumoCusto {
 }
 
 /** Compara o custo unitário de um insumo com a média de insumos parecidos. */
-export function detectarFornecedorCaro(
+export function detectarInsumoAcimaDaMedia(
   insumo: InsumoCusto,
   custosUnitariosSimilares: number[],
   thresholds: AlertThresholds = DEFAULT_ALERT_THRESHOLDS
@@ -78,10 +78,10 @@ export function detectarFornecedorCaro(
   if (media <= 0) return null;
 
   const diferencaPct = ((insumo.custoUnitario - media) / media) * 100;
-  if (diferencaPct <= thresholds.fornecedorCaroLimiarPct) return null;
+  if (diferencaPct <= thresholds.insumoAcimaDaMediaLimiarPct) return null;
 
   return {
-    tipo: "fornecedor_caro",
+    tipo: "insumo_acima_da_media",
     severidade: "aviso",
     mensagem: `${insumo.nome} está ${diferencaPct.toFixed(0)}% acima do custo médio de insumos parecidos (${formatBRL(media)}).`,
   };

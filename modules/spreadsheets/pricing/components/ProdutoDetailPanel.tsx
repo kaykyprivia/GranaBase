@@ -7,6 +7,7 @@ import { calcularPrecificacao, type InsumoNaFichaTecnica } from "../calculations
 import { evaluateProductHealth } from "../alerts";
 import { PricingSummary } from "./PricingSummary";
 import { cn } from "../../engine/cn";
+import { Field, NumberField, inputClass } from "./FormFields";
 
 export interface ProdutoDetailPanelProps {
   produto: Produto;
@@ -97,15 +98,12 @@ export function ProdutoDetailPanel({
             onChange={(e) => onUpdate({ categoria: e.target.value || null })}
           />
         </Field>
-        <Field label="Rendimento (porções)">
-          <input
-            type="number"
-            step="0.01"
-            className={inputClass}
-            value={produto.rendimentoPorcoes}
-            onChange={(e) => onUpdate({ rendimentoPorcoes: Number(e.target.value) })}
-          />
-        </Field>
+        <NumberField
+          label="Rendimento (porções)"
+          value={produto.rendimentoPorcoes}
+          min={0.01}
+          onCommit={(value) => value !== null && onUpdate({ rendimentoPorcoes: value })}
+        />
       </div>
 
       <div className="rounded-xl border border-border/60 bg-surface-2/40 p-3">
@@ -168,53 +166,43 @@ export function ProdutoDetailPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Despesas variáveis (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={produto.despesasVariaveisPct}
-            onChange={(e) => onUpdate({ despesasVariaveisPct: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Despesas fixas (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={produto.despesasFixasPct}
-            onChange={(e) => onUpdate({ despesasFixasPct: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Impostos (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={produto.impostosPct}
-            onChange={(e) => onUpdate({ impostosPct: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="Margem desejada (%)">
-          <input
-            type="number"
-            step="0.1"
-            className={inputClass}
-            value={produto.margemDesejadaPct}
-            onChange={(e) => onUpdate({ margemDesejadaPct: Number(e.target.value) })}
-          />
-        </Field>
+        <NumberField
+          label="Despesas variáveis (%)"
+          value={produto.despesasVariaveisPct}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && onUpdate({ despesasVariaveisPct: value })}
+        />
+        <NumberField
+          label="Despesas fixas (%)"
+          value={produto.despesasFixasPct}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && onUpdate({ despesasFixasPct: value })}
+        />
+        <NumberField
+          label="Impostos (%)"
+          value={produto.impostosPct}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && onUpdate({ impostosPct: value })}
+        />
+        <NumberField
+          label="Margem desejada (%)"
+          value={produto.margemDesejadaPct}
+          step="0.1"
+          min={0}
+          onCommit={(value) => value !== null && onUpdate({ margemDesejadaPct: value })}
+        />
       </div>
 
-      <Field label="Preço praticado atualmente (opcional)">
-        <input
-          type="number"
-          step="0.01"
-          className={inputClass}
-          value={produto.precoPraticado ?? ""}
-          onChange={(e) => onUpdate({ precoPraticado: e.target.value ? Number(e.target.value) : null })}
-        />
-      </Field>
+      <NumberField
+        label="Preço praticado atualmente (opcional)"
+        value={produto.precoPraticado}
+        min={0}
+        allowNull
+        onCommit={(value) => onUpdate({ precoPraticado: value })}
+      />
 
       <div className="rounded-xl border border-border/60 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
@@ -251,17 +239,5 @@ export function ProdutoDetailPanel({
         Excluir produto
       </button>
     </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-text-secondary">{label}</span>
-      {children}
-    </label>
   );
 }
