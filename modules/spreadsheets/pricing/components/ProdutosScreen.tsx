@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
 import { ResponsiveTable } from "../../engine/ResponsiveTable";
 import { SidePanel } from "../../engine/SidePanel";
 import type { Column } from "../../engine/types";
@@ -12,17 +11,19 @@ import { ProdutoDetailPanel } from "./ProdutoDetailPanel";
 import { runMutation } from "../runMutation";
 import type { Produto, ProdutoInput } from "../types";
 
-const NOVO_PRODUTO: ProdutoInput = {
-  nome: "Novo produto",
-  categoria: null,
-  rendimentoPorcoes: 1,
-  despesasVariaveisPct: 0,
-  despesasFixasPct: 0,
-  impostosPct: 0,
-  margemDesejadaPct: 0,
-  precoPraticado: null,
-  observacao: null,
-};
+function buildNovoProduto(nome: string): ProdutoInput {
+  return {
+    nome,
+    categoria: null,
+    rendimentoPorcoes: 1,
+    despesasVariaveisPct: 0,
+    despesasFixasPct: 0,
+    impostosPct: 0,
+    margemDesejadaPct: 0,
+    precoPraticado: null,
+    observacao: null,
+  };
+}
 
 export function ProdutosScreen() {
   const { produtos, loading: loadingProdutos, create, update, remove, addInsumoNaFicha, updateQuantidadeNaFicha, removeInsumoDaFicha } =
@@ -87,11 +88,10 @@ export function ProdutosScreen() {
     });
   }
 
-  async function handleCreate() {
-    const created = await runMutation(create(NOVO_PRODUTO), {
+  function handleCreate(nome: string) {
+    void runMutation(create(buildNovoProduto(nome)), {
       errorMessage: "Não foi possível criar o produto. Tente novamente.",
     });
-    if (created) setSelectedId(created.id);
   }
 
   if (loadingProdutos || loadingInsumos) {
@@ -101,17 +101,7 @@ export function ProdutosScreen() {
   return (
     <div className="flex h-full gap-4">
       <div className="flex flex-1 flex-col gap-3 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-text-secondary">{produtos.length} produto(s)</p>
-          <button
-            type="button"
-            onClick={() => void handleCreate()}
-            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-background hover:brightness-110"
-          >
-            <Plus className="h-4 w-4" />
-            Novo produto
-          </button>
-        </div>
+        <p className="text-sm text-text-secondary">{produtos.length} produto(s)</p>
 
         <ResponsiveTable
           rows={produtos}
@@ -120,6 +110,8 @@ export function ProdutosScreen() {
           onCellChange={handleCellChange}
           onRowClick={(row) => setSelectedId(row.id)}
           selectedRowId={selectedId ?? undefined}
+          onCreateRow={handleCreate}
+          createPlaceholder="Adicionar produto..."
         />
       </div>
 

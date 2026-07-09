@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Plus } from "lucide-react";
 import type { Column } from "./types";
 import { formatCellValue } from "./formatCellValue";
 import { cn } from "./cn";
@@ -10,6 +12,8 @@ export interface CardListProps<Row> {
   getRowId: (row: Row) => string;
   onRowClick?: (row: Row, rowIndex: number) => void;
   selectedRowId?: string;
+  onCreateRow?: (name: string) => void;
+  createPlaceholder?: string;
 }
 
 /**
@@ -17,11 +21,34 @@ export interface CardListProps<Row> {
  * grid on touch screens (Airtable/Notion/Coda all switch to card/list).
  * Same Row/Column data model, different presentation.
  */
-export function CardList<Row>({ rows, columns, getRowId, onRowClick, selectedRowId }: CardListProps<Row>) {
+export function CardList<Row>({ rows, columns, getRowId, onRowClick, selectedRowId, onCreateRow, createPlaceholder }: CardListProps<Row>) {
   const [primaryColumn, ...restColumns] = columns;
+  const [draftName, setDraftName] = useState("");
+
+  function submitDraft() {
+    const trimmed = draftName.trim();
+    if (!trimmed || !onCreateRow) return;
+    onCreateRow(trimmed);
+    setDraftName("");
+  }
 
   return (
     <div className="flex flex-col gap-2">
+      {onCreateRow && (
+        <div className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
+          <Plus className="h-4 w-4 shrink-0 text-text-secondary" />
+          <input
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") submitDraft();
+            }}
+            onBlur={submitDraft}
+            placeholder={createPlaceholder ?? "Adicionar..."}
+            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary outline-none"
+          />
+        </div>
+      )}
       {rows.map((row, rowIndex) => {
         const rowId = getRowId(row);
         return (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import { ResponsiveTable } from "../../engine/ResponsiveTable";
 import { SidePanel } from "../../engine/SidePanel";
 import type { Column } from "../../engine/types";
@@ -10,16 +9,18 @@ import { InsumoDetailPanel } from "./InsumoDetailPanel";
 import { runMutation } from "../runMutation";
 import type { Insumo, InsumoInput } from "../types";
 
-const NOVO_INSUMO: InsumoInput = {
-  nome: "Novo insumo",
-  unidadeMedida: "un",
-  precoCompra: 0,
-  quantidadeCompra: 1,
-  pesoBruto: null,
-  pesoLiquido: null,
-  categoria: null,
-  observacao: null,
-};
+function buildNovoInsumo(nome: string): InsumoInput {
+  return {
+    nome,
+    unidadeMedida: "un",
+    precoCompra: 0,
+    quantidadeCompra: 1,
+    pesoBruto: null,
+    pesoLiquido: null,
+    categoria: null,
+    observacao: null,
+  };
+}
 
 const columns: Column<Insumo>[] = [
   { id: "nome", label: "Insumo", type: "text", editable: true, width: 220, getValue: (r) => r.nome },
@@ -64,11 +65,10 @@ export function InsumosScreen() {
     });
   }
 
-  async function handleCreate() {
-    const created = await runMutation(create(NOVO_INSUMO), {
+  function handleCreate(nome: string) {
+    void runMutation(create(buildNovoInsumo(nome)), {
       errorMessage: "Não foi possível criar o insumo. Tente novamente.",
     });
-    if (created) setSelectedId(created.id);
   }
 
   if (loading) {
@@ -78,17 +78,7 @@ export function InsumosScreen() {
   return (
     <div className="flex h-full gap-4">
       <div className="flex flex-1 flex-col gap-3 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-text-secondary">{insumos.length} insumo(s)</p>
-          <button
-            type="button"
-            onClick={() => void handleCreate()}
-            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-background hover:brightness-110"
-          >
-            <Plus className="h-4 w-4" />
-            Novo insumo
-          </button>
-        </div>
+        <p className="text-sm text-text-secondary">{insumos.length} insumo(s)</p>
 
         <ResponsiveTable
           rows={insumos}
@@ -97,6 +87,8 @@ export function InsumosScreen() {
           onCellChange={handleCellChange}
           onRowClick={(row) => setSelectedId(row.id)}
           selectedRowId={selectedId ?? undefined}
+          onCreateRow={handleCreate}
+          createPlaceholder="Adicionar insumo..."
         />
       </div>
 

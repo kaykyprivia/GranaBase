@@ -12,6 +12,8 @@ export interface ResponsiveTableProps<Row> {
   onCellChange: (rowIndex: number, columnId: string, value: string | number) => void;
   onRowClick?: (row: Row, rowIndex: number) => void;
   selectedRowId?: string;
+  onCreateRow?: (name: string) => void;
+  createPlaceholder?: string;
 }
 
 /**

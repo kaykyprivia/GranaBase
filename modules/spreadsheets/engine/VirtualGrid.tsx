@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Column } from "./types";
 import { useTable } from "./useTable";
@@ -16,6 +17,8 @@ export interface VirtualGridProps<Row> {
   onCellChange: (rowIndex: number, columnId: string, value: string | number) => void;
   onRowClick?: (row: Row, rowIndex: number) => void;
   selectedRowId?: string;
+  onCreateRow?: (name: string) => void;
+  createPlaceholder?: string;
 }
 
 export function VirtualGrid<Row>({
@@ -25,9 +28,19 @@ export function VirtualGrid<Row>({
   onCellChange,
   onRowClick,
   selectedRowId,
+  onCreateRow,
+  createPlaceholder,
 }: VirtualGridProps<Row>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const table = useTable(rows.length, columns);
+  const [draftName, setDraftName] = useState("");
+
+  function submitDraft() {
+    const trimmed = draftName.trim();
+    if (!trimmed || !onCreateRow) return;
+    onCreateRow(trimmed);
+    setDraftName("");
+  }
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -121,6 +134,22 @@ export function VirtualGrid<Row>({
           })}
         </div>
       </div>
+
+      {onCreateRow && (
+        <div className="flex items-center gap-2 border-t border-border px-3 py-2.5">
+          <Plus className="h-4 w-4 shrink-0 text-text-secondary" />
+          <input
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") submitDraft();
+            }}
+            onBlur={submitDraft}
+            placeholder={createPlaceholder ?? "Adicionar..."}
+            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary outline-none"
+          />
+        </div>
+      )}
     </div>
   );
 }
