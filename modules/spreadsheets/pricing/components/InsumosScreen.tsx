@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { ResponsiveTable } from "../../engine/ResponsiveTable";
 import { SidePanel } from "../../engine/SidePanel";
 import type { Column } from "../../engine/types";
@@ -54,11 +55,20 @@ const columns: Column<Insumo>[] = [
 export function InsumosScreen() {
   const { insumos, loading, create, update, remove } = useInsumos();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const selected = insumos.find((i) => i.id === selectedId) ?? null;
 
+  const filteredInsumos = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return insumos;
+    return insumos.filter(
+      (i) => i.nome.toLowerCase().includes(query) || (i.categoria ?? "").toLowerCase().includes(query)
+    );
+  }, [insumos, search]);
+
   function handleCellChange(rowIndex: number, columnId: string, value: string | number) {
-    const insumo = insumos[rowIndex];
+    const insumo = filteredInsumos[rowIndex];
     if (!insumo) return;
     void runMutation(update(insumo.id, { [columnId]: value } as Partial<InsumoInput>), {
       errorMessage: "Não foi possível salvar o insumo. Tente novamente.",
@@ -78,10 +88,25 @@ export function InsumosScreen() {
   return (
     <div className="flex h-full gap-4">
       <div className="flex flex-1 flex-col gap-3 overflow-hidden">
-        <p className="text-sm text-text-secondary">{insumos.length} insumo(s)</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-text-secondary">
+            {filteredInsumos.length !== insumos.length
+              ? `${filteredInsumos.length} de ${insumos.length} insumo(s)`
+              : `${insumos.length} insumo(s)`}
+          </p>
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar insumo..."
+              className="w-full rounded-lg border border-border bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent"
+            />
+          </div>
+        </div>
 
         <ResponsiveTable
-          rows={insumos}
+          rows={filteredInsumos}
           columns={columns}
           getRowId={(r) => r.id}
           onCellChange={handleCellChange}

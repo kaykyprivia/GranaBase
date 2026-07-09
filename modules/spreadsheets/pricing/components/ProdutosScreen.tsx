@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { ResponsiveTable } from "../../engine/ResponsiveTable";
 import { SidePanel } from "../../engine/SidePanel";
 import type { Column } from "../../engine/types";
@@ -30,8 +31,17 @@ export function ProdutosScreen() {
     useProdutos();
   const { insumos, loading: loadingInsumos } = useInsumos();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const selected = produtos.find((p) => p.id === selectedId) ?? null;
+
+  const filteredProdutos = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return produtos;
+    return produtos.filter(
+      (p) => p.nome.toLowerCase().includes(query) || (p.categoria ?? "").toLowerCase().includes(query)
+    );
+  }, [produtos, search]);
 
   const columns: Column<Produto>[] = useMemo(
     () => [
@@ -81,7 +91,7 @@ export function ProdutosScreen() {
   );
 
   function handleCellChange(rowIndex: number, columnId: string, value: string | number) {
-    const produto = produtos[rowIndex];
+    const produto = filteredProdutos[rowIndex];
     if (!produto || columnId === "precoSugerido") return;
     void runMutation(update(produto.id, { [columnId]: value } as Partial<ProdutoInput>), {
       errorMessage: "Não foi possível salvar o produto. Tente novamente.",
@@ -101,10 +111,25 @@ export function ProdutosScreen() {
   return (
     <div className="flex h-full gap-4">
       <div className="flex flex-1 flex-col gap-3 overflow-hidden">
-        <p className="text-sm text-text-secondary">{produtos.length} produto(s)</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-text-secondary">
+            {filteredProdutos.length !== produtos.length
+              ? `${filteredProdutos.length} de ${produtos.length} produto(s)`
+              : `${produtos.length} produto(s)`}
+          </p>
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar produto..."
+              className="w-full rounded-lg border border-border bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent"
+            />
+          </div>
+        </div>
 
         <ResponsiveTable
-          rows={produtos}
+          rows={filteredProdutos}
           columns={columns}
           getRowId={(r) => r.id}
           onCellChange={handleCellChange}
