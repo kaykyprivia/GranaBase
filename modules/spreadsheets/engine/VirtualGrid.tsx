@@ -101,10 +101,7 @@ export function VirtualGrid<Row>({
                       )}
                       style={{ width: column.width ?? 160 }}
                       tabIndex={0}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        table.selectCell(virtualRow.index, column.id);
-                      }}
+                      onClick={() => table.selectCell(virtualRow.index, column.id)}
                       onDoubleClick={() => column.editable && table.startEditing()}
                       onKeyDown={table.handleKeyDown}
                     >

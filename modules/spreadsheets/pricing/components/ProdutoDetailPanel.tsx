@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Trash2, Plus } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import type { Insumo, Produto, ProdutoInput } from "../types";
 import { calcularPrecificacao, type InsumoNaFichaTecnica } from "../calculations";
 import { evaluateProductHealth } from "../alerts";
@@ -45,12 +45,22 @@ export function ProdutoDetailPanel({
   onRemoveInsumo,
 }: ProdutoDetailPanelProps) {
   const [simulacaoPct, setSimulacaoPct] = useState(0);
-  const [novoInsumoId, setNovoInsumoId] = useState("");
-  const [novaQuantidade, setNovaQuantidade] = useState(1);
+  const [insumoQuery, setInsumoQuery] = useState("");
 
   const insumosDisponiveis = insumos.filter(
     (i) => !produto.fichaTecnica.some((f) => f.insumoId === i.id)
   );
+
+  const insumosSugeridos = useMemo(() => {
+    const query = insumoQuery.trim().toLowerCase();
+    if (!query) return [];
+    return insumosDisponiveis.filter((i) => i.nome.toLowerCase().includes(query)).slice(0, 6);
+  }, [insumosDisponiveis, insumoQuery]);
+
+  function handleSelectInsumo(insumoId: string) {
+    onAddInsumo(insumoId, 1);
+    setInsumoQuery("");
+  }
 
   const resultadoReal = useMemo(() => {
     const fichaTecnica = buildFichaTecnica(produto, insumos, 1);
@@ -130,38 +140,40 @@ export function ProdutoDetailPanel({
           })}
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
-          <select
-            className={cn(inputClass, "flex-1")}
-            value={novoInsumoId}
-            onChange={(e) => setNovoInsumoId(e.target.value)}
-          >
-            <option value="">Adicionar insumo…</option>
-            {insumosDisponiveis.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.nome}
-              </option>
-            ))}
-          </select>
+        <div className="relative mt-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
           <input
-            type="number"
-            step="0.001"
-            className="w-20 rounded-lg border border-border bg-background/60 px-2 py-2 text-xs text-text-primary"
-            value={novaQuantidade}
-            onChange={(e) => setNovaQuantidade(Number(e.target.value))}
-          />
-          <button
-            type="button"
-            disabled={!novoInsumoId}
-            onClick={() => {
-              onAddInsumo(novoInsumoId, novaQuantidade);
-              setNovoInsumoId("");
-              setNovaQuantidade(1);
+            className={cn(inputClass, "pl-8")}
+            placeholder="Buscar insumo para adicionar..."
+            value={insumoQuery}
+            onChange={(e) => setInsumoQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && insumosSugeridos[0]) {
+                handleSelectInsumo(insumosSugeridos[0].id);
+              }
             }}
-            className="rounded-lg bg-accent p-2 text-background disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          />
+          {insumosSugeridos.length > 0 && (
+            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+              {insumosSugeridos.map((i) => (
+                <button
+                  key={i.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectInsumo(i.id);
+                  }}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-border/30"
+                >
+                  <span className="text-text-primary">{i.nome}</span>
+                  <span className="text-text-muted">{i.unidadeMedida}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {insumoQuery.trim() && insumosSugeridos.length === 0 && (
+            <p className="mt-1 text-xs text-text-muted">Nenhum insumo encontrado.</p>
+          )}
         </div>
       </div>
 
