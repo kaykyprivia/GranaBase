@@ -118,7 +118,8 @@ function withNewDate(originalIso: string, newDateStr: string) {
 
 function dateTimeSortKey(entry: DisplayExpense) {
   const time = entry.created_at.includes("T") ? entry.created_at.slice(11) : "00:00:00";
-  return `${entry.spent_at}T${time}`;
+  const date = entry.actualDate ?? entry.spent_at;
+  return `${date}T${time}`;
 }
 
 interface TrendTooltipProps { active?: boolean; payload?: Array<{ value: number }>; label?: string }
