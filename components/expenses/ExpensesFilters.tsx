@@ -30,6 +30,9 @@ export interface ExpensesFiltersProps {
   filterPaymentMethods: string[];
   sourceFilter: string;
   setSourceFilter: (value: string) => void;
+  dueDayFilter: string;
+  setDueDayFilter: (value: string) => void;
+  filterDueDays: number[];
   search: string;
   setSearch: (value: string) => void;
   activeFilterCount: number;
@@ -50,6 +53,9 @@ export function ExpensesFilters({
   filterPaymentMethods,
   sourceFilter,
   setSourceFilter,
+  dueDayFilter,
+  setDueDayFilter,
+  filterDueDays,
   search,
   setSearch,
   activeFilterCount,
@@ -94,6 +100,17 @@ export function ExpensesFilters({
           {SOURCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
+      {filterDueDays.length > 0 && (
+        <Select value={dueDayFilter} onValueChange={setDueDayFilter}>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Vencimento do cartão" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os vencimentos</SelectItem>
+            {filterDueDays.map(day => (
+              <SelectItem key={day} value={String(day)}>Vence dia {day}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </>
   );
 

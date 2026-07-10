@@ -171,6 +171,7 @@ export default function ExpensesPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [dueDayFilter, setDueDayFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
   const [installmentSummaryOpen, setInstallmentSummaryOpen] = useState(false);
@@ -300,6 +301,18 @@ export default function ExpensesPage() {
     [allEntries]
   );
 
+  // Compra manual no cartão com vencimento: spent_at guarda a data de vencimento
+  // (fatura) e actualDate guarda a data real da compra — ver mapeamento acima.
+  const getCardDueDay = (entry: DisplayExpense): number | null =>
+    entry.source === "manual" && entry.actualDate !== undefined
+      ? Number(entry.spent_at.slice(8, 10))
+      : null;
+
+  const filterDueDays = useMemo(() => {
+    const days = allEntries.map(getCardDueDay).filter((d): d is number => d !== null);
+    return Array.from(new Set(days)).sort((a, b) => a - b);
+  }, [allEntries]);
+
   const trendData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
@@ -313,11 +326,11 @@ export default function ExpensesPage() {
 
   const hasActiveFilters = Boolean(
     search || monthFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" ||
-    paymentMethodFilter !== "all" || sourceFilter !== "all"
+    paymentMethodFilter !== "all" || sourceFilter !== "all" || dueDayFilter !== "all"
   );
   const activeFilterCount = [
     monthFilter !== "all", statusFilter !== "all", categoryFilter !== "all",
-    paymentMethodFilter !== "all", sourceFilter !== "all", Boolean(search),
+    paymentMethodFilter !== "all", sourceFilter !== "all", dueDayFilter !== "all", Boolean(search),
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -326,6 +339,7 @@ export default function ExpensesPage() {
     setCategoryFilter("all");
     setPaymentMethodFilter("all");
     setSourceFilter("all");
+    setDueDayFilter("all");
     setSearch("");
   };
 
@@ -335,9 +349,10 @@ export default function ExpensesPage() {
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
     const matchPaymentMethod = paymentMethodFilter === "all" || e.payment_method === paymentMethodFilter;
     const matchSource = sourceFilter === "all" || e.source === sourceFilter;
+    const matchDueDay = dueDayFilter === "all" || getCardDueDay(e) === Number(dueDayFilter);
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
-    return matchMonth && matchStatus && matchCat && matchPaymentMethod && matchSource && matchSearch;
-  }), [allEntries, monthFilter, statusFilter, categoryFilter, paymentMethodFilter, sourceFilter, search]);
+    return matchMonth && matchStatus && matchCat && matchPaymentMethod && matchSource && matchDueDay && matchSearch;
+  }), [allEntries, monthFilter, statusFilter, categoryFilter, paymentMethodFilter, sourceFilter, dueDayFilter, search]);
 
   const groupedByMonth = useMemo(() => {
     const grouped: Record<string, DisplayExpense[]> = {};
@@ -987,6 +1002,7 @@ export default function ExpensesPage() {
         categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} filterCategories={filterCategories}
         paymentMethodFilter={paymentMethodFilter} setPaymentMethodFilter={setPaymentMethodFilter} filterPaymentMethods={filterPaymentMethods}
         sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
+        dueDayFilter={dueDayFilter} setDueDayFilter={setDueDayFilter} filterDueDays={filterDueDays}
         search={search} setSearch={setSearch}
         activeFilterCount={activeFilterCount} onClearFilters={clearFilters}
       />
