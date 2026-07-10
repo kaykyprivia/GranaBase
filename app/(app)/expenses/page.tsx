@@ -5,13 +5,13 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Search, Pencil, Trash2, ChevronDown, Upload, Check, RotateCcw } from "lucide-react";
+import { TrendingDown, Plus, Pencil, Trash2, ChevronDown, Upload, Check, RotateCcw } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { addMonths, cn, formatCurrency, formatDate, formatTime, isOverdue, toLocalDateString } from "@/lib/utils";
+import { addMonths, cn, formatCurrency, formatDate, isOverdue, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
 import { useChartColors } from "@/hooks/useChartColors";
 import { billSchema, expenseSchema, installmentSchema, type BillFormData, type ExpenseFormData, type InstallmentFormData } from "@/lib/validations";
@@ -31,6 +31,9 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
+import { ExpensesFilters } from "@/components/expenses/ExpensesFilters";
+import { MonthGroupCard } from "@/components/expenses/MonthGroupCard";
+import type { DisplayExpense } from "@/components/expenses/types";
 
 const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
@@ -91,22 +94,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 function formatMonthLabel(key: string) {
   const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(key + "-15"));
   return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-interface DisplayExpense {
-  id: string;
-  description: string;
-  amount: number;
-  category: string;
-  spent_at: string;
-  payment_method: string | null;
-  created_at: string;
-  source: "manual" | "bill" | "installment";
-  status: "paid" | "pending" | "overdue";
-  dueAmount?: number;
-  scheduledAmount?: number;
-  actualDate?: string;
-  dueDateRef?: string;
 }
 
 function withNewDate(originalIso: string, newDateStr: string) {
@@ -183,6 +170,7 @@ export default function ExpensesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
   const [installmentSummaryOpen, setInstallmentSummaryOpen] = useState(false);
@@ -323,14 +311,33 @@ export default function ExpensesPage() {
     });
   }, [realizedEntries]);
 
+  const hasActiveFilters = Boolean(
+    search || monthFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" ||
+    paymentMethodFilter !== "all" || sourceFilter !== "all"
+  );
+  const activeFilterCount = [
+    monthFilter !== "all", statusFilter !== "all", categoryFilter !== "all",
+    paymentMethodFilter !== "all", sourceFilter !== "all", Boolean(search),
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setMonthFilter("all");
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setPaymentMethodFilter("all");
+    setSourceFilter("all");
+    setSearch("");
+  };
+
   const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.spent_at.startsWith(monthFilter);
     const matchStatus = statusFilter === "all" || e.status === statusFilter;
     const matchCat = categoryFilter === "all" || e.category === categoryFilter;
     const matchPaymentMethod = paymentMethodFilter === "all" || e.payment_method === paymentMethodFilter;
+    const matchSource = sourceFilter === "all" || e.source === sourceFilter;
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase());
-    return matchMonth && matchStatus && matchCat && matchPaymentMethod && matchSearch;
-  }), [allEntries, monthFilter, statusFilter, categoryFilter, paymentMethodFilter, search]);
+    return matchMonth && matchStatus && matchCat && matchPaymentMethod && matchSource && matchSearch;
+  }), [allEntries, monthFilter, statusFilter, categoryFilter, paymentMethodFilter, sourceFilter, search]);
 
   const groupedByMonth = useMemo(() => {
     const grouped: Record<string, DisplayExpense[]> = {};
@@ -787,119 +794,29 @@ export default function ExpensesPage() {
     }
   };
 
-  const renderMonthGroup = (group: { month: string; label: string; items: DisplayExpense[]; total: number }, isCurrent: boolean) => {
-    const { month, label, items, total } = group;
-    const isOpen = openMonths.has(month);
-    return (
-      <div key={month} className={cn(
-        "overflow-hidden rounded-2xl border",
-        isCurrent ? "border-expense/40" : "border-border/50"
-      )}>
-        <button type="button" onClick={() => toggleMonth(month)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-            {isCurrent && <Badge variant="expense" className="text-[10px]">Atual</Badge>}
-            <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">{formatCurrency(total, currency)}</span>
-            <span className="text-[10px] text-text-secondary">{items.length} {items.length === 1 ? "item" : "itens"}</span>
-          </div>
-          <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
-        </button>
+  const getCategoryColor = (category: string) => CATEGORY_COLORS[category] ?? "#94A3B8";
 
-        <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
-          <div className="overflow-hidden">
-            <div className="border-t border-border/40">
-              {items.map(entry => {
-                const catColor = CATEGORY_COLORS[entry.category] ?? "#94A3B8";
-                const isDiscounted = entry.status === "paid" && entry.source === "installment" && entry.scheduledAmount !== undefined && entry.amount < entry.scheduledAmount;
-                const isGenericInstallmentCategory = entry.source === "installment" && entry.category === "Parcelamento";
-                return (
-                  <div key={entry.id}
-                    className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
-                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: `${catColor}18` }}>
-                      <div className="h-2 w-2 rounded-full" style={{ background: catColor }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-[13px] sm:text-sm font-medium text-text-primary">{entry.description}</p>
-                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                        <Badge variant={entry.category === "Parcelamento" ? "secondary" : "expense"} className="text-[9px] px-1.5 py-0">{entry.category}</Badge>
-                        {entry.source === "bill" && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Conta</Badge>}
-                        {entry.source === "installment" && !isGenericInstallmentCategory && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Parcela</Badge>}
-                        {entry.status === "overdue" && <Badge variant="expense" className="text-[9px] px-1.5 py-0">Atrasada</Badge>}
-                        {entry.status === "pending" && <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>}
-                        {isDiscounted && <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>}
-                        {entry.status === "paid" && entry.source !== "manual" && !isDiscounted && (
-                          <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>
-                        )}
-                        {entry.payment_method && <span className="text-[9px] text-text-secondary">{entry.payment_method}</span>}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {isDiscounted && entry.scheduledAmount !== undefined && (
-                        <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.scheduledAmount, currency)}</p>
-                      )}
-                      <p className="text-[13px] sm:text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currency)}</p>
-                      <p className="text-[9px] text-text-secondary">{formatDate(entry.spent_at)}</p>
-                      {entry.actualDate ? (
-                        <p className="text-[9px] text-text-secondary/60">Gasto em {formatDate(entry.actualDate)}</p>
-                      ) : entry.status === "paid" && entry.dueDateRef && entry.dueDateRef !== entry.spent_at ? (
-                        <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(entry.dueDateRef)}</p>
-                      ) : (
-                        entry.status === "paid" && <p className="text-[9px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {entry.status !== "paid" ? (
-                        <>
-                          <Button variant="outline" size="sm" onClick={() => openMarkPaid(entry)}
-                            className="gap-1 border-profit/40 text-profit hover:bg-profit/10" title="Marcar como pago">
-                            <Check className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Pagar</span>
-                          </Button>
-                          <Button variant="ghost" size="icon-sm" onClick={() => openEditPending(entry)}
-                            className="text-text-secondary hover:text-text-primary" title="Editar">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon-sm" onClick={() => setDeletePendingItem(entry)}
-                            className="text-text-secondary hover:text-expense hover:bg-expense/10"
-                            title={entry.source === "installment" ? "Excluir parcelamento" : "Excluir conta"}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button variant="ghost" size="icon-sm" onClick={() => {
-                            if (entry.source === "manual") {
-                              const original = entries.find((e) => e.id === entry.id);
-                              if (original) openEdit(original);
-                            } else {
-                              openEditPaid(entry);
-                            }
-                          }} className="text-text-secondary hover:text-text-primary" title="Editar pagamento">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          {entry.source === "manual" ? (
-                            <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(entry.id)}
-                              className="text-text-secondary hover:text-expense hover:bg-expense/10" title="Excluir">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          ) : (
-                            <Button variant="ghost" size="icon-sm" onClick={() => setRevertItem(entry)}
-                              className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento — volta para pendente">
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const isEntryDiscounted = (entry: DisplayExpense) =>
+    entry.status === "paid" && entry.source === "installment" &&
+    entry.scheduledAmount !== undefined && entry.amount < entry.scheduledAmount;
+
+  const handleEntryEdit = (entry: DisplayExpense) => {
+    if (entry.status !== "paid") {
+      openEditPending(entry);
+    } else if (entry.source === "manual") {
+      const original = entries.find((e) => e.id === entry.id);
+      if (original) openEdit(original);
+    } else {
+      openEditPaid(entry);
+    }
+  };
+
+  const handleEntryDelete = (entry: DisplayExpense) => {
+    if (entry.status !== "paid") {
+      setDeletePendingItem(entry);
+    } else if (entry.source === "manual") {
+      setDeleteId(entry.id);
+    }
   };
 
   return (
@@ -1064,43 +981,15 @@ export default function ExpensesPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 mb-5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
-            <SelectContent>
-              {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="paid">Pagos</SelectItem>
-              <SelectItem value="pending">Pendentes</SelectItem>
-              <SelectItem value="overdue">Atrasados</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              {filterCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-            <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Forma de pagamento" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as formas</SelectItem>
-              {filterPaymentMethods.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <ExpensesFilters
+        monthFilter={monthFilter} setMonthFilter={setMonthFilter} monthOptions={monthOptions}
+        statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+        categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} filterCategories={filterCategories}
+        paymentMethodFilter={paymentMethodFilter} setPaymentMethodFilter={setPaymentMethodFilter} filterPaymentMethods={filterPaymentMethods}
+        sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
+        search={search} setSearch={setSearch}
+        activeFilterCount={activeFilterCount} onClearFilters={clearFilters}
+      />
 
       {/* Grouped list */}
       {loading ? (
@@ -1109,14 +998,21 @@ export default function ExpensesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Nenhum gasto encontrado"
-          description={search || monthFilter !== "all" || statusFilter !== "all" || categoryFilter !== "all" || paymentMethodFilter !== "all"
-            ? "Tente remover os filtros." : "Registre seu primeiro gasto."}
-          actionLabel={!search && monthFilter === "all" && statusFilter === "all" && categoryFilter === "all" && paymentMethodFilter === "all" ? "+ Novo Gasto" : undefined}
-          onAction={!search && monthFilter === "all" && statusFilter === "all" && categoryFilter === "all" && paymentMethodFilter === "all" ? openCreate : undefined}
+          description={hasActiveFilters ? "Tente remover os filtros." : "Registre seu primeiro gasto."}
+          actionLabel={!hasActiveFilters ? "+ Novo Gasto" : undefined}
+          onAction={!hasActiveFilters ? openCreate : undefined}
         />
       ) : (
         <div className="space-y-2">
-          {currentMonthGroup && renderMonthGroup(currentMonthGroup, true)}
+          {currentMonthGroup && (
+            <MonthGroupCard
+              month={currentMonthGroup.month} label={currentMonthGroup.label} items={currentMonthGroup.items}
+              isCurrent isOpen={openMonths.has(currentMonthGroup.month)} onToggle={() => toggleMonth(currentMonthGroup.month)}
+              currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+              onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+              onRevert={(entry) => setRevertItem(entry)}
+            />
+          )}
 
           {futureMonthGroups.length > 0 && (
             <>
@@ -1124,7 +1020,16 @@ export default function ExpensesPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Lançamentos futuros</span>
                 <div className="h-px flex-1 bg-border/60" />
               </div>
-              {futureMonthGroups.map((group) => renderMonthGroup(group, false))}
+              {futureMonthGroups.map((group) => (
+                <MonthGroupCard
+                  key={group.month}
+                  month={group.month} label={group.label} items={group.items}
+                  isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
+                  currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+                  onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+                  onRevert={(entry) => setRevertItem(entry)}
+                />
+              ))}
             </>
           )}
 
@@ -1134,7 +1039,16 @@ export default function ExpensesPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Meses anteriores</span>
                 <div className="h-px flex-1 bg-border/60" />
               </div>
-              {pastMonthGroups.map((group) => renderMonthGroup(group, false))}
+              {pastMonthGroups.map((group) => (
+                <MonthGroupCard
+                  key={group.month}
+                  month={group.month} label={group.label} items={group.items}
+                  isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
+                  currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+                  onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+                  onRevert={(entry) => setRevertItem(entry)}
+                />
+              ))}
             </>
           )}
         </div>
