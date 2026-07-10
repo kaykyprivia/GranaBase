@@ -33,6 +33,10 @@ function sortByRealDateDesc(list: DisplayExpense[]): DisplayExpense[] {
   return [...list].sort((a, b) => realDateSortKey(b).localeCompare(realDateSortKey(a)));
 }
 
+function sortByRealDateAsc(list: DisplayExpense[]): DisplayExpense[] {
+  return [...list].sort((a, b) => realDateSortKey(a).localeCompare(realDateSortKey(b)));
+}
+
 export function MonthGroupCard(props: MonthGroupCardProps) {
   const {
     label,
@@ -49,7 +53,9 @@ export function MonthGroupCard(props: MonthGroupCardProps) {
     onRevert,
   } = props;
 
-  const pending = sortByRealDateDesc(items.filter((e) => e.status !== "paid"));
+  // "A pagar": vencimento mais próximo primeiro (mais urgente no topo).
+  const pending = sortByRealDateAsc(items.filter((e) => e.status !== "paid"));
+  // "Pago": pagamento mais recente primeiro.
   const paidItems = sortByRealDateDesc(items.filter((e) => e.status === "paid"));
 
   const total = items.reduce((s, e) => s + e.amount, 0);

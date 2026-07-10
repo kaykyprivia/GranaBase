@@ -59,44 +59,49 @@ export function LancamentoItem({
   const metaText = metaParts.join(" · ");
 
   return (
-    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 transition-colors hover:bg-border/30 border-b border-border/20 last:border-0">
-      <div
-        className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl"
-        style={{ background: `${categoryColor}18` }}
-      >
-        <TypeIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: categoryColor }} />
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors hover:bg-border/30 border-b border-border/20 last:border-0">
+      {/* Ícone + descrição — sempre a largura inteira da linha no mobile, coluna fixa no desktop */}
+      <div className="flex min-w-0 items-center gap-2 sm:w-64 sm:shrink-0 sm:gap-3">
+        <div
+          className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: `${categoryColor}18` }}
+        >
+          <TypeIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: categoryColor }} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] sm:text-sm font-medium text-text-primary">{entry.description}</p>
+          <p className="truncate text-[10px] text-text-secondary mt-0.5">{metaText}</p>
+        </div>
       </div>
 
-      <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">
-        <p className="break-words text-[13px] sm:text-sm font-medium text-text-primary">{entry.description}</p>
-        <p className="text-[10px] text-text-secondary mt-0.5 truncate">{metaText}</p>
-      </div>
+      {/* Data, valor, status e ações — segunda linha no mobile, resto da linha no desktop */}
+      <div className="flex min-w-0 items-center gap-2 sm:flex-1 sm:gap-3">
+        <div className="shrink-0 sm:w-32">
+          <p className="text-[12px] sm:text-sm font-medium text-text-primary tabular-nums">{formatDate(mainDate)}</p>
+          {dateHint && <p className="truncate text-[9px] text-text-secondary/70">{dateHint}</p>}
+        </div>
 
-      <div className="shrink-0 sm:w-32">
-        <p className="text-[12px] sm:text-sm font-medium text-text-primary tabular-nums">{formatDate(mainDate)}</p>
-        {dateHint && <p className="text-[9px] text-text-secondary/70">{dateHint}</p>}
-      </div>
+        <div className="shrink-0 sm:w-28">
+          {isDiscounted && entry.scheduledAmount !== undefined && (
+            <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.scheduledAmount, currencyCode)}</p>
+          )}
+          <p className="text-[13px] sm:text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currencyCode)}</p>
+        </div>
 
-      <div className="shrink-0 sm:w-28 text-right sm:text-left">
-        {isDiscounted && entry.scheduledAmount !== undefined && (
-          <p className="text-[9px] text-text-secondary/70 line-through">{formatCurrency(entry.scheduledAmount, currencyCode)}</p>
-        )}
-        <p className="text-[13px] sm:text-sm font-semibold tabular-nums text-expense">{formatCurrency(entry.amount, currencyCode)}</p>
-      </div>
+        <div className="shrink-0 sm:w-24">
+          {isDiscounted ? (
+            <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>
+          ) : entry.status === "paid" ? (
+            entry.source !== "manual" && <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>
+          ) : entry.status === "overdue" ? (
+            <Badge variant="overdue" className="text-[9px] px-1.5 py-0">Atrasada</Badge>
+          ) : entry.status === "pending" ? (
+            <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>
+          ) : null}
+        </div>
 
-      <div className="shrink-0 sm:w-24">
-        {isDiscounted ? (
-          <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>
-        ) : entry.status === "paid" ? (
-          entry.source !== "manual" && <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>
-        ) : entry.status === "overdue" ? (
-          <Badge variant="overdue" className="text-[9px] px-1.5 py-0">Atrasada</Badge>
-        ) : entry.status === "pending" ? (
-          <Badge variant="pending" className="text-[9px] px-1.5 py-0">Pendente</Badge>
-        ) : null}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-1 sm:w-auto ml-auto sm:ml-0">
+        <div className="flex shrink-0 items-center gap-1 ml-auto sm:ml-0">
         {entry.status !== "paid" ? (
           <>
             <Button
@@ -162,6 +167,7 @@ export function LancamentoItem({
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );
