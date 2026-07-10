@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { Copy, Search, Trash2 } from "lucide-react";
 import type { Insumo, Produto, ProdutoInput } from "../types";
-import { calcularPrecificacao, type InsumoNaFichaTecnica } from "../calculations";
+import { calcularCustoInsumoNaReceita, calcularPrecificacao, type InsumoNaFichaTecnica } from "../calculations";
 import { evaluateProductHealth } from "../alerts";
 import { PricingSummary } from "./PricingSummary";
 import { cn } from "../../engine/cn";
+import { useAutosave } from "../../engine/useAutosave";
 import { Field, NumberField, inputClass } from "./FormFields";
 
 export interface ProdutoDetailPanelProps {
@@ -14,6 +15,7 @@ export interface ProdutoDetailPanelProps {
   insumos: Insumo[];
   onUpdate: (patch: Partial<ProdutoInput>) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onAddInsumo: (insumoId: string, quantidadeUsada: number) => void;
   onUpdateQuantidade: (fichaItemId: string, quantidadeUsada: number) => void;
   onRemoveInsumo: (fichaItemId: string) => void;
@@ -40,12 +42,15 @@ export function ProdutoDetailPanel({
   insumos,
   onUpdate,
   onDelete,
+  onDuplicate,
   onAddInsumo,
   onUpdateQuantidade,
   onRemoveInsumo,
 }: ProdutoDetailPanelProps) {
   const [simulacaoPct, setSimulacaoPct] = useState(0);
   const [insumoQuery, setInsumoQuery] = useState("");
+  const [text, setText] = useState({ nome: produto.nome, categoria: produto.categoria });
+  const autosaveStatus = useAutosave(text, async (value) => onUpdate(value));
 
   const insumosDisponiveis = insumos.filter(
     (i) => !produto.fichaTecnica.some((f) => f.insumoId === i.id)
@@ -61,6 +66,28 @@ export function ProdutoDetailPanel({
     onAddInsumo(insumoId, 1);
     setInsumoQuery("");
   }
+
+  const custoBreakdown = useMemo(() => {
+    return produto.fichaTecnica
+      .map((item) => {
+        const insumo = insumos.find((i) => i.id === item.insumoId);
+        if (!insumo) return null;
+        const custo = calcularCustoInsumoNaReceita({
+          precoCompra: insumo.precoCompra,
+          quantidadeCompra: insumo.quantidadeCompra,
+          pesoBruto: insumo.pesoBruto,
+          pesoLiquido: insumo.pesoLiquido,
+          quantidadeUsada: item.quantidadeUsada,
+        });
+        return { nome: insumo.nome, custo };
+      })
+      .filter((v): v is { nome: string; custo: number } => v !== null)
+      .sort((a, b) => b.custo - a.custo);
+  }, [produto.fichaTecnica, insumos]);
+
+  const custoTotalFicha = custoBreakdown.reduce((sum, item) => sum + item.custo, 0);
+  const maiorCusto = custoBreakdown[0];
+  const maiorCustoPct = maiorCusto && custoTotalFicha > 0 ? (maiorCusto.custo / custoTotalFicha) * 100 : null;
 
   const resultadoReal = useMemo(() => {
     const fichaTecnica = buildFichaTecnica(produto, insumos, 1);
@@ -96,16 +123,28 @@ export function ProdutoDetailPanel({
 
   return (
     <div className="space-y-4 text-sm">
-      <Field label="Nome">
-        <input className={inputClass} value={produto.nome} onChange={(e) => onUpdate({ nome: e.target.value })} />
-      </Field>
+      <div className="flex items-center justify-between">
+        <Field label="Nome" className="flex-1">
+          <input
+            className={inputClass}
+            value={text.nome}
+            onChange={(e) => setText((current) => ({ ...current, nome: e.target.value }))}
+          />
+        </Field>
+        {autosaveStatus === "saving" && (
+          <span className="ml-2 shrink-0 text-xs text-text-secondary">Salvando…</span>
+        )}
+        {autosaveStatus === "saved" && (
+          <span className="ml-2 shrink-0 text-xs text-text-secondary">Salvo</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Categoria">
           <input
             className={inputClass}
-            value={produto.categoria ?? ""}
-            onChange={(e) => onUpdate({ categoria: e.target.value || null })}
+            value={text.categoria ?? ""}
+            onChange={(e) => setText((current) => ({ ...current, categoria: e.target.value || null }))}
           />
         </Field>
         <NumberField
@@ -175,6 +214,13 @@ export function ProdutoDetailPanel({
             <p className="mt-1 text-xs text-text-muted">Nenhum insumo encontrado.</p>
           )}
         </div>
+
+        {maiorCusto && maiorCustoPct !== null && custoBreakdown.length > 1 && (
+          <p className="mt-2 text-xs text-text-secondary">
+            <span className="font-medium text-text-primary">{maiorCusto.nome}</span> é o insumo que mais pesa
+            no custo desta receita ({maiorCustoPct.toFixed(0)}%).
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -242,14 +288,24 @@ export function ProdutoDetailPanel({
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onDelete}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-expense hover:bg-expense/10"
-      >
-        <Trash2 className="h-4 w-4" />
-        Excluir produto
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onDuplicate}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-border/40"
+        >
+          <Copy className="h-4 w-4" />
+          Duplicar produto
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-expense hover:bg-expense/10"
+        >
+          <Trash2 className="h-4 w-4" />
+          Excluir produto
+        </button>
+      </div>
     </div>
   );
 }

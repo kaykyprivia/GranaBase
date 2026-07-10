@@ -246,6 +246,32 @@ export function useProdutos() {
     [supabase]
   );
 
+  const duplicate = useCallback(
+    async (produtoId: string) => {
+      const original = produtos.find((p) => p.id === produtoId);
+      if (!original) throw new Error("Produto nao encontrado.");
+
+      const created = await create({
+        nome: `${original.nome} (cópia)`,
+        categoria: original.categoria,
+        rendimentoPorcoes: original.rendimentoPorcoes,
+        despesasVariaveisPct: original.despesasVariaveisPct,
+        despesasFixasPct: original.despesasFixasPct,
+        impostosPct: original.impostosPct,
+        margemDesejadaPct: original.margemDesejadaPct,
+        precoPraticado: original.precoPraticado,
+        observacao: original.observacao,
+      });
+
+      for (const item of original.fichaTecnica) {
+        await addInsumoNaFicha(created.id, item.insumoId, item.quantidadeUsada);
+      }
+
+      return created;
+    },
+    [produtos, create, addInsumoNaFicha]
+  );
+
   return {
     produtos,
     loading,
@@ -256,5 +282,6 @@ export function useProdutos() {
     addInsumoNaFicha,
     updateQuantidadeNaFicha,
     removeInsumoDaFicha,
+    duplicate,
   };
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { Insumo, InsumoInput, UnidadeMedida } from "../types";
 import { calcularFatorCorrecao } from "../calculations";
 import { cn } from "../../engine/cn";
+import { useAutosave } from "../../engine/useAutosave";
 import { Field, NumberField, inputClass } from "./FormFields";
 
 const UNIDADES: UnidadeMedida[] = ["g", "kg", "ml", "L", "un"];
@@ -23,17 +24,35 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
     onUpdate(patch);
   }
 
+  function setText(patch: Partial<Pick<InsumoInput, "nome" | "categoria" | "observacao">>) {
+    setLocal((current) => ({ ...current, ...patch }));
+  }
+
+  const textFields = useMemo(
+    () => ({ nome: local.nome, categoria: local.categoria, observacao: local.observacao }),
+    [local.nome, local.categoria, local.observacao]
+  );
+  const autosaveStatus = useAutosave(textFields, async (value) => onUpdate(value));
+
   const fatorCorrecao = calcularFatorCorrecao(local.pesoBruto, local.pesoLiquido);
 
   return (
     <div className="space-y-4 text-sm">
-      <Field label="Nome">
-        <input
-          className={inputClass}
-          value={local.nome}
-          onChange={(e) => commit({ nome: e.target.value })}
-        />
-      </Field>
+      <div className="flex items-center justify-between">
+        <Field label="Nome" className="flex-1">
+          <input
+            className={inputClass}
+            value={local.nome}
+            onChange={(e) => setText({ nome: e.target.value })}
+          />
+        </Field>
+        {autosaveStatus === "saving" && (
+          <span className="ml-2 shrink-0 text-xs text-text-secondary">Salvando…</span>
+        )}
+        {autosaveStatus === "saved" && (
+          <span className="ml-2 shrink-0 text-xs text-text-secondary">Salvo</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Tipo (unidade)">
@@ -53,7 +72,7 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
           <input
             className={inputClass}
             value={local.categoria ?? ""}
-            onChange={(e) => commit({ categoria: e.target.value || null })}
+            onChange={(e) => setText({ categoria: e.target.value || null })}
           />
         </Field>
       </div>
@@ -106,7 +125,7 @@ export function InsumoDetailPanel({ insumo, onUpdate, onDelete }: InsumoDetailPa
         <textarea
           className={cn(inputClass, "min-h-[72px] resize-none")}
           value={local.observacao ?? ""}
-          onChange={(e) => commit({ observacao: e.target.value || null })}
+          onChange={(e) => setText({ observacao: e.target.value || null })}
         />
       </Field>
 

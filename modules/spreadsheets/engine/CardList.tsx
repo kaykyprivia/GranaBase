@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Column } from "./types";
 import { formatCellValue } from "./formatCellValue";
 import { cn } from "./cn";
+
+const ESTIMATED_CARD_HEIGHT = 84;
 
 export interface CardListProps<Row> {
   rows: Row[];
@@ -19,11 +22,21 @@ export interface CardListProps<Row> {
 /**
  * Mobile adaptation of VirtualGrid — no product with a real grid keeps the
  * grid on touch screens (Airtable/Notion/Coda all switch to card/list).
- * Same Row/Column data model, different presentation.
+ * Same Row/Column data model, different presentation, same virtualization
+ * strategy so a list with thousands of rows costs the same DOM nodes as one
+ * with ten.
  */
 export function CardList<Row>({ rows, columns, getRowId, onRowClick, selectedRowId, onCreateRow, createPlaceholder }: CardListProps<Row>) {
   const [primaryColumn, ...restColumns] = columns;
   const [draftName, setDraftName] = useState("");
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
+    overscan: 6,
+  });
 
   function submitDraft() {
     const trimmed = draftName.trim();
@@ -49,32 +62,41 @@ export function CardList<Row>({ rows, columns, getRowId, onRowClick, selectedRow
           />
         </div>
       )}
-      {rows.map((row, rowIndex) => {
-        const rowId = getRowId(row);
-        return (
-          <button
-            key={rowId}
-            type="button"
-            onClick={() => onRowClick?.(row, rowIndex)}
-            className={cn(
-              "rounded-xl border border-border bg-surface p-3 text-left transition-colors",
-              selectedRowId === rowId ? "border-accent/60 bg-accent/10" : "hover:bg-border/30"
-            )}
-          >
-            <p className="truncate text-sm font-semibold text-text-primary">
-              {formatCellValue(primaryColumn?.getValue(row) ?? null, primaryColumn?.type ?? "text")}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-              {restColumns.slice(0, 3).map((column) => (
-                <p key={column.id} className="text-xs text-text-secondary">
-                  <span className="uppercase tracking-wide text-text-muted">{column.label}: </span>
-                  {formatCellValue(column.getValue(row), column.type)}
+
+      <div ref={parentRef} className="max-h-[70vh] overflow-auto">
+        <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = rows[virtualRow.index];
+            const rowId = getRowId(row);
+            return (
+              <button
+                key={rowId}
+                type="button"
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                onClick={() => onRowClick?.(row, virtualRow.index)}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
+                className={cn(
+                  "mb-2 rounded-xl border border-border bg-surface p-3 text-left transition-colors",
+                  selectedRowId === rowId ? "border-accent/60 bg-accent/10" : "hover:bg-border/30"
+                )}
+              >
+                <p className="truncate text-sm font-semibold text-text-primary">
+                  {formatCellValue(primaryColumn?.getValue(row) ?? null, primaryColumn?.type ?? "text")}
                 </p>
-              ))}
-            </div>
-          </button>
-        );
-      })}
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                  {restColumns.slice(0, 3).map((column) => (
+                    <p key={column.id} className="text-xs text-text-secondary">
+                      <span className="uppercase tracking-wide text-text-muted">{column.label}: </span>
+                      {formatCellValue(column.getValue(row), column.type)}
+                    </p>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

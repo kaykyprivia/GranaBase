@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { ResponsiveTable } from "../../engine/ResponsiveTable";
 import { SidePanel } from "../../engine/SidePanel";
@@ -8,6 +8,7 @@ import type { Column } from "../../engine/types";
 import { useInsumos } from "../hooks/useInsumos";
 import { InsumoDetailPanel } from "./InsumoDetailPanel";
 import { runMutation } from "../runMutation";
+import { useCellUndoRedo } from "../useCellUndoRedo";
 import type { Insumo, InsumoInput } from "../types";
 
 function buildNovoInsumo(nome: string): InsumoInput {
@@ -56,6 +57,18 @@ export function InsumosScreen() {
   const { insumos, loading, create, update, remove } = useInsumos();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const selected = insumos.find((i) => i.id === selectedId) ?? null;
 
@@ -67,9 +80,16 @@ export function InsumosScreen() {
     );
   }, [insumos, search]);
 
+  const { record } = useCellUndoRedo((id, patch) =>
+    void runMutation(update(id, patch as Partial<InsumoInput>), {
+      errorMessage: "Não foi possível desfazer/refazer a alteração. Tente novamente.",
+    })
+  );
+
   function handleCellChange(rowIndex: number, columnId: string, value: string | number) {
     const insumo = filteredInsumos[rowIndex];
     if (!insumo) return;
+    record(insumo.id, columnId, insumo[columnId as keyof Insumo] as string | number | null, value);
     void runMutation(update(insumo.id, { [columnId]: value } as Partial<InsumoInput>), {
       errorMessage: "Não foi possível salvar o insumo. Tente novamente.",
     });
@@ -97,13 +117,31 @@ export function InsumosScreen() {
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar insumo..."
-              className="w-full rounded-lg border border-border bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border bg-surface py-1.5 pl-8 pr-12 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent"
             />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 py-0.5 text-[10px] text-text-secondary">
+              Ctrl K
+            </kbd>
           </div>
         </div>
+
+        {insumos.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-surface-2/30 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-text-primary">Nenhum insumo cadastrado ainda</p>
+            <p className="mt-1 text-xs text-text-secondary">
+              Insumos são os ingredientes e matérias-primas que compõem seus produtos. Digite um nome no
+              campo abaixo para começar.
+            </p>
+          </div>
+        ) : filteredInsumos.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-surface-2/30 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-text-primary">Nenhum insumo encontrado para &quot;{search}&quot;</p>
+          </div>
+        ) : null}
 
         <ResponsiveTable
           rows={filteredInsumos}

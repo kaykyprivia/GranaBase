@@ -6,9 +6,17 @@ import { cn } from "../../engine/cn";
 export const inputClass =
   "w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60";
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="block">
+    <label className={cn("block", className)}>
       <span className="mb-1 block text-xs font-medium text-text-secondary">{label}</span>
       {children}
     </label>

@@ -97,6 +97,7 @@ export function VirtualGrid<Row>({
                       key={column.id}
                       className={cn(
                         "flex shrink-0 items-center px-3 text-sm text-text-primary",
+                        column.editable ? "cursor-text hover:bg-accent/5" : "cursor-default",
                         selected && "ring-1 ring-inset ring-accent"
                       )}
                       style={{ width: column.width ?? 160 }}
