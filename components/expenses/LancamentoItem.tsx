@@ -76,7 +76,7 @@ export function LancamentoItem({
       </div>
 
       {/* Data, valor, status e ações — segunda linha no mobile, resto da linha no desktop */}
-      <div className="flex min-w-0 items-center gap-2 sm:flex-1 sm:gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-1 sm:flex-nowrap sm:gap-3">
         <div className="shrink-0 sm:w-32">
           <p className="text-[12px] sm:text-sm font-medium text-text-primary tabular-nums">{formatDate(mainDate)}</p>
           {dateHint && <p className="truncate text-[9px] text-text-secondary/70">{dateHint}</p>}
@@ -91,7 +91,7 @@ export function LancamentoItem({
 
         <div className="shrink-0 sm:w-24">
           {isDiscounted ? (
-            <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Pago com desconto</Badge>
+            <Badge variant="paid_with_discount" className="text-[9px] px-1.5 py-0">Desconto</Badge>
           ) : entry.status === "paid" ? (
             entry.source !== "manual" && <Badge variant="paid" className="text-[9px] px-1.5 py-0">Pago</Badge>
           ) : entry.status === "overdue" ? (
