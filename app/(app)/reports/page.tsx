@@ -232,6 +232,7 @@ export default function ReportsPage() {
   }, [periodIncome, filteredExpenses, payload.bills, payload.investments]);
 
   const totalCategoryExpenses = expenseByCategory.reduce((s, e) => s + e.value, 0);
+  const topCategoryLabel = expenseByCategory[0]?.name ?? "—";
 
   // Auto-open the most recent month when data loads
   useEffect(() => {
@@ -317,11 +318,12 @@ export default function ReportsPage() {
       </div>
 
       {/* KPI cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3 transition-opacity duration-200 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 transition-opacity duration-200 lg:grid-cols-6">
         <StatCard title="Receita total" value={formatCurrency(kpis.totalIncome)} icon={TrendingUp} variant="profit" loading={loading} />
         <StatCard title="Despesas totais" value={formatCurrency(kpis.totalExpenses)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Pendências" value={formatCurrency(kpis.pendingBills)} icon={FileWarning} variant="warning" loading={loading} />
         <StatCard title="Patrimônio" value={formatCurrency(kpis.totalInvested)} icon={PiggyBank} variant="accent" loading={loading} />
+        <StatCard title="Maior categoria" value={topCategoryLabel} icon={TrendingDown} variant="warning" loading={loading} subtitle={currentPeriod.label} />
         <div className="relative">
           <StatCard
             title="Taxa de folga"
