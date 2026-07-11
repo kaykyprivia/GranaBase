@@ -24,11 +24,17 @@ export const incomeSchema = z.object({
   notes: z.string().optional(),
 });
 
+function todayLocalDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 export const expenseSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
   amount: z.number().positive("Valor deve ser positivo"),
   category: z.string().min(1, "Categoria é obrigatória"),
-  spent_at: z.string().min(1, "Data é obrigatória"),
+  spent_at: z.string().min(1, "Data é obrigatória")
+    .refine((value) => value <= todayLocalDateString(), "A data do gasto não pode ser no futuro — use o vencimento da fatura para isso"),
   payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
   card_due_date: z.string().optional(),
   notes: z.string().optional(),
