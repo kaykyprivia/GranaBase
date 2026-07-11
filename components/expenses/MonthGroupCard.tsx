@@ -2,7 +2,6 @@
 
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { cn, formatCurrency } from "@/lib/utils";
 import { LancamentoItem } from "./LancamentoItem";
 import type { DisplayExpense } from "./types";
@@ -33,9 +32,11 @@ function sortByRealDateDesc(list: DisplayExpense[]): DisplayExpense[] {
   return [...list].sort((a, b) => realDateSortKey(b).localeCompare(realDateSortKey(a)));
 }
 
-function sortByRealDateAsc(list: DisplayExpense[]): DisplayExpense[] {
-  return [...list].sort((a, b) => realDateSortKey(a).localeCompare(realDateSortKey(b)));
-}
+const SOURCE_SECTIONS: { source: DisplayExpense["source"]; label: string }[] = [
+  { source: "manual", label: "Gastos avulsos" },
+  { source: "bill", label: "Contas fixas" },
+  { source: "installment", label: "Parcelamentos" },
+];
 
 export function MonthGroupCard(props: MonthGroupCardProps) {
   const {
@@ -53,15 +54,11 @@ export function MonthGroupCard(props: MonthGroupCardProps) {
     onRevert,
   } = props;
 
-  // "A pagar": vencimento mais próximo primeiro (mais urgente no topo).
-  const pending = sortByRealDateAsc(items.filter((e) => e.status !== "paid"));
-  // "Pago": pagamento mais recente primeiro.
-  const paidItems = sortByRealDateDesc(items.filter((e) => e.status === "paid"));
-
   const total = items.reduce((s, e) => s + e.amount, 0);
-  const paidTotal = paidItems.reduce((s, e) => s + e.amount, 0);
-  const pendingTotal = pending.reduce((s, e) => s + e.amount, 0);
-  const progressPct = total > 0 ? (paidTotal / total) * 100 : 0;
+  const sections = SOURCE_SECTIONS.map(({ source, label: sectionLabel }) => ({
+    label: sectionLabel,
+    entries: sortByRealDateDesc(items.filter((e) => e.source === source)),
+  })).filter((section) => section.entries.length > 0);
 
   return (
     <div className={cn(
@@ -79,25 +76,19 @@ export function MonthGroupCard(props: MonthGroupCardProps) {
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
       </button>
 
-      {pending.length > 0 && (
-        <div className="px-4 pb-3">
-          <Progress value={progressPct} className="h-1.5" indicatorClassName="bg-profit" />
-          <p className="mt-1 text-[10px] text-text-secondary">
-            {formatCurrency(paidTotal, currency as "BRL" | "USD")} pagos · faltam {formatCurrency(pendingTotal, currency as "BRL" | "USD")}
-          </p>
-        </div>
-      )}
-
       <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
         <div className="overflow-hidden">
           <div className="border-t border-border/40">
-            {pending.length > 0 && (
-              <>
-                <div className="flex items-center justify-between px-4 pt-2 pb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-warning">A pagar ({pending.length})</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-warning tabular-nums">{formatCurrency(pendingTotal, currency as "BRL" | "USD")}</span>
-                </div>
-                {pending.map((entry) => (
+            {sections.map((section) => (
+              <div key={section.label}>
+                {sections.length > 1 && (
+                  <div className="px-4 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                      {section.label} ({section.entries.length})
+                    </span>
+                  </div>
+                )}
+                {section.entries.map((entry) => (
                   <LancamentoItem
                     key={entry.id}
                     entry={entry}
@@ -110,27 +101,7 @@ export function MonthGroupCard(props: MonthGroupCardProps) {
                     onRevert={() => onRevert(entry)}
                   />
                 ))}
-              </>
-            )}
-
-            {paidItems.length > 0 && pending.length > 0 && (
-              <div className="px-4 pt-2 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-profit">Pago ({paidItems.length})</span>
               </div>
-            )}
-
-            {paidItems.map((entry) => (
-              <LancamentoItem
-                key={entry.id}
-                entry={entry}
-                categoryColor={getCategoryColor(entry.category)}
-                isDiscounted={isDiscounted(entry)}
-                currency={currency}
-                onMarkPaid={() => onMarkPaid(entry)}
-                onEdit={() => onEdit(entry)}
-                onDelete={() => onDelete(entry)}
-                onRevert={() => onRevert(entry)}
-              />
             ))}
           </div>
         </div>
