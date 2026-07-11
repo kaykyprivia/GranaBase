@@ -439,11 +439,6 @@ export default function ExpensesPage() {
 
   const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
   const totalAll = realizedEntries.reduce((s, e) => s + e.amount, 0);
-  const topCategory = (() => {
-    const map: Record<string, number> = {};
-    realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).forEach(e => { map[e.category] = (map[e.category] || 0) + e.amount; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
-  })();
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -857,10 +852,9 @@ export default function ExpensesPage() {
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
         <StatCard title="Total Geral" value={formatCurrency(totalAll, currency)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Maior categoria" value={topCategory} icon={TrendingDown} variant="warning" loading={loading} subtitle="Este mês" />
       </div>
 
       {/* Trend chart */}
