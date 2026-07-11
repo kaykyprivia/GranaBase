@@ -12,7 +12,6 @@ import {
   BarChart3,
   Heart,
   HandCoins,
-  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -32,7 +31,6 @@ const navItems = [
   { href: "/investments", label: "Investimentos", icon: PiggyBank },
   { href: "/goals", label: "Metas", icon: Target },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
-  { href: "/planilhas", label: "Planilhas", icon: Calculator },
 ];
 
 const maeNavItem = { href: "/mae", label: "Mãe", icon: Heart };
