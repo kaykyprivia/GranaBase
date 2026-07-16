@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Pencil, Trash2, ChevronDown, Upload, Check, RotateCcw } from "lucide-react";
+import { TrendingDown, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Upload, Check, RotateCcw } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -38,6 +38,7 @@ import type { DisplayExpense } from "@/components/expenses/types";
 const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
 const INSTALLMENT_PAYMENT_METHODS = ["Cartão Crédito", "Boleto"];
+const FUTURE_MONTHS_WINDOW = 3;
 const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
@@ -174,6 +175,7 @@ export default function ExpensesPage() {
   const [dueDayFilter, setDueDayFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
+  const [futureWindowStart, setFutureWindowStart] = useState(0);
   const [installmentSummaryOpen, setInstallmentSummaryOpen] = useState(false);
   const [expandedInstallmentIds, setExpandedInstallmentIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -1025,16 +1027,47 @@ export default function ExpensesPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Lançamentos futuros</span>
                 <div className="h-px flex-1 bg-border/60" />
               </div>
-              {futureMonthGroups.map((group) => (
-                <MonthGroupCard
-                  key={group.month}
-                  month={group.month} label={group.label} items={group.items}
-                  isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
-                  currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
-                  onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
-                  onRevert={(entry) => setRevertItem(entry)}
-                />
-              ))}
+              {(() => {
+                const maxStart = Math.max(0, futureMonthGroups.length - FUTURE_MONTHS_WINDOW);
+                const start = Math.min(futureWindowStart, maxStart);
+                const visible = futureMonthGroups.slice(start, start + FUTURE_MONTHS_WINDOW);
+                return (
+                  <>
+                    {futureMonthGroups.length > FUTURE_MONTHS_WINDOW && (
+                      <button
+                        type="button"
+                        aria-label="Meses futuros anteriores"
+                        disabled={start === 0}
+                        onClick={() => setFutureWindowStart((s) => Math.max(0, s - 1))}
+                        className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                    )}
+                    {visible.map((group) => (
+                      <MonthGroupCard
+                        key={group.month}
+                        month={group.month} label={group.label} items={group.items}
+                        isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
+                        currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+                        onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+                        onRevert={(entry) => setRevertItem(entry)}
+                      />
+                    ))}
+                    {futureMonthGroups.length > FUTURE_MONTHS_WINDOW && (
+                      <button
+                        type="button"
+                        aria-label="Próximos meses futuros"
+                        disabled={start >= maxStart}
+                        onClick={() => setFutureWindowStart((s) => Math.min(maxStart, s + 1))}
+                        className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 
