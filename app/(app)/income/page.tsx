@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, Upload } from "lucide-react";
+import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -42,6 +42,7 @@ function getSupabaseErrorMessage(error: unknown): string {
 
 const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissão", "Pix", "Reembolso", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
+const OTHER_MONTHS_WINDOW = 5;
 
 function getMonthOptions() {
   const opts: MonthOption[] = [];
@@ -185,6 +186,9 @@ export default function IncomePage() {
     return matchMonth && matchCat && matchSearch;
   }), [allEntries, monthFilter, categoryFilter, search]);
 
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const groupedByMonth = useMemo(() => {
     const grouped: Record<string, DisplayIncome[]> = {};
     [...filtered].forEach(e => {
@@ -201,11 +205,53 @@ export default function IncomePage() {
       }));
   }, [filtered]);
 
+  const currentMonthGroup = useMemo(() => groupedByMonth.find((g) => g.month === currentMonth), [groupedByMonth, currentMonth]);
+  const futureMonthGroups = useMemo(
+    () => groupedByMonth.filter((g) => g.month > currentMonth).sort((a, b) => a.month.localeCompare(b.month)),
+    [groupedByMonth, currentMonth]
+  );
+  const pastMonthGroups = useMemo(() => groupedByMonth.filter((g) => g.month < currentMonth), [groupedByMonth, currentMonth]);
+  const otherMonthGroups = useMemo(() => {
+    const pastAscending = [...pastMonthGroups].sort((a, b) => a.month.localeCompare(b.month));
+    return [...pastAscending, ...futureMonthGroups];
+  }, [pastMonthGroups, futureMonthGroups]);
+
+  const [otherMonthsWindowStart, setOtherMonthsWindowStart] = useState<number | null>(null);
+  const otherMonthsMaxStart = Math.max(0, otherMonthGroups.length - OTHER_MONTHS_WINDOW);
+  const otherMonthsDefaultStart = Math.min(pastMonthGroups.length, otherMonthsMaxStart);
+  const otherMonthsStart = Math.min(otherMonthsWindowStart ?? otherMonthsDefaultStart, otherMonthsMaxStart);
+  const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
+
+  const otherMonthsDragRef = useRef<{ startY: number; consumed: number } | null>(null);
+  const otherMonthsDidDragRef = useRef(false);
+  const OTHER_MONTHS_DRAG_STEP_PX = 56;
+
+  const handleOtherMonthsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    otherMonthsDragRef.current = { startY: e.clientY, consumed: 0 };
+    otherMonthsDidDragRef.current = false;
+  };
+
+  const handleOtherMonthsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = otherMonthsDragRef.current;
+    if (!drag) return;
+    const delta = e.clientY - drag.startY - drag.consumed;
+    if (Math.abs(delta) < OTHER_MONTHS_DRAG_STEP_PX) return;
+    const steps = Math.trunc(delta / OTHER_MONTHS_DRAG_STEP_PX);
+    drag.consumed += steps * OTHER_MONTHS_DRAG_STEP_PX;
+    otherMonthsDidDragRef.current = true;
+    setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, Math.max(0, otherMonthsStart - steps)));
+  };
+
+  const handleOtherMonthsPointerUp = () => {
+    otherMonthsDragRef.current = null;
+  };
+
   useEffect(() => {
-    if (groupedByMonth.length > 0) {
-      setOpenMonths(new Set([groupedByMonth[0].month]));
-    }
-  }, [groupedByMonth.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (groupedByMonth.length === 0) return;
+    const hasCurrentMonth = groupedByMonth.some((g) => g.month === currentMonth);
+    setOpenMonths(new Set([hasCurrentMonth ? currentMonth : groupedByMonth[0].month]));
+  }, [groupedByMonth.length, currentMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleMonth = (month: string) => {
     setOpenMonths(prev => {
@@ -215,8 +261,14 @@ export default function IncomePage() {
     });
   };
 
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const toggleMonthUnlessDragged = (month: string) => {
+    if (otherMonthsDidDragRef.current) {
+      otherMonthsDidDragRef.current = false;
+      return;
+    }
+    toggleMonth(month);
+  };
+
   const monthTotal = allEntries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
   const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
 
@@ -320,6 +372,74 @@ export default function IncomePage() {
     }
   };
 
+  const renderMonthCard = (group: (typeof groupedByMonth)[number], isCurrent: boolean, onToggleCard: () => void) => {
+    const { month, label, items, total } = group;
+    const isOpen = openMonths.has(month);
+    return (
+      <div key={month} className={cn("overflow-hidden rounded-2xl border", isCurrent ? "border-profit/40" : "border-border/50")}>
+        <button type="button" onClick={onToggleCard}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
+            {isCurrent && <Badge variant="profit" className="text-[10px]">Atual</Badge>}
+            <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-profit">{formatCurrency(total, currency)}</span>
+            <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
+        </button>
+
+        <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+          <div className="overflow-hidden">
+            <div className="border-t border-border/40">
+              {items.map(entry => (
+                <div key={entry.id}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-profit/12">
+                    <TrendingUp className="h-3.5 w-3.5 text-profit" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <Badge variant="profit" className="text-[10px]">{entry.category}</Badge>
+                      {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">Recebível</Badge>}
+                      {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount, currency)}</p>
+                    <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)}</p>
+                    <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => {
+                      if (entry.source === "manual") {
+                        const original = entries.find((e) => e.id === entry.id);
+                        if (original) openEdit(original);
+                      } else {
+                        openEditReceived(entry);
+                      }
+                    }} className="text-text-secondary hover:text-text-primary">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => {
+                      if (entry.source === "manual") {
+                        setDeleteId(entry.id);
+                      } else {
+                        setRevertReceivedItem(entry);
+                      }
+                    }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="page-container animate-fade-in">
       {/* Header */}
@@ -402,71 +522,47 @@ export default function IncomePage() {
         />
       ) : (
         <div className="space-y-2">
-          {groupedByMonth.map(({ month, label, items, total }) => {
-            const isOpen = openMonths.has(month);
-            return (
-              <div key={month} className="overflow-hidden rounded-2xl border border-border/50">
-                <button type="button" onClick={() => toggleMonth(month)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
-                  <div className="flex flex-1 flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">{label}</span>
-                    <span className="rounded-full bg-profit/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-profit">{formatCurrency(total, currency)}</span>
-                    <span className="text-[10px] text-text-secondary">{items.length} item{items.length !== 1 ? "s" : ""}</span>
-                  </div>
-                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", isOpen ? "rotate-180" : "rotate-0")} />
-                </button>
+          {currentMonthGroup && renderMonthCard(currentMonthGroup, true, () => toggleMonth(currentMonthGroup.month))}
 
-                <div className={cn("grid transition-all duration-300 ease-in-out", isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
-                  <div className="overflow-hidden">
-                    <div className="border-t border-border/40">
-                      {items.map(entry => (
-                        <div key={entry.id}
-                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-border/20 border-b border-border/20 last:border-0">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-profit/12">
-                            <TrendingUp className="h-3.5 w-3.5 text-profit" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                              <Badge variant="profit" className="text-[10px]">{entry.category}</Badge>
-                              {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">Recebível</Badge>}
-                              {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold tabular-nums text-profit">{formatCurrency(entry.amount, currency)}</p>
-                            <p className="text-[10px] text-text-secondary">{formatDate(entry.received_at)}</p>
-                            <p className="text-[10px] text-text-secondary/60">{formatTime(entry.created_at)}</p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button variant="ghost" size="icon-sm" onClick={() => {
-                              if (entry.source === "manual") {
-                                const original = entries.find((e) => e.id === entry.id);
-                                if (original) openEdit(original);
-                              } else {
-                                openEditReceived(entry);
-                              }
-                            }} className="text-text-secondary hover:text-text-primary">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon-sm" onClick={() => {
-                              if (entry.source === "manual") {
-                                setDeleteId(entry.id);
-                              } else {
-                                setRevertReceivedItem(entry);
-                              }
-                            }} className="text-text-secondary hover:text-expense hover:bg-expense/10">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+          {otherMonthGroups.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Outros meses</span>
+                <div className="h-px flex-1 bg-border/60" />
               </div>
-            );
-          })}
+              {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
+                <button
+                  type="button"
+                  aria-label="Meses anteriores"
+                  disabled={otherMonthsStart === 0}
+                  onClick={() => setOtherMonthsWindowStart(Math.max(0, otherMonthsStart - 1))}
+                  className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              )}
+              <div
+                className="flex select-none flex-col gap-2 touch-none"
+                onPointerDown={handleOtherMonthsPointerDown}
+                onPointerMove={handleOtherMonthsPointerMove}
+                onPointerUp={handleOtherMonthsPointerUp}
+                onPointerCancel={handleOtherMonthsPointerUp}
+              >
+                {visibleOtherMonths.map((group) => renderMonthCard(group, false, () => toggleMonthUnlessDragged(group.month)))}
+              </div>
+              {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
+                <button
+                  type="button"
+                  aria-label="Próximos meses"
+                  disabled={otherMonthsStart >= otherMonthsMaxStart}
+                  onClick={() => setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, otherMonthsStart + 1))}
+                  className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 
