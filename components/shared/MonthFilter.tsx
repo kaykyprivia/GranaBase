@@ -1,6 +1,6 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface MonthOption {
   value: string;
@@ -35,11 +35,7 @@ export function MonthFilter({
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder}>{label}</SelectValue>
       </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all" className="sticky top-0 z-10 bg-surface">
-          {allLabel}
-        </SelectItem>
-        <SelectSeparator />
+      <SelectContent pinnedTop={<SelectItem value="all">{allLabel}</SelectItem>}>
         {months.map((m) => (
           <SelectItem key={m.value} value={m.value}>
             <span className="flex items-center gap-2">

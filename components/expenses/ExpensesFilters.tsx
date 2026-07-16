@@ -86,8 +86,7 @@ export function ExpensesFilters({
       </Select>
       <Select value={categoryFilter} onValueChange={setCategoryFilter}>
         <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as categorias</SelectItem>
+        <SelectContent pinnedTop={<SelectItem value="all">Todas as categorias</SelectItem>}>
           {filterCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
         </SelectContent>
       </Select>
