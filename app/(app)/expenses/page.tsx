@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -426,6 +426,45 @@ export default function ExpensesPage() {
     const pastAscending = [...pastMonthGroups].sort((a, b) => a.month.localeCompare(b.month));
     return [...pastAscending, ...futureMonthGroups];
   }, [pastMonthGroups, futureMonthGroups]);
+
+  const otherMonthsMaxStart = Math.max(0, otherMonthGroups.length - OTHER_MONTHS_WINDOW);
+  const otherMonthsDefaultStart = Math.min(pastMonthGroups.length, otherMonthsMaxStart);
+  const otherMonthsStart = Math.min(otherMonthsWindowStart ?? otherMonthsDefaultStart, otherMonthsMaxStart);
+  const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
+
+  const otherMonthsDragRef = useRef<{ startY: number; consumed: number } | null>(null);
+  const otherMonthsDidDragRef = useRef(false);
+  const OTHER_MONTHS_DRAG_STEP_PX = 56;
+
+  const handleOtherMonthsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    otherMonthsDragRef.current = { startY: e.clientY, consumed: 0 };
+    otherMonthsDidDragRef.current = false;
+  };
+
+  const handleOtherMonthsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = otherMonthsDragRef.current;
+    if (!drag) return;
+    const delta = e.clientY - drag.startY - drag.consumed;
+    if (Math.abs(delta) < OTHER_MONTHS_DRAG_STEP_PX) return;
+    const steps = Math.trunc(delta / OTHER_MONTHS_DRAG_STEP_PX);
+    drag.consumed += steps * OTHER_MONTHS_DRAG_STEP_PX;
+    otherMonthsDidDragRef.current = true;
+    // Dragging the finger up reveals later (future) months, like a normal scroll.
+    setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, Math.max(0, otherMonthsStart - steps)));
+  };
+
+  const handleOtherMonthsPointerUp = () => {
+    otherMonthsDragRef.current = null;
+  };
+
+  const toggleMonthUnlessDragged = (month: string) => {
+    if (otherMonthsDidDragRef.current) {
+      otherMonthsDidDragRef.current = false;
+      return;
+    }
+    toggleMonth(month);
+  };
 
   const monthOptions = useMemo(() => {
     const months = new Set<string>(groupedByMonth.map((g) => g.month));
@@ -1025,52 +1064,54 @@ export default function ExpensesPage() {
             />
           )}
 
-          {otherMonthGroups.length > 0 && (() => {
-            const maxStart = Math.max(0, otherMonthGroups.length - OTHER_MONTHS_WINDOW);
-            const defaultStart = Math.min(pastMonthGroups.length, maxStart);
-            const start = Math.min(otherMonthsWindowStart ?? defaultStart, maxStart);
-            const visible = otherMonthGroups.slice(start, start + OTHER_MONTHS_WINDOW);
-            return (
-              <>
-                <div className="flex items-center gap-2 pt-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Outros meses</span>
-                  <div className="h-px flex-1 bg-border/60" />
-                </div>
-                {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
-                  <button
-                    type="button"
-                    aria-label="Meses anteriores"
-                    disabled={start === 0}
-                    onClick={() => setOtherMonthsWindowStart(Math.max(0, start - 1))}
-                    className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
-                )}
-                {visible.map((group) => (
+          {otherMonthGroups.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Outros meses</span>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
+              {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
+                <button
+                  type="button"
+                  aria-label="Meses anteriores"
+                  disabled={otherMonthsStart === 0}
+                  onClick={() => setOtherMonthsWindowStart(Math.max(0, otherMonthsStart - 1))}
+                  className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              )}
+              <div
+                className="flex select-none flex-col gap-2 touch-none"
+                onPointerDown={handleOtherMonthsPointerDown}
+                onPointerMove={handleOtherMonthsPointerMove}
+                onPointerUp={handleOtherMonthsPointerUp}
+                onPointerCancel={handleOtherMonthsPointerUp}
+              >
+                {visibleOtherMonths.map((group) => (
                   <MonthGroupCard
                     key={group.month}
                     month={group.month} label={group.label} items={group.items}
-                    isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
+                    isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonthUnlessDragged(group.month)}
                     currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
                     onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
                     onRevert={(entry) => setRevertItem(entry)}
                   />
                 ))}
-                {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
-                  <button
-                    type="button"
-                    aria-label="Próximos meses"
-                    disabled={start >= maxStart}
-                    onClick={() => setOtherMonthsWindowStart(Math.min(maxStart, start + 1))}
-                    className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                )}
-              </>
-            );
-          })()}
+              </div>
+              {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
+                <button
+                  type="button"
+                  aria-label="Próximos meses"
+                  disabled={otherMonthsStart >= otherMonthsMaxStart}
+                  onClick={() => setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, otherMonthsStart + 1))}
+                  className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 
