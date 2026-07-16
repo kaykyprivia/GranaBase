@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { MonthFilter, type MonthOption } from "@/components/shared/MonthFilter";
 import { cn } from "@/lib/utils";
 
 const SOURCE_OPTIONS = [
@@ -19,7 +20,8 @@ const SOURCE_OPTIONS = [
 export interface ExpensesFiltersProps {
   monthFilter: string;
   setMonthFilter: (value: string) => void;
-  monthOptions: { value: string; label: string }[];
+  monthOptions: MonthOption[];
+  currentMonth: string;
   statusFilter: string;
   setStatusFilter: (value: string) => void;
   categoryFilter: string;
@@ -43,6 +45,7 @@ export function ExpensesFilters({
   monthFilter,
   setMonthFilter,
   monthOptions,
+  currentMonth,
   statusFilter,
   setStatusFilter,
   categoryFilter,
@@ -65,12 +68,13 @@ export function ExpensesFilters({
 
   const selects = (
     <>
-      <Select value={monthFilter} onValueChange={setMonthFilter}>
-        <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
-        <SelectContent>
-          {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <MonthFilter
+        months={monthOptions}
+        value={monthFilter}
+        onChange={setMonthFilter}
+        currentMonth={currentMonth}
+        className="sm:w-56"
+      />
       <Select value={statusFilter} onValueChange={setStatusFilter}>
         <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>

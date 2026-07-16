@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MonthFilter, type MonthOption } from "@/components/shared/MonthFilter";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
@@ -43,13 +44,12 @@ const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissão", "Pix", "Reemb
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
 
 function getMonthOptions() {
-  const opts: { value: string; label: string }[] = [{ value: "all", label: "Todos os meses" }];
+  const opts: MonthOption[] = [];
   const now = new Date();
-  const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-  for (let i = 0; i < 13; i++) {
+  for (let i = 12; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    opts.push({ value: val, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}` });
+    opts.push({ value: val, label: formatMonthLabel(val) });
   }
   return opts;
 }
@@ -370,12 +370,13 @@ export default function IncomePage() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Mês" /></SelectTrigger>
-          <SelectContent>
-            {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <MonthFilter
+          months={monthOptions}
+          value={monthFilter}
+          onChange={setMonthFilter}
+          currentMonth={currentMonth}
+          className="sm:w-56"
+        />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
           <SelectContent>

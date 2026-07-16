@@ -38,6 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MonthFilter } from "@/components/shared/MonthFilter";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -413,7 +414,7 @@ export default function InvestmentsPage() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const monthOptions = getMonthOptions(18);
+  const monthOptions = getMonthOptions(18).slice(1).reverse();
 
   const {
     register,
@@ -954,18 +955,13 @@ export default function InvestmentsPage() {
 
       {/* Filters */}
       <div className="mb-5 flex flex-col gap-3 lg:flex-row">
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-full lg:w-48">
-            <SelectValue placeholder="Mes" />
-          </SelectTrigger>
-          <SelectContent>
-            {monthOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MonthFilter
+          months={monthOptions}
+          value={monthFilter}
+          onChange={setMonthFilter}
+          currentMonth={currentMonth}
+          className="lg:w-48"
+        />
 
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-full lg:w-52">

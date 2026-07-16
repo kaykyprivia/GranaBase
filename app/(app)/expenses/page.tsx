@@ -37,7 +37,7 @@ import type { DisplayExpense } from "@/components/expenses/types";
 
 const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
-const INSTALLMENT_PAYMENT_METHODS = ["Cartão de Crédito", "Boleto"];
+const INSTALLMENT_PAYMENT_METHODS = ["Cartão Crédito", "Boleto"];
 const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
@@ -428,13 +428,8 @@ export default function ExpensesPage() {
       const d = new Date(fallbackNow.getFullYear(), fallbackNow.getMonth() - i, 1);
       months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
     }
-    const future = Array.from(months).filter((m) => m > currentMonth).sort((a, b) => a.localeCompare(b));
-    const presentAndPast = Array.from(months).filter((m) => m <= currentMonth).sort((a, b) => b.localeCompare(a));
-    const sorted = [...future, ...presentAndPast];
-    return [
-      { value: "all", label: "Todos os meses" },
-      ...sorted.map((m) => ({ value: m, label: formatMonthLabel(m) + (m > currentMonth ? " (futuro)" : "") })),
-    ];
+    const sorted = Array.from(months).sort((a, b) => a.localeCompare(b));
+    return sorted.map((m) => ({ value: m, label: formatMonthLabel(m) }));
   }, [groupedByMonth, currentMonth]);
 
   const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
@@ -991,7 +986,7 @@ export default function ExpensesPage() {
 
       {/* Filters */}
       <ExpensesFilters
-        monthFilter={monthFilter} setMonthFilter={setMonthFilter} monthOptions={monthOptions}
+        monthFilter={monthFilter} setMonthFilter={setMonthFilter} monthOptions={monthOptions} currentMonth={currentMonth}
         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} filterCategories={filterCategories}
         paymentMethodFilter={paymentMethodFilter} setPaymentMethodFilter={setPaymentMethodFilter} filterPaymentMethods={filterPaymentMethods}
