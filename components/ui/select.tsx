@@ -82,8 +82,8 @@ const SelectContent = React.forwardRef<
       position={position}
       {...props}
     >
-      <SelectScrollUpButton />
       {pinnedTop && <div className="border-b border-border bg-surface p-1">{pinnedTop}</div>}
+      <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
           "p-1",
