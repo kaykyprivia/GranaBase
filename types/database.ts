@@ -11,6 +11,48 @@ export type ReceivableStatus = "pending" | "received" | "overdue";
 export type InstallmentStatus = "pending" | "paid" | "paid_with_discount";
 type GoalStatus = "active" | "completed" | "paused";
 type InvestmentContributionType = "deposit" | "withdraw";
+export type BusinessPurchaseOrderStatus =
+  | "DRAFT"
+  | "PURCHASED"
+  | "IN_TRANSIT"
+  | "PARTIALLY_RECEIVED"
+  | "RECEIVED"
+  | "CANCELLED";
+export type BusinessSaleOrderStatus =
+  | "DRAFT"
+  | "RESERVED"
+  | "SEPARATED"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "RETURNED";
+export type BusinessSalePaymentStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "REFUNDED";
+export type BusinessAllocationStatus = "RESERVED" | "RELEASED" | "CONSUMED" | "RETURNED";
+export type BusinessInventoryMovementType =
+  | "PURCHASE_RECEIPT"
+  | "SALE_OUT"
+  | "CUSTOMER_RETURN"
+  | "ADJUSTMENT_IN"
+  | "ADJUSTMENT_OUT"
+  | "LOSS"
+  | "DAMAGED";
+export type BusinessPaymentStatus = "PENDING" | "PAID" | "REFUNDED";
+export type BusinessExpenseCategory =
+  | "gasolina"
+  | "embalagem"
+  | "anuncios"
+  | "entrega"
+  | "manutencao"
+  | "taxas"
+  | "outras";
+export type BusinessIdempotencyStatus = "PROCESSING" | "COMPLETED";
+
+type TableDefinition<Row, Insert, Update> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  Relationships: [];
+};
 
 export interface Database {
   public: {
@@ -558,6 +600,650 @@ export interface Database {
           },
         ];
       };
+      business_workspaces: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          name: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_operation_idempotency: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          operation: string;
+          idempotency_key: string;
+          request_hash: string;
+          status: BusinessIdempotencyStatus;
+          response: Json | null;
+          created_at: string;
+          completed_at: string | null;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          operation: string;
+          idempotency_key: string;
+          request_hash: string;
+          status?: BusinessIdempotencyStatus;
+          response?: Json | null;
+          created_at?: string;
+          completed_at?: string | null;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          operation?: string;
+          idempotency_key?: string;
+          request_hash?: string;
+          status?: BusinessIdempotencyStatus;
+          response?: Json | null;
+          created_at?: string;
+          completed_at?: string | null;
+        }
+      >;
+      business_products: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          sku: string | null;
+          barcode: string | null;
+          image_url: string | null;
+          default_sale_price: number | null;
+          minimum_stock: number;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          sku?: string | null;
+          barcode?: string | null;
+          image_url?: string | null;
+          default_sale_price?: number | null;
+          minimum_stock?: number;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          name?: string;
+          sku?: string | null;
+          barcode?: string | null;
+          image_url?: string | null;
+          default_sale_price?: number | null;
+          minimum_stock?: number;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_purchase_orders: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_date: string;
+          expected_arrival_date: string | null;
+          origin: string | null;
+          product_subtotal: number;
+          shipping_cost: number;
+          additional_costs: number;
+          total_cost: number;
+          status: BusinessPurchaseOrderStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_date?: string;
+          expected_arrival_date?: string | null;
+          origin?: string | null;
+          product_subtotal?: number;
+          shipping_cost?: number;
+          additional_costs?: number;
+          total_cost?: number;
+          status?: BusinessPurchaseOrderStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          purchase_date?: string;
+          expected_arrival_date?: string | null;
+          origin?: string | null;
+          product_subtotal?: number;
+          shipping_cost?: number;
+          additional_costs?: number;
+          total_cost?: number;
+          status?: BusinessPurchaseOrderStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_purchase_items: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_order_id: string;
+          product_id: string;
+          quantity_ordered: number;
+          quantity_received: number;
+          unit_purchase_cost: number;
+          allocated_extra_cost: number;
+          real_unit_cost: number;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_order_id: string;
+          product_id: string;
+          quantity_ordered: number;
+          quantity_received?: number;
+          unit_purchase_cost: number;
+          allocated_extra_cost?: number;
+          real_unit_cost: number;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          purchase_order_id?: string;
+          product_id?: string;
+          quantity_ordered?: number;
+          quantity_received?: number;
+          unit_purchase_cost?: number;
+          allocated_extra_cost?: number;
+          real_unit_cost?: number;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_inventory_lots: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          product_id: string;
+          purchase_item_id: string | null;
+          received_quantity: number;
+          remaining_quantity: number;
+          reserved_quantity: number;
+          unit_cost: number;
+          received_at: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          product_id: string;
+          purchase_item_id?: string | null;
+          received_quantity: number;
+          remaining_quantity: number;
+          reserved_quantity?: number;
+          unit_cost: number;
+          received_at?: string;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          product_id?: string;
+          purchase_item_id?: string | null;
+          received_quantity?: number;
+          remaining_quantity?: number;
+          reserved_quantity?: number;
+          unit_cost?: number;
+          received_at?: string;
+          created_at?: string;
+        }
+      >;
+      business_customers: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          whatsapp: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          whatsapp?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          name?: string;
+          whatsapp?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_sales: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          customer_id: string | null;
+          order_status: BusinessSaleOrderStatus;
+          payment_status: BusinessSalePaymentStatus;
+          sale_date: string;
+          delivered_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          customer_id?: string | null;
+          order_status?: BusinessSaleOrderStatus;
+          payment_status?: BusinessSalePaymentStatus;
+          sale_date?: string;
+          delivered_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          customer_id?: string | null;
+          order_status?: BusinessSaleOrderStatus;
+          payment_status?: BusinessSalePaymentStatus;
+          sale_date?: string;
+          delivered_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_sale_items: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          product_id: string;
+          quantity: number;
+          unit_sale_price: number;
+          gross_amount: number;
+          discount_amount: number;
+          final_amount: number;
+          platform_fee: number;
+          shipping_cost: number;
+          additional_costs: number;
+          cogs_amount: number;
+          gross_profit: number;
+          net_profit: number;
+          margin_pct: number | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          product_id: string;
+          quantity: number;
+          unit_sale_price: number;
+          gross_amount: number;
+          discount_amount?: number;
+          final_amount: number;
+          platform_fee?: number;
+          shipping_cost?: number;
+          additional_costs?: number;
+          cogs_amount?: number;
+          gross_profit?: number;
+          net_profit?: number;
+          margin_pct?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          sale_id?: string;
+          product_id?: string;
+          quantity?: number;
+          unit_sale_price?: number;
+          gross_amount?: number;
+          discount_amount?: number;
+          final_amount?: number;
+          platform_fee?: number;
+          shipping_cost?: number;
+          additional_costs?: number;
+          cogs_amount?: number;
+          gross_profit?: number;
+          net_profit?: number;
+          margin_pct?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_sale_item_allocations: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          sale_item_id: string;
+          inventory_lot_id: string;
+          quantity: number;
+          returned_quantity: number;
+          unit_cost: number;
+          status: BusinessAllocationStatus;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          sale_item_id: string;
+          inventory_lot_id: string;
+          quantity: number;
+          returned_quantity?: number;
+          unit_cost: number;
+          status?: BusinessAllocationStatus;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          sale_item_id?: string;
+          inventory_lot_id?: string;
+          quantity?: number;
+          returned_quantity?: number;
+          unit_cost?: number;
+          status?: BusinessAllocationStatus;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_inventory_movements: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          product_id: string;
+          inventory_lot_id: string | null;
+          movement_type: BusinessInventoryMovementType;
+          quantity_delta: number;
+          unit_cost: number;
+          total_cost: number;
+          reference_type: string | null;
+          reference_id: string | null;
+          notes: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          product_id: string;
+          inventory_lot_id?: string | null;
+          movement_type: BusinessInventoryMovementType;
+          quantity_delta: number;
+          unit_cost?: number;
+          total_cost?: number;
+          reference_type?: string | null;
+          reference_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          product_id?: string;
+          inventory_lot_id?: string | null;
+          movement_type?: BusinessInventoryMovementType;
+          quantity_delta?: number;
+          unit_cost?: number;
+          total_cost?: number;
+          reference_type?: string | null;
+          reference_id?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        }
+      >;
+      business_payments: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          amount: number;
+          payment_method: string | null;
+          status: BusinessPaymentStatus;
+          paid_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          amount: number;
+          payment_method?: string | null;
+          status?: BusinessPaymentStatus;
+          paid_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          sale_id?: string;
+          amount?: number;
+          payment_method?: string | null;
+          status?: BusinessPaymentStatus;
+          paid_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_sale_returns: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          refund_amount: number;
+          notes: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          sale_id: string;
+          refund_amount?: number;
+          notes?: string | null;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          sale_id?: string;
+          refund_amount?: number;
+          notes?: string | null;
+          created_at?: string;
+        }
+      >;
+      business_sale_return_items: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          return_id: string;
+          sale_item_id: string;
+          product_id: string;
+          quantity: number;
+          restockable: boolean;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          return_id: string;
+          sale_item_id: string;
+          product_id: string;
+          quantity: number;
+          restockable?: boolean;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          return_id?: string;
+          sale_item_id?: string;
+          product_id?: string;
+          quantity?: number;
+          restockable?: boolean;
+          created_at?: string;
+        }
+      >;
+      business_expenses: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          category: BusinessExpenseCategory;
+          amount: number;
+          spent_at: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          description: string;
+          category: BusinessExpenseCategory;
+          amount: number;
+          spent_at?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          description?: string;
+          category?: BusinessExpenseCategory;
+          amount?: number;
+          spent_at?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      business_audit_logs: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          actor_user_id: string;
+          workspace_id: string;
+          entity_type: string;
+          entity_id: string;
+          action: string;
+          metadata: Json;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          actor_user_id: string;
+          workspace_id: string;
+          entity_type: string;
+          entity_id: string;
+          action: string;
+          metadata?: Json;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          actor_user_id?: string;
+          workspace_id?: string;
+          entity_type?: string;
+          entity_id?: string;
+          action?: string;
+          metadata?: Json;
+          created_at?: string;
+        }
+      >;
       financial_goals: {
         Row: {
           id: string;
@@ -605,11 +1291,109 @@ export interface Database {
         ];
       };
     };
-    Views: {};
+    Views: {
+      business_inventory_summary: {
+        Row: {
+          product_id: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          sku: string | null;
+          default_sale_price: number | null;
+          minimum_stock: number;
+          on_hand: number;
+          reserved: number;
+          available: number;
+          in_transit: number;
+          inventory_value: number;
+          average_unit_cost: number;
+          estimated_profit: number;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       delete_my_account: {
         Args: Record<PropertyKey, never>;
         Returns: void;
+      };
+      adjust_business_inventory: {
+        Args: {
+          p_workspace_id: string;
+          p_product_id: string;
+          p_quantity_delta: number;
+          p_movement_type: BusinessInventoryMovementType;
+          p_reason: string;
+          p_idempotency_key: string;
+          p_unit_cost?: number;
+        };
+        Returns: Json;
+      };
+      cancel_business_sale: {
+        Args: {
+          p_sale_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      create_business_purchase: {
+        Args: {
+          p_workspace_id: string;
+          p_product_id: string;
+          p_quantity: number;
+          p_unit_purchase_cost: number;
+          p_idempotency_key: string;
+          p_shipping_cost?: number;
+          p_additional_costs?: number;
+          p_purchase_date?: string;
+          p_expected_arrival_date?: string | null;
+          p_origin?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      create_business_sale: {
+        Args: {
+          p_workspace_id: string;
+          p_items: Json;
+          p_idempotency_key: string;
+          p_customer_id?: string | null;
+          p_sale_date?: string;
+          p_notes?: string | null;
+          p_reserve?: boolean;
+        };
+        Returns: Json;
+      };
+      deliver_business_sale: {
+        Args: {
+          p_sale_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      record_business_expense: {
+        Args: {
+          p_workspace_id: string;
+          p_description: string;
+          p_category: BusinessExpenseCategory;
+          p_amount: number;
+          p_idempotency_key: string;
+          p_spent_at?: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      record_business_payment: {
+        Args: {
+          p_sale_id: string;
+          p_amount: number;
+          p_idempotency_key: string;
+          p_payment_method?: string | null;
+          p_status?: Extract<BusinessPaymentStatus, "PAID" | "REFUNDED">;
+          p_paid_at?: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
       };
       record_investment_contribution: {
         Args: {
@@ -619,11 +1403,51 @@ export interface Database {
         };
         Returns: string;
       };
+      receive_business_purchase: {
+        Args: {
+          p_purchase_order_id: string;
+          p_idempotency_key: string;
+          p_quantity?: number | null;
+        };
+        Returns: Json;
+      };
+      reserve_business_sale: {
+        Args: {
+          p_sale_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      return_business_sale: {
+        Args: {
+          p_sale_id: string;
+          p_items: Json;
+          p_idempotency_key: string;
+          p_refund_amount?: number;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
       sync_financial_goals_with_wallet: {
         Args: {
           p_user_id: string;
         };
         Returns: void;
+      };
+      update_business_purchase: {
+        Args: {
+          p_purchase_order_id: string;
+          p_idempotency_key: string;
+          p_quantity?: number | null;
+          p_unit_purchase_cost?: number | null;
+          p_shipping_cost?: number | null;
+          p_additional_costs?: number | null;
+          p_purchase_date?: string | null;
+          p_expected_arrival_date?: string | null;
+          p_origin?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
       };
     };
     Enums: {};
@@ -650,6 +1474,22 @@ export type Investment = Tables<"investments">;
 export type InvestmentDividend = Tables<"investment_dividends">;
 export type InvestmentWallet = Tables<"investment_wallets">;
 export type InvestmentContribution = Tables<"investment_contributions">;
+export type BusinessWorkspace = Tables<"business_workspaces">;
+export type BusinessProduct = Tables<"business_products">;
+export type BusinessPurchaseOrder = Tables<"business_purchase_orders">;
+export type BusinessPurchaseItem = Tables<"business_purchase_items">;
+export type BusinessInventoryLot = Tables<"business_inventory_lots">;
+export type BusinessCustomer = Tables<"business_customers">;
+export type BusinessSale = Tables<"business_sales">;
+export type BusinessSaleItem = Tables<"business_sale_items">;
+export type BusinessSaleItemAllocation = Tables<"business_sale_item_allocations">;
+export type BusinessInventoryMovement = Tables<"business_inventory_movements">;
+export type BusinessPayment = Tables<"business_payments">;
+export type BusinessSaleReturn = Tables<"business_sale_returns">;
+export type BusinessSaleReturnItem = Tables<"business_sale_return_items">;
+export type BusinessExpense = Tables<"business_expenses">;
+export type BusinessAuditLog = Tables<"business_audit_logs">;
+export type BusinessInventorySummary = Database["public"]["Views"]["business_inventory_summary"]["Row"];
 export type FinancialGoal = Tables<"financial_goals">;
 
 export type InsertIncomeEntry = Inserts<"income_entries">;
@@ -662,7 +1502,27 @@ export type InsertInvestment = Inserts<"investments">;
 export type InsertInvestmentDividend = Inserts<"investment_dividends">;
 export type InsertInvestmentWallet = Inserts<"investment_wallets">;
 export type InsertInvestmentContribution = Inserts<"investment_contributions">;
+export type InsertBusinessWorkspace = Inserts<"business_workspaces">;
+export type InsertBusinessProduct = Inserts<"business_products">;
+export type InsertBusinessPurchaseOrder = Inserts<"business_purchase_orders">;
+export type InsertBusinessPurchaseItem = Inserts<"business_purchase_items">;
+export type InsertBusinessCustomer = Inserts<"business_customers">;
+export type InsertBusinessSale = Inserts<"business_sales">;
+export type InsertBusinessSaleItem = Inserts<"business_sale_items">;
+export type InsertBusinessPayment = Inserts<"business_payments">;
+export type InsertBusinessSaleReturn = Inserts<"business_sale_returns">;
+export type InsertBusinessSaleReturnItem = Inserts<"business_sale_return_items">;
+export type InsertBusinessExpense = Inserts<"business_expenses">;
 export type InsertFinancialGoal = Inserts<"financial_goals">;
 export type InsertUserSettings = Inserts<"user_settings">;
 export type UpdateProfile = Updates<"profiles">;
 export type UpdateUserSettings = Updates<"user_settings">;
+export type UpdateBusinessProduct = Updates<"business_products">;
+export type UpdateBusinessPurchaseOrder = Updates<"business_purchase_orders">;
+export type UpdateBusinessPurchaseItem = Updates<"business_purchase_items">;
+export type UpdateBusinessCustomer = Updates<"business_customers">;
+export type UpdateBusinessSale = Updates<"business_sales">;
+export type UpdateBusinessSaleItem = Updates<"business_sale_items">;
+export type UpdateBusinessPayment = Updates<"business_payments">;
+export type UpdateBusinessSaleReturn = Updates<"business_sale_returns">;
+export type UpdateBusinessExpense = Updates<"business_expenses">;
