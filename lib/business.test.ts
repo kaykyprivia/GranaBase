@@ -360,6 +360,7 @@ describe("business core security invariants", () => {
 describe("business core state machines", () => {
   it("keeps purchase status transitions explicit", () => {
     expect(canTransitionPurchaseStatus("DRAFT", "PURCHASED")).toBe(true);
+    expect(canTransitionPurchaseStatus("PARTIALLY_RECEIVED", "CANCELLED")).toBe(false);
     expect(canTransitionPurchaseStatus("RECEIVED", "CANCELLED")).toBe(false);
   });
 

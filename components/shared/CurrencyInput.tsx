@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useState } from "react";
+import React, { forwardRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface CurrencyInputProps
@@ -8,6 +8,7 @@ interface CurrencyInputProps
   value?: number;
   onChange?: (value: number) => void;
   error?: string;
+  suppressErrorMessage?: boolean;
 }
 
 function formatDisplayValue(numericValue: number): string {
@@ -15,11 +16,15 @@ function formatDisplayValue(numericValue: number): string {
 }
 
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ className, value, onChange, error, ...props }, ref) => {
+  ({ className, value, onChange, error, suppressErrorMessage, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState(() => {
       if (!value) return "";
       return formatDisplayValue(value);
     });
+
+    useEffect(() => {
+      setDisplayValue(value ? formatDisplayValue(value) : "");
+    }, [value]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value.replace(/\D/g, "");
@@ -70,7 +75,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           )}
           {...props}
         />
-        {error && <p className="mt-1 text-xs text-expense">{error}</p>}
+        {error && !suppressErrorMessage && <p className="mt-1 text-xs text-expense">{error}</p>}
       </div>
     );
   }

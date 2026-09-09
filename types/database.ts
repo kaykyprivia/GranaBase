@@ -1336,6 +1336,13 @@ export interface Database {
         };
         Returns: Json;
       };
+      cancel_business_purchase: {
+        Args: {
+          p_purchase_order_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       create_business_purchase: {
         Args: {
           p_workspace_id: string;
@@ -1343,6 +1350,25 @@ export interface Database {
           p_quantity: number;
           p_unit_purchase_cost: number;
           p_idempotency_key: string;
+          p_shipping_cost?: number;
+          p_additional_costs?: number;
+          p_purchase_date?: string;
+          p_expected_arrival_date?: string | null;
+          p_origin?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      create_business_product_and_purchase: {
+        Args: {
+          p_workspace_id: string;
+          p_product_name: string;
+          p_quantity: number;
+          p_unit_purchase_cost: number;
+          p_idempotency_key: string;
+          p_product_sku?: string | null;
+          p_default_sale_price?: number | null;
+          p_minimum_stock?: number;
           p_shipping_cost?: number;
           p_additional_costs?: number;
           p_purchase_date?: string;
@@ -1403,6 +1429,12 @@ export interface Database {
         };
         Returns: string;
       };
+      get_or_create_business_workspace: {
+        Args: {
+          p_name?: string;
+        };
+        Returns: Json;
+      };
       receive_business_purchase: {
         Args: {
           p_purchase_order_id: string;
@@ -1446,6 +1478,9 @@ export interface Database {
           p_expected_arrival_date?: string | null;
           p_origin?: string | null;
           p_notes?: string | null;
+          p_clear_expected_arrival_date?: boolean;
+          p_clear_origin?: boolean;
+          p_clear_notes?: boolean;
         };
         Returns: Json;
       };

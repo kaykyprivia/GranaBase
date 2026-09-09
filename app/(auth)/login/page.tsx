@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -15,6 +15,7 @@ import { loginSchema, type LoginFormData } from "@/lib/validations";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -25,6 +26,10 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -82,6 +87,7 @@ export default function LoginPage() {
             rightIcon={
               <button
                 type="button"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 onClick={() => setShowPassword(!showPassword)}
                 className="text-text-secondary hover:text-text-primary transition-colors"
               >
@@ -105,6 +111,7 @@ export default function LoginPage() {
           className="w-full"
           size="lg"
           loading={isSubmitting}
+          disabled={!mounted || isSubmitting}
         >
           Entrar
         </Button>

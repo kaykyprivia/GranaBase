@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: string;
+  suppressErrorMessage?: boolean;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, error, ...props }, ref) => {
+  ({ className, error, suppressErrorMessage, ...props }, ref) => {
     return (
       <div className="w-full">
         <textarea
@@ -23,7 +24,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           {...props}
         />
-        {error && <p className="mt-1 text-xs text-expense">{error}</p>}
+        {error && !suppressErrorMessage && <p className="mt-1 text-xs text-expense">{error}</p>}
       </div>
     );
   }

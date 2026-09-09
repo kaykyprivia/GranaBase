@@ -49,9 +49,34 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    if (asChild) {
+      const isDisabled = disabled || loading;
+      const { onClick, ...slotProps } = props;
+
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...slotProps}
+          aria-disabled={isDisabled || undefined}
+          data-disabled={isDisabled || undefined}
+          tabIndex={isDisabled ? -1 : props.tabIndex}
+          onClick={(event) => {
+            if (isDisabled) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            onClick?.(event as React.MouseEvent<HTMLButtonElement>);
+          }}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={disabled || loading}
@@ -80,7 +105,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           </svg>
         )}
         {children}
-      </Comp>
+      </button>
     );
   }
 );

@@ -5,10 +5,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   error?: string;
+  suppressErrorMessage?: boolean;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, leftIcon, rightIcon, error, ...props }, ref) => {
+  ({ className, type, leftIcon, rightIcon, error, suppressErrorMessage, ...props }, ref) => {
     return (
       <div className="relative w-full">
         {leftIcon && (
@@ -38,7 +39,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {rightIcon}
           </div>
         )}
-        {error && (
+        {error && !suppressErrorMessage && (
           <p className="mt-1 text-xs text-expense">{error}</p>
         )}
       </div>
