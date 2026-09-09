@@ -1308,6 +1308,15 @@ export interface Database {
           inventory_value: number;
           average_unit_cost: number;
           estimated_profit: number;
+          barcode: string | null;
+          image_url: string | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+          last_movement_at: string | null;
+          total_purchased: number;
+          total_received: number;
+          total_sold: number;
         };
         Relationships: [];
       };
@@ -1481,6 +1490,19 @@ export interface Database {
           p_clear_expected_arrival_date?: boolean;
           p_clear_origin?: boolean;
           p_clear_notes?: boolean;
+        };
+        Returns: Json;
+      };
+      update_business_product_metadata: {
+        Args: {
+          p_workspace_id: string;
+          p_product_id: string;
+          p_idempotency_key: string;
+          p_name: string;
+          p_sku?: string | null;
+          p_default_sale_price?: number | null;
+          p_minimum_stock?: number;
+          p_active?: boolean;
         };
         Returns: Json;
       };
