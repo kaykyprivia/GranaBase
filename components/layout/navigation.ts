@@ -57,7 +57,7 @@ export const maeNavItem: NavigationItem = { href: "/mae", label: "Mãe", icon: H
 export const businessNavItems: NavigationItem[] = [
   { href: "/business/purchases", label: "Compras", icon: ShoppingCart },
   { href: "/business/inventory", label: "Estoque", icon: Boxes },
-  { href: "/business/sales", label: "Vendas", icon: PackageCheck, disabled: true },
+  { href: "/business/sales", label: "Vendas", icon: PackageCheck },
   { href: "/business/customers", label: "Clientes", icon: Users, disabled: true },
   { href: "/business/expenses", label: "Despesas", icon: ReceiptText, disabled: true },
   { href: "/business/reports", label: "Relatórios", icon: BarChart3, disabled: true },

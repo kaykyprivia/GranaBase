@@ -1338,6 +1338,14 @@ export interface Database {
         };
         Returns: Json;
       };
+      advance_business_sale_status: {
+        Args: {
+          p_sale_id: string;
+          p_next_status: Extract<BusinessSaleOrderStatus, "SEPARATED" | "SHIPPED">;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       cancel_business_sale: {
         Args: {
           p_sale_id: string;
