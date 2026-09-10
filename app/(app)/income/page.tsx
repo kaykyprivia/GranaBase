@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -122,6 +122,9 @@ export default function IncomePage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
+  const [trendMonths, setTrendMonths] = useState<3 | 6 | 12>(6);
+  const [trendOffset, setTrendOffset] = useState(0);
+  const trendTouchStartX = useRef<number | null>(null);
 
   const monthOptions = getMonthOptions();
 
@@ -169,15 +172,51 @@ export default function IncomePage() {
   ], [entries, receivedReceivables]);
 
   const trendData = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => {
+    return Array.from({ length: trendMonths }, (_, i) => {
       const d = new Date();
-      d.setMonth(d.getMonth() - (5 - i));
-      const key = d.toISOString().slice(0, 7);
-      const label = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d).replace(".", "");
-      const value = allEntries.filter(e => e.received_at.startsWith(key)).reduce((s, e) => s + e.amount, 0);
+      d.setDate(1);
+      d.setMonth(d.getMonth() - trendOffset - (trendMonths - 1 - i));
+
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = new Intl.DateTimeFormat("pt-BR", { month: "short" })
+        .format(d)
+        .replace(".", "");
+
+      const value = allEntries
+        .filter((e) => e.received_at.startsWith(key))
+        .reduce((sum, entry) => sum + entry.amount, 0);
+
       return { month: label, value };
     });
-  }, [allEntries]);
+  }, [allEntries, trendMonths, trendOffset]);
+
+  const goTrendBack = () => setTrendOffset((offset) => offset + 1);
+
+  const goTrendForward = () => {
+    setTrendOffset((offset) => Math.max(0, offset - 1));
+  };
+
+  const handleTrendTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    trendTouchStartX.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleTrendTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (trendTouchStartX.current === null) return;
+
+    const endX = event.changedTouches[0]?.clientX;
+    if (endX === undefined) return;
+
+    const deltaX = endX - trendTouchStartX.current;
+    trendTouchStartX.current = null;
+
+    if (Math.abs(deltaX) < 50) return;
+
+    if (deltaX > 0) {
+      goTrendBack();
+    } else if (trendOffset > 0) {
+      goTrendForward();
+    }
+  };
 
   const filtered = useMemo(() => allEntries.filter(e => {
     const matchMonth = monthFilter === "all" || e.received_at.startsWith(monthFilter);
@@ -440,8 +479,46 @@ export default function IncomePage() {
 
       {/* Trend chart */}
       {!loading && trendData.some(d => d.value > 0) && (
-        <div className="mb-5 overflow-hidden rounded-2xl border border-border/60 bg-surface/60 px-5 py-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Últimos 6 meses</p>
+        <div
+          className="mb-5 overflow-hidden rounded-2xl border border-border/60 bg-surface/60 px-5 py-4 touch-pan-y"
+          onTouchStart={handleTrendTouchStart}
+          onTouchEnd={handleTrendTouchEnd}
+        >
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={goTrendBack}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border/30 hover:text-text-primary"
+              aria-label="Ver periodo anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <Select
+              value={String(trendMonths)}
+              onValueChange={(value) => setTrendMonths(Number(value) as 3 | 6 | 12)}
+            >
+              <SelectTrigger className="h-8 w-auto min-w-[150px] border-0 bg-transparent px-2 text-xs font-semibold uppercase tracking-wider text-text-secondary shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">�ltimos 3 meses</SelectItem>
+                <SelectItem value="6">�ltimos 6 meses</SelectItem>
+                <SelectItem value="12">�ltimos 12 meses</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <button
+              type="button"
+              onClick={goTrendForward}
+              disabled={trendOffset === 0}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border/30 hover:text-text-primary disabled:cursor-default disabled:opacity-30"
+              aria-label="Ver periodo seguinte"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
           <ResponsiveContainer width="100%" height={80}>
             <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartColors.axis }} axisLine={false} tickLine={false} />
