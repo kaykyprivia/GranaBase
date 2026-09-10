@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
@@ -222,31 +222,6 @@ export default function IncomePage() {
   const otherMonthsStart = Math.min(otherMonthsWindowStart ?? otherMonthsDefaultStart, otherMonthsMaxStart);
   const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
 
-  const otherMonthsDragRef = useRef<{ startY: number; consumed: number } | null>(null);
-  const otherMonthsDidDragRef = useRef(false);
-  const OTHER_MONTHS_DRAG_STEP_PX = 56;
-
-  const handleOtherMonthsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    otherMonthsDragRef.current = { startY: e.clientY, consumed: 0 };
-    otherMonthsDidDragRef.current = false;
-  };
-
-  const handleOtherMonthsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = otherMonthsDragRef.current;
-    if (!drag) return;
-    const delta = e.clientY - drag.startY - drag.consumed;
-    if (Math.abs(delta) < OTHER_MONTHS_DRAG_STEP_PX) return;
-    const steps = Math.trunc(delta / OTHER_MONTHS_DRAG_STEP_PX);
-    drag.consumed += steps * OTHER_MONTHS_DRAG_STEP_PX;
-    otherMonthsDidDragRef.current = true;
-    setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, Math.max(0, otherMonthsStart - steps)));
-  };
-
-  const handleOtherMonthsPointerUp = () => {
-    otherMonthsDragRef.current = null;
-  };
-
   useEffect(() => {
     if (groupedByMonth.length === 0) return;
     const hasCurrentMonth = groupedByMonth.some((g) => g.month === currentMonth);
@@ -261,13 +236,6 @@ export default function IncomePage() {
     });
   };
 
-  const toggleMonthUnlessDragged = (month: string) => {
-    if (otherMonthsDidDragRef.current) {
-      otherMonthsDidDragRef.current = false;
-      return;
-    }
-    toggleMonth(month);
-  };
 
   const monthTotal = allEntries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
   const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
@@ -541,14 +509,8 @@ export default function IncomePage() {
                   <ChevronUp className="h-4 w-4" />
                 </button>
               )}
-              <div
-                className="flex select-none flex-col gap-2 touch-none"
-                onPointerDown={handleOtherMonthsPointerDown}
-                onPointerMove={handleOtherMonthsPointerMove}
-                onPointerUp={handleOtherMonthsPointerUp}
-                onPointerCancel={handleOtherMonthsPointerUp}
-              >
-                {visibleOtherMonths.map((group) => renderMonthCard(group, false, () => toggleMonthUnlessDragged(group.month)))}
+              <div className="flex flex-col gap-2">
+                {visibleOtherMonths.map((group) => renderMonthCard(group, false, () => toggleMonth(group.month)))}
               </div>
               {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
                 <button
