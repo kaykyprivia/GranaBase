@@ -138,6 +138,14 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
                             strokeWidth={isActive ? 2 : 1.75}
                           />
                           <span className="flex-1">{item.label}</span>
+                          {item.children && (
+                            <ChevronDown
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                (isActive || item.children.some((child) => isItemActive(child.href, pathname, searchParams))) && "rotate-180"
+                              )}
+                            />
+                          )}
                         </Link>
 
                         {item.children && (isActive || item.children.some((child) => isItemActive(child.href, pathname, searchParams))) && (
