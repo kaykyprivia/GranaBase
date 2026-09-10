@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -431,40 +431,6 @@ export default function ExpensesPage() {
   const otherMonthsDefaultStart = Math.min(pastMonthGroups.length, otherMonthsMaxStart);
   const otherMonthsStart = Math.min(otherMonthsWindowStart ?? otherMonthsDefaultStart, otherMonthsMaxStart);
   const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
-
-  const otherMonthsDragRef = useRef<{ startY: number; consumed: number } | null>(null);
-  const otherMonthsDidDragRef = useRef(false);
-  const OTHER_MONTHS_DRAG_STEP_PX = 56;
-
-  const handleOtherMonthsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    otherMonthsDragRef.current = { startY: e.clientY, consumed: 0 };
-    otherMonthsDidDragRef.current = false;
-  };
-
-  const handleOtherMonthsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = otherMonthsDragRef.current;
-    if (!drag) return;
-    const delta = e.clientY - drag.startY - drag.consumed;
-    if (Math.abs(delta) < OTHER_MONTHS_DRAG_STEP_PX) return;
-    const steps = Math.trunc(delta / OTHER_MONTHS_DRAG_STEP_PX);
-    drag.consumed += steps * OTHER_MONTHS_DRAG_STEP_PX;
-    otherMonthsDidDragRef.current = true;
-    // Dragging the finger up reveals later (future) months, like a normal scroll.
-    setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, Math.max(0, otherMonthsStart - steps)));
-  };
-
-  const handleOtherMonthsPointerUp = () => {
-    otherMonthsDragRef.current = null;
-  };
-
-  const toggleMonthUnlessDragged = (month: string) => {
-    if (otherMonthsDidDragRef.current) {
-      otherMonthsDidDragRef.current = false;
-      return;
-    }
-    toggleMonth(month);
-  };
 
   const monthOptions = useMemo(() => {
     const months = new Set<string>(groupedByMonth.map((g) => g.month));
@@ -1081,18 +1047,12 @@ export default function ExpensesPage() {
                   <ChevronUp className="h-4 w-4" />
                 </button>
               )}
-              <div
-                className="flex select-none flex-col gap-2 touch-none"
-                onPointerDown={handleOtherMonthsPointerDown}
-                onPointerMove={handleOtherMonthsPointerMove}
-                onPointerUp={handleOtherMonthsPointerUp}
-                onPointerCancel={handleOtherMonthsPointerUp}
-              >
+              <div className="flex flex-col gap-2">
                 {visibleOtherMonths.map((group) => (
                   <MonthGroupCard
                     key={group.month}
                     month={group.month} label={group.label} items={group.items}
-                    isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonthUnlessDragged(group.month)}
+                    isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
                     currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
                     onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
                     onRevert={(entry) => setRevertItem(entry)}
