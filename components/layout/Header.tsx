@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, LogOut, Menu, Settings, X } from "lucide-react";
+import { Bell, Check, Gift, LogOut, Menu, Settings, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { coerceMutation } from "@/lib/supabase/casts";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { NavigationGroups } from "@/components/layout/NavigationGroups";
@@ -16,20 +17,144 @@ interface HeaderProps {
   pageTitle?: string;
 }
 
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  notification_type: string;
+  read_at: string | null;
+  created_at: string;
+}
+
 export function Header({ pageTitle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMaeUser, setIsMaeUser] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    let active = true;
+
+    const loadUserAndNotifications = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+
       setIsMaeUser(user?.id === MAE_USER_ID);
-    });
+
+      if (!user) {
+        setNotifications([]);
+        setNotificationsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id,title,message,notification_type,read_at,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (!active) return;
+
+      if (error) {
+        console.error("Erro ao carregar notificacoes:", error);
+        setNotifications([]);
+      } else {
+        setNotifications((data ?? []) as AppNotification[]);
+      }
+
+      setNotificationsLoading(false);
+    };
+
+    void loadUserAndNotifications();
+
+    return () => {
+      active = false;
+    };
   }, [supabase]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!notificationsRef.current?.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, []);
+
+  const unreadNotifications = notifications.filter(
+    (notification) => !notification.read_at
+  ).length;
+
+  const markNotificationAsRead = async (id: string) => {
+    const notification = notifications.find((item) => item.id === id);
+
+    if (!notification || notification.read_at) {
+      return;
+    }
+
+    const readAt = new Date().toISOString();
+
+    const { error } = await supabase.rpc(
+      "mark_notification_read",
+      coerceMutation({
+        notification_id: id,
+      })
+    );
+
+    if (error) {
+      toast.error("Nao foi possivel marcar a notificacao como lida.");
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, read_at: readAt } : item
+      )
+    );
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    const unreadIds = notifications
+      .filter((notification) => !notification.read_at)
+      .map((notification) => notification.id);
+
+    if (unreadIds.length === 0) {
+      return;
+    }
+
+    const readAt = new Date().toISOString();
+
+    const { error } = await supabase.rpc("mark_all_notifications_read");
+
+    if (error) {
+      toast.error("Nao foi possivel marcar as notificacoes como lidas.");
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.read_at
+          ? notification
+          : { ...notification, read_at: readAt }
+      )
+    );
+  };
 
   useEffect(() => {
     if (!mobileMenuOpen) {
@@ -100,13 +225,113 @@ export function Header({ pageTitle }: HeaderProps) {
               <span className="max-w-[7rem] truncate text-sm font-medium text-text-secondary">{pageTitle}</span>
             )}
             <ThemeToggle />
-            <button
-              type="button"
-              aria-label="Notificações"
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-            </button>
+            <div ref={notificationsRef} className="relative">
+              <button
+                type="button"
+                aria-label="Notificações"
+                aria-expanded={notificationsOpen}
+                onClick={() => setNotificationsOpen((current) => !current)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Bell className="h-[18px] w-[18px]" />
+
+                {unreadNotifications > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-expense px-1 text-[9px] font-bold leading-none text-white">
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-overlay">
+                  <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">
+                        Notificações
+                      </p>
+                      <p className="text-[11px] text-text-secondary">
+                        {unreadNotifications > 0
+                          ? `${unreadNotifications} não lida${unreadNotifications === 1 ? "" : "s"}`
+                          : "Tudo em dia"}
+                      </p>
+                    </div>
+
+                    {unreadNotifications > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void markAllNotificationsAsRead()}
+                        className="text-[11px] font-medium text-accent hover:underline"
+                      >
+                        Marcar todas como lidas
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-[26rem] overflow-y-auto">
+                    {notificationsLoading ? (
+                      <div className="px-4 py-6 text-center text-sm text-text-secondary">
+                        Carregando...
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <Bell className="mx-auto mb-2 h-5 w-5 text-text-muted" />
+                        <p className="text-sm font-medium text-text-primary">
+                          Nenhuma notificação
+                        </p>
+                        <p className="mt-1 text-xs text-text-secondary">
+                          Novidades importantes aparecerão aqui.
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.map((notification) => {
+                        const NotificationIcon =
+                          notification.notification_type === "trial"
+                            ? Gift
+                            : notification.notification_type === "welcome"
+                              ? Sparkles
+                              : Bell;
+
+                        return (
+                          <button
+                            key={notification.id}
+                            type="button"
+                            onClick={() => void markNotificationAsRead(notification.id)}
+                            className="flex w-full gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-border/25"
+                          >
+                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                              <NotificationIcon className="h-4 w-4" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-semibold text-text-primary">
+                                  {notification.title}
+                                </p>
+
+                                {!notification.read_at && (
+                                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                                {notification.message}
+                              </p>
+
+                              {notification.read_at && (
+                                <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-text-muted">
+                                  <Check className="h-3 w-3" />
+                                  Lida
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

@@ -83,6 +83,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          message: string;
+          notification_type: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          message: string;
+          notification_type?: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          message?: string;
+          notification_type?: string;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       user_settings: {
         Row: {
           user_id: string;
@@ -1322,6 +1352,16 @@ export interface Database {
       };
     };
     Functions: {
+      mark_notification_read: {
+        Args: {
+          notification_id: string;
+        };
+        Returns: void;
+      };
+      mark_all_notifications_read: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
       delete_my_account: {
         Args: Record<PropertyKey, never>;
         Returns: void;
