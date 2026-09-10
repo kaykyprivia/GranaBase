@@ -27,6 +27,10 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
       ),
     [groups, pathname, searchParams]
   );
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>(() => ({
+    "/investments": pathname === "/investments",
+  }));
+
   const [expanded, setExpanded] = useState<ExpandedState>(() => ({
     finance: !pathname.startsWith("/business"),
     business: pathname.startsWith("/business"),
@@ -61,6 +65,13 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
     setExpanded((current) => ({
       ...current,
       [groupId]: !current[groupId],
+    }));
+  };
+
+  const toggleItem = (href: string) => {
+    setExpandedItems((current) => ({
+      ...current,
+      [href]: !current[href],
     }));
   };
 
@@ -101,6 +112,13 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
                   {group.items.map((item) => {
                     const isActive = isItemActive(item.href, pathname, searchParams);
                     const Icon = item.icon;
+                    const hasActiveChild =
+                      item.children?.some((child) =>
+                        isItemActive(child.href, pathname, searchParams)
+                      ) ?? false;
+                    const isItemExpanded = item.children
+                      ? (expandedItems[item.href] ?? (isActive || hasActiveChild))
+                      : false;
 
                     if (item.disabled) {
                       return (
@@ -119,36 +137,64 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
 
                     return (
                       <div key={item.href}>
-                        <Link
-                          href={item.href}
-                          tabIndex={isExpanded ? undefined : -1}
-                          onClick={onNavigate}
-                          className={cn(
-                            "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                            isActive
-                              ? "bg-accent/10 text-accent"
-                              : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
-                          )}
-                        >
-                          {isActive && (
-                            <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
-                          )}
-                          <Icon
-                            className={cn("h-[17px] w-[17px] shrink-0", isActive ? "text-accent" : "text-text-muted")}
-                            strokeWidth={isActive ? 2 : 1.75}
-                          />
-                          <span className="flex-1">{item.label}</span>
-                          {item.children && (
+                        {item.children ? (
+                          <button
+                            type="button"
+                            tabIndex={isExpanded ? undefined : -1}
+                            aria-expanded={isItemExpanded}
+                            onClick={() => toggleItem(item.href)}
+                            className={cn(
+                              "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                              isActive || hasActiveChild
+                                ? "bg-accent/10 text-accent"
+                                : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
+                            )}
+                          >
+                            {(isActive || hasActiveChild) && (
+                              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
+                            )}
+                            <Icon
+                              className={cn(
+                                "h-[17px] w-[17px] shrink-0",
+                                isActive || hasActiveChild ? "text-accent" : "text-text-muted"
+                              )}
+                              strokeWidth={isActive || hasActiveChild ? 2 : 1.75}
+                            />
+                            <span className="flex-1 text-left">{item.label}</span>
                             <ChevronDown
                               className={cn(
                                 "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                                (isActive || item.children.some((child) => isItemActive(child.href, pathname, searchParams))) && "rotate-180"
+                                isItemExpanded && "rotate-180"
                               )}
                             />
-                          )}
-                        </Link>
+                          </button>
+                        ) : (
+                          <Link
+                            href={item.href}
+                            tabIndex={isExpanded ? undefined : -1}
+                            onClick={onNavigate}
+                            className={cn(
+                              "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                              isActive
+                                ? "bg-accent/10 text-accent"
+                                : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
+                            )}
+                          >
+                            {isActive && (
+                              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
+                            )}
+                            <Icon
+                              className={cn(
+                                "h-[17px] w-[17px] shrink-0",
+                                isActive ? "text-accent" : "text-text-muted"
+                              )}
+                              strokeWidth={isActive ? 2 : 1.75}
+                            />
+                            <span className="flex-1">{item.label}</span>
+                          </Link>
+                        )}
 
-                        {item.children && (isActive || item.children.some((child) => isItemActive(child.href, pathname, searchParams))) && (
+                        {item.children && isItemExpanded && (
                           <div className="ml-[19px] mt-0.5 space-y-0.5 border-l border-border/60 py-0.5 pl-3">
                             {item.children.map((child) => {
                               const ChildIcon = child.icon;
