@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { MonthFilter, type MonthOption } from "@/components/shared/MonthFilter";
-import { cn } from "@/lib/utils";
 
 const SOURCE_OPTIONS = [
   { value: "all", label: "Todos os tipos" },
@@ -131,17 +130,8 @@ export function ExpensesFilters({
         </div>
       )}
 
-      {/* Desktop layout */}
-      <div className="hidden sm:flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-          {selects}
-          <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
-        </div>
-      </div>
-
-      {/* Mobile layout */}
-      <div className="flex sm:hidden items-center gap-2">
+      {/* Unified layout: mobile + desktop */}
+      <div className="flex items-center gap-2">
         <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
           leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
         <div className="relative">
@@ -161,7 +151,7 @@ export function ExpensesFilters({
       </div>
 
       <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <DialogContent className={cn("sm:hidden")}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Filtros</DialogTitle>
           </DialogHeader>

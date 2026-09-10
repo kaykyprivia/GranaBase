@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Upload } from "lucide-react";
+import { TrendingUp, Plus, Pencil, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -22,12 +22,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MonthFilter, type MonthOption } from "@/components/shared/MonthFilter";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
+import type { MonthOption } from "@/components/shared/MonthFilter";
+import { IncomeFilters } from "@/components/income/IncomeFilters";
 
 function getSupabaseErrorMessage(error: unknown): string {
   if (!error) return "Erro desconhecido.";
@@ -216,6 +217,20 @@ export default function IncomePage() {
     } else if (trendOffset > 0) {
       goTrendForward();
     }
+  };
+
+  const activeFilterCount = [
+    monthFilter !== "all",
+    categoryFilter !== "all",
+    Boolean(search),
+  ].filter(Boolean).length;
+
+  const hasActiveFilters = activeFilterCount > 0;
+
+  const clearFilters = () => {
+    setMonthFilter("all");
+    setCategoryFilter("all");
+    setSearch("");
   };
 
   const filtered = useMemo(() => allEntries.filter(e => {
@@ -532,26 +547,20 @@ export default function IncomePage() {
           </ResponsiveContainer>
         </div>
       )}
-
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <MonthFilter
-          months={monthOptions}
-          value={monthFilter}
-          onChange={setMonthFilter}
-          currentMonth={currentMonth}
-          className="sm:w-56"
-        />
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {INCOME_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Input placeholder="Buscar por descrição..." value={search} onChange={e => setSearch(e.target.value)}
-          leftIcon={<Search className="h-4 w-4" />} className="flex-1" />
-      </div>
+      <IncomeFilters
+        monthFilter={monthFilter}
+        setMonthFilter={setMonthFilter}
+        monthOptions={monthOptions}
+        currentMonth={currentMonth}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
+        categories={INCOME_CATEGORIES}
+        search={search}
+        setSearch={setSearch}
+        activeFilterCount={activeFilterCount}
+        onClearFilters={clearFilters}
+      />
 
       {/* Grouped list */}
       {loading ? (
@@ -562,8 +571,8 @@ export default function IncomePage() {
         <EmptyState icon={TrendingUp} title="Nenhuma entrada encontrada"
           description={search || monthFilter !== "all" || categoryFilter !== "all"
             ? "Tente remover ou ajustar os filtros." : "Registre sua primeira entrada de receita."}
-          actionLabel={!search && monthFilter === "all" && categoryFilter === "all" ? "+ Nova Entrada" : undefined}
-          onAction={!search && monthFilter === "all" && categoryFilter === "all" ? openCreate : undefined}
+          actionLabel={!hasActiveFilters ? "+ Nova Entrada" : undefined}
+          onAction={!hasActiveFilters ? openCreate : undefined}
         />
       ) : (
         <div className="space-y-2">
