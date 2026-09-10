@@ -29,7 +29,7 @@ import {
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, toLocalDateString } from "@/lib/utils";
+import { formatCurrency, toLocalDateString } from "@/lib/utils";
 import type {
   BusinessCustomer,
   BusinessPayment,
@@ -302,42 +302,16 @@ export function SalesPageClient() {
             leftIcon={<Search className="h-4 w-4" />}
             className="min-h-11"
           />
-          <Button type="button" variant="outline" className="min-h-11 lg:hidden" onClick={() => setFiltersOpen(true)} aria-label="Abrir filtros">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 shrink-0"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Abrir filtros"
+          >
             <SlidersHorizontal className="h-4 w-4" />
+            <span>Filtros</span>
           </Button>
-        </div>
-
-        <div className="hidden gap-3 lg:flex">
-          <Filters
-            statusFilter={statusFilter}
-            paymentFilter={paymentFilter}
-            periodFilter={periodFilter}
-            customStart={customStart}
-            customEnd={customEnd}
-            onStatusChange={setStatusFilter}
-            onPaymentChange={setPaymentFilter}
-            onPeriodChange={setPeriodFilter}
-            onCustomStartChange={setCustomStart}
-            onCustomEndChange={setCustomEnd}
-          />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-          {SALE_FILTER_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setStatusFilter(option.value)}
-              className={cn(
-                "min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold transition-colors",
-                statusFilter === option.value
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border/60 bg-surface text-text-secondary"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -431,7 +405,7 @@ function Filters({
   return (
     <>
       <Select value={statusFilter} onValueChange={(value) => onStatusChange(value as SaleListFilter)}>
-        <SelectTrigger className="w-full lg:w-52" aria-label="Filtrar pedido">
+        <SelectTrigger className="w-full" aria-label="Filtrar pedido">
           <SelectValue placeholder="Pedido" />
         </SelectTrigger>
         <SelectContent>
@@ -442,7 +416,7 @@ function Filters({
       </Select>
 
       <Select value={paymentFilter} onValueChange={(value) => onPaymentChange(value as SalePaymentFilter)}>
-        <SelectTrigger className="w-full lg:w-48" aria-label="Filtrar pagamento">
+        <SelectTrigger className="w-full" aria-label="Filtrar pagamento">
           <SelectValue placeholder="Pagamento" />
         </SelectTrigger>
         <SelectContent>
@@ -453,7 +427,7 @@ function Filters({
       </Select>
 
       <Select value={periodFilter} onValueChange={(value) => onPeriodChange(value as SalesDateRangePreset)}>
-        <SelectTrigger className="w-full lg:w-48" aria-label="Filtrar periodo">
+        <SelectTrigger className="w-full" aria-label="Filtrar periodo">
           <SelectValue placeholder="Periodo" />
         </SelectTrigger>
         <SelectContent>
@@ -464,7 +438,7 @@ function Filters({
       </Select>
 
       {periodFilter === "custom" && (
-        <div className="grid grid-cols-2 gap-3 lg:w-80">
+        <div className="grid grid-cols-2 gap-3">
           <Input type="date" value={customStart} onChange={(event) => onCustomStartChange(event.target.value)} aria-label="Data inicial" />
           <Input type="date" value={customEnd} onChange={(event) => onCustomEndChange(event.target.value)} aria-label="Data final" />
         </div>

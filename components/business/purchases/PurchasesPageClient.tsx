@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency, toLocalDateString } from "@/lib/utils";
+import { formatCurrency, toLocalDateString } from "@/lib/utils";
 import {
   getDateRange,
   makeBusinessStableIdempotencyKey,
@@ -274,40 +274,16 @@ export function PurchasesPageClient() {
             leftIcon={<Search className="h-4 w-4" />}
             className="min-h-11"
           />
-          <Button type="button" variant="outline" className="min-h-11 lg:hidden" onClick={() => setFiltersOpen(true)} aria-label="Abrir filtros">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 shrink-0"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Abrir filtros"
+          >
             <SlidersHorizontal className="h-4 w-4" />
+            <span>Filtros</span>
           </Button>
-        </div>
-
-        <div className="hidden gap-3 lg:flex">
-          <Filters
-            statusFilter={statusFilter}
-            periodFilter={periodFilter}
-            customStart={customStart}
-            customEnd={customEnd}
-            onStatusChange={setStatusFilter}
-            onPeriodChange={setPeriodFilter}
-            onCustomStartChange={setCustomStart}
-            onCustomEndChange={setCustomEnd}
-          />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-          {statusOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setStatusFilter(option.value)}
-              className={cn(
-                "min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold transition-colors",
-                statusFilter === option.value
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border/60 bg-surface text-text-secondary"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -392,7 +368,7 @@ function Filters({
   return (
     <>
       <Select value={statusFilter} onValueChange={(value) => onStatusChange(value as "all" | BusinessPurchaseOrderStatus)}>
-        <SelectTrigger className="w-full lg:w-60" aria-label="Filtrar por status"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger className="w-full" aria-label="Filtrar por status"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>
           {statusOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -400,7 +376,7 @@ function Filters({
         </SelectContent>
       </Select>
       <Select value={periodFilter} onValueChange={(value) => onPeriodChange(value as DateRangePreset)}>
-        <SelectTrigger className="w-full lg:w-48" aria-label="Filtrar por período"><SelectValue placeholder="Período" /></SelectTrigger>
+        <SelectTrigger className="w-full" aria-label="Filtrar por período"><SelectValue placeholder="Período" /></SelectTrigger>
         <SelectContent>
           {periodOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -408,7 +384,7 @@ function Filters({
         </SelectContent>
       </Select>
       {periodFilter === "custom" && (
-        <div className="grid grid-cols-2 gap-3 lg:w-80">
+        <div className="grid grid-cols-2 gap-3">
           <Input type="date" value={customStart} onChange={(event) => onCustomStartChange(event.target.value)} aria-label="Data inicial" />
           <Input type="date" value={customEnd} onChange={(event) => onCustomEndChange(event.target.value)} aria-label="Data final" />
         </div>

@@ -27,7 +27,7 @@ import {
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import type { Database } from "@/types/database";
 import type { WorkspaceRpcResult } from "@/components/business/inventory/types";
 
@@ -168,31 +168,16 @@ export function InventoryPageClient() {
             leftIcon={<Search className="h-4 w-4" />}
             className="min-h-11"
           />
-          <Button type="button" variant="outline" className="min-h-11 lg:hidden" onClick={() => setFiltersOpen(true)} aria-label="Abrir filtros">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 shrink-0"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Abrir filtros"
+          >
             <SlidersHorizontal className="h-4 w-4" />
+            <span>Filtros</span>
           </Button>
-        </div>
-
-        <div className="hidden gap-3 lg:flex">
-          <Filters filter={filter} sort={sort} onFilterChange={setFilter} onSortChange={setSort} />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-          {INVENTORY_FILTER_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setFilter(option.value)}
-              className={cn(
-                "min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold transition-colors",
-                filter === option.value
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border/60 bg-surface text-text-secondary"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -245,7 +230,7 @@ function Filters({
   return (
     <>
       <Select value={filter} onValueChange={(value) => onFilterChange(value as InventoryFilter)}>
-        <SelectTrigger className="w-full lg:w-56" aria-label="Filtrar estoque"><SelectValue placeholder="Filtro" /></SelectTrigger>
+        <SelectTrigger className="w-full" aria-label="Filtrar estoque"><SelectValue placeholder="Filtro" /></SelectTrigger>
         <SelectContent>
           {INVENTORY_FILTER_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -254,7 +239,7 @@ function Filters({
       </Select>
 
       <Select value={sort} onValueChange={(value) => onSortChange(value as InventorySort)}>
-        <SelectTrigger className="w-full lg:w-56" aria-label="Ordenar estoque"><SelectValue placeholder="Ordenação" /></SelectTrigger>
+        <SelectTrigger className="w-full" aria-label="Ordenar estoque"><SelectValue placeholder="Ordenação" /></SelectTrigger>
         <SelectContent>
           {INVENTORY_SORT_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
