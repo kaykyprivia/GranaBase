@@ -1,6 +1,6 @@
 "use client";
 
-import { Receipt, Repeat, CreditCard, Wallet, Check, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Receipt, Repeat, CreditCard, Wallet, Landmark, Check, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -20,6 +20,7 @@ export interface LancamentoItemProps {
 function getTypeIcon(entry: DisplayExpense) {
   if (entry.source === "bill") return Receipt;
   if (entry.source === "installment") return Repeat;
+  if (entry.source === "consortium") return Landmark;
   if (entry.source === "manual" && entry.payment_method === "Cartão Crédito") return CreditCard;
   return Wallet;
 }
@@ -55,6 +56,7 @@ export function LancamentoItem({
   const metaParts: string[] = [entry.category];
   if (entry.source === "bill") metaParts[0] = `${entry.category} · Conta`;
   else if (entry.source === "installment" && !isGenericInstallmentCategory) metaParts[0] = `${entry.category} · Parcela`;
+  else if (entry.source === "consortium") metaParts[0] = "Cons\u00f3rcio";
   if (entry.payment_method) metaParts.push(entry.payment_method);
   const metaText = metaParts.join(" · ");
 
@@ -102,7 +104,7 @@ export function LancamentoItem({
         </div>
 
         <div className="flex shrink-0 items-center gap-1 ml-auto sm:ml-0">
-        {entry.status !== "paid" ? (
+        {entry.source === "consortium" ? null : entry.status !== "paid" ? (
           <>
             <Button
               variant="outline"

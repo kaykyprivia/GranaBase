@@ -14,6 +14,7 @@ const SOURCE_OPTIONS = [
   { value: "manual", label: "Gastos avulsos" },
   { value: "bill", label: "Contas fixas" },
   { value: "installment", label: "Parcelamentos" },
+  { value: "consortium", label: "Cons\u00f3rcios" },
 ];
 
 export interface ExpensesFiltersProps {

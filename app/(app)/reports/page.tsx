@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { buildDaySeries, buildMonthSeries, getEffectiveBillStatus } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency, toLocalDateString } from "@/lib/utils";
-import type { Bill, ExpenseEntry, IncomeEntry, Investment } from "@/types/database";
+import type { Bill, ExpenseEntry, IncomeEntry, Investment, Database } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -31,6 +31,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useChartColors } from "@/hooks/useChartColors";
 
 const PIE_COLORS = ["#38BDF8", "#22C55E", "#FACC15", "#EF4444", "#A78BFA", "#F97316", "#EC4899", "#14B8A6"];
+
+type Consortium = Database["public"]["Tables"]["consortiums"]["Row"];
+type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Row"];
 
 type PeriodKey = "1m" | "3m" | "6m" | "12m" | "all";
 
@@ -47,6 +50,8 @@ interface ReportsPayload {
   expenses: ExpenseEntry[];
   bills: Bill[];
   investments: Investment[];
+  consortiums: Consortium[];
+  consortiumPayments: ConsortiumPayment[];
 }
 
 function formatMonthLabel(monthKey: string) {
@@ -86,6 +91,8 @@ export default function ReportsPage() {
     expenses: [],
     bills: [],
     investments: [],
+    consortiums: [],
+    consortiumPayments: [],
   });
   const [period, setPeriod] = useState<PeriodKey>("6m");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -100,14 +107,30 @@ export default function ReportsPage() {
       return;
     }
 
-    const [incomeRes, expenseRes, billsRes, investmentsRes] = await Promise.all([
+    const [
+      incomeRes,
+      expenseRes,
+      billsRes,
+      investmentsRes,
+      consortiumsRes,
+      consortiumPaymentsRes,
+    ] = await Promise.all([
       supabase.from("income_entries").select("*").eq("user_id", user.id),
       supabase.from("expense_entries").select("*").eq("user_id", user.id),
       supabase.from("bills").select("*").eq("user_id", user.id),
       supabase.from("investments").select("*").eq("user_id", user.id),
+      supabase.from("consortiums").select("*").eq("user_id", user.id),
+      supabase.from("consortium_payments").select("*").eq("user_id", user.id),
     ]);
 
-    if (incomeRes.error || expenseRes.error || billsRes.error || investmentsRes.error) {
+    if (
+      incomeRes.error ||
+      expenseRes.error ||
+      billsRes.error ||
+      investmentsRes.error ||
+      consortiumsRes.error ||
+      consortiumPaymentsRes.error
+    ) {
       toast.error("Erro ao carregar relatórios");
       setLoading(false);
       return;
@@ -118,6 +141,8 @@ export default function ReportsPage() {
       expenses: expenseRes.data ?? [],
       bills: billsRes.data ?? [],
       investments: investmentsRes.data ?? [],
+      consortiums: consortiumsRes.data ?? [],
+      consortiumPayments: consortiumPaymentsRes.data ?? [],
     });
     setLoading(false);
   }, [supabase]);
@@ -126,6 +151,42 @@ export default function ReportsPage() {
     fetchData();
   }, [fetchData]);
 
+  const consortiumsById = useMemo(
+    () => new Map(payload.consortiums.map((consortium) => [consortium.id, consortium])),
+    [payload.consortiums]
+  );
+
+  const consortiumExpenses = useMemo<ExpenseEntry[]>(() => {
+    return payload.consortiumPayments
+      .filter(
+        (payment) =>
+          (payment.status === "paid" || payment.status === "paid_with_discount") &&
+          payment.paid_at
+      )
+      .map((payment) => {
+        const consortium = consortiumsById.get(payment.consortium_id);
+
+        return {
+          id: `consortium-${payment.id}`,
+          user_id: payment.user_id,
+          description: consortium
+            ? `${consortium.name} (${payment.installment_number}/${consortium.total_installments})`
+            : `Cons\u00f3rcio - parcela ${payment.installment_number}`,
+          amount: payment.paid_amount ?? payment.amount,
+          category: "Cons\u00f3rcio",
+          spent_at: payment.paid_at!.slice(0, 10),
+          payment_method: null,
+          card_due_date: null,
+          notes: payment.notes,
+          created_at: payment.paid_at!,
+        };
+      });
+  }, [payload.consortiumPayments, consortiumsById]);
+
+  const allExpenses = useMemo(
+    () => [...payload.expenses, ...consortiumExpenses],
+    [payload.expenses, consortiumExpenses]
+  );
   const currentPeriod = PERIODS.find((p) => p.key === period)!;
 
   const cutoffDate = useMemo(() => {
@@ -136,8 +197,8 @@ export default function ReportsPage() {
   }, [period, currentPeriod.months]);
 
   const periodExpenses = useMemo(
-    () => payload.expenses.filter((e) => e.spent_at >= cutoffDate),
-    [payload.expenses, cutoffDate]
+    () => allExpenses.filter((e) => e.spent_at >= cutoffDate),
+    [allExpenses, cutoffDate]
   );
 
   const periodIncome = useMemo(
@@ -146,8 +207,8 @@ export default function ReportsPage() {
   );
 
   const allCategories = useMemo(
-    () => [...new Set(payload.expenses.map((e) => e.category))].sort(),
-    [payload.expenses]
+    () => [...new Set(allExpenses.map((e) => e.category))].sort(),
+    [allExpenses]
   );
 
   const filteredExpenses = useMemo(

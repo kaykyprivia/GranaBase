@@ -45,7 +45,10 @@ export function ConsortiumsPanel() {
   const [creditAmount, setCreditAmount] = useState(0);
   const [totalInstallments, setTotalInstallments] = useState("");
   const [installmentAmount, setInstallmentAmount] = useState(0);
-  const [firstDueDate, setFirstDueDate] = useState("");
+  const [currentInstallmentNumber, setCurrentInstallmentNumber] = useState("1");
+  const [currentDueDate, setCurrentDueDate] = useState("");
+  const [initialPaidAmount, setInitialPaidAmount] = useState(0);
+  const [dueDay, setDueDay] = useState("");
   const [administrationFee, setAdministrationFee] = useState("");
   const [reserveFund, setReserveFund] = useState("");
   const [notes, setNotes] = useState("");
@@ -57,7 +60,10 @@ export function ConsortiumsPanel() {
     setCreditAmount(0);
     setTotalInstallments("");
     setInstallmentAmount(0);
-    setFirstDueDate("");
+    setCurrentInstallmentNumber("1");
+    setCurrentDueDate("");
+    setInitialPaidAmount(0);
+    setDueDay("");
     setAdministrationFee("");
     setReserveFund("");
     setNotes("");
@@ -67,6 +73,8 @@ export function ConsortiumsPanel() {
     event.preventDefault();
 
     const installmentCount = Number.parseInt(totalInstallments, 10);
+    const currentInstallment = Number.parseInt(currentInstallmentNumber, 10);
+    const contractualDueDay = dueDay ? Number.parseInt(dueDay, 10) : null;
 
     if (!name.trim()) {
       toast.error("Informe o nome do consórcio.");
@@ -93,8 +101,32 @@ export function ConsortiumsPanel() {
       return;
     }
 
-    if (!firstDueDate) {
-      toast.error("Informe o primeiro vencimento.");
+    if (
+      !Number.isInteger(currentInstallment) ||
+      currentInstallment <= 0 ||
+      currentInstallment > installmentCount
+    ) {
+      toast.error("Informe uma parcela atual valida.");
+      return;
+    }
+
+    if (!currentDueDate) {
+      toast.error("Informe o vencimento da parcela atual.");
+      return;
+    }
+
+    if (initialPaidAmount < 0) {
+      toast.error("O capital ja pago nao pode ser negativo.");
+      return;
+    }
+
+    if (
+      contractualDueDay !== null &&
+      (!Number.isInteger(contractualDueDay) ||
+        contractualDueDay < 1 ||
+        contractualDueDay > 31)
+    ) {
+      toast.error("O dia contratual deve estar entre 1 e 31.");
       return;
     }
 
@@ -102,14 +134,17 @@ export function ConsortiumsPanel() {
       setCreating(true);
 
       const { error } = await supabase.rpc(
-        "create_consortium",
+        "create_consortium_v2",
         coerceMutation({
           p_name: name.trim(),
           p_holder_name: holderName.trim(),
           p_credit_amount: creditAmount,
           p_total_installments: installmentCount,
           p_current_installment_amount: installmentAmount,
-          p_first_due_date: firstDueDate,
+          p_current_installment_number: currentInstallment,
+          p_current_due_date: currentDueDate,
+          p_initial_paid_amount: initialPaidAmount,
+          p_due_day: contractualDueDay,
           p_administrator: administrator.trim() || null,
           p_administration_fee_percent: administrationFee
             ? Number(administrationFee)
@@ -218,11 +253,15 @@ export function ConsortiumsPanel() {
         return {
           ...consortium,
           currentPayment,
-          paidTotal: paidPayments.reduce(
-            (sum, payment) => sum + (payment.paid_amount ?? payment.amount),
-            0
-          ),
-          paidCount: paidPayments.length,
+          paidTotal:
+            consortium.initial_paid_amount +
+            paidPayments.reduce(
+              (sum, payment) =>
+                sum + (payment.paid_amount ?? payment.amount),
+              0
+            ),
+          paidCount:
+            consortium.initial_paid_installments + paidPayments.length,
         };
       });
 
@@ -285,9 +324,10 @@ export function ConsortiumsPanel() {
           icon={WalletCards}
         />
         <StatCard
-          title="Total pago"
+          title="Capital comprometido"
           value={formatCurrency(totalPaid)}
           icon={Landmark}
+          subtitle="Valor efetivamente pago"
         />
         <StatCard
           title="Próxima parcela"
@@ -485,6 +525,9 @@ export function ConsortiumsPanel() {
           </DialogHeader>
 
           <form onSubmit={handleCreateConsortium} className="space-y-4">
+            <div className="rounded-xl border border-border/70 bg-surface/60 p-3 text-xs text-text-secondary">
+              Consorcio novo: parcela 1 e capital ja pago 0. Se ele ja estiver em andamento, informe a parcela atual e quanto ja foi pago antes de cadastrar no GranaBase.
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Nome do consórcio" required>
                 <Input
@@ -528,25 +571,73 @@ export function ConsortiumsPanel() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Quantidade de parcelas" required>
+              <FormField label="Quantidade total de parcelas" required>
                 <Input
                   type="number"
                   min="1"
                   step="1"
                   value={totalInstallments}
                   onChange={(event) => setTotalInstallments(event.target.value)}
-                  placeholder="Ex: 200"
+                  placeholder="Ex: 236"
                 />
               </FormField>
 
-              <FormField label="Primeiro vencimento" required>
+              <FormField
+                label="Parcela atual"
+                required
+                hint="Se o consorcio acabou de iniciar, use 1."
+              >
                 <Input
-                  type="date"
-                  value={firstDueDate}
-                  onChange={(event) => setFirstDueDate(event.target.value)}
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={currentInstallmentNumber}
+                  onChange={(event) =>
+                    setCurrentInstallmentNumber(event.target.value)
+                  }
+                  placeholder="Ex: 80"
                 />
               </FormField>
             </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                label="Vencimento da parcela atual"
+                required
+                hint="Informe o vencimento da parcela que esta em aberto agora."
+              >
+                <Input
+                  type="date"
+                  value={currentDueDate}
+                  onChange={(event) => setCurrentDueDate(event.target.value)}
+                />
+              </FormField>
+
+              <FormField
+                label="Dia contratual do vencimento"
+                hint="Opcional. Ex: 31. Util para contratos que vencem no fim do mes."
+              >
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  step="1"
+                  value={dueDay}
+                  onChange={(event) => setDueDay(event.target.value)}
+                  placeholder="Ex: 10"
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              label="Capital ja pago antes do GranaBase"
+              hint="Use 0 em consorcio novo. Esse valor entra no progresso, mas nao cria gastos retroativos."
+            >
+              <CurrencyInput
+                value={initialPaidAmount}
+                onChange={setInitialPaidAmount}
+              />
+            </FormField>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Taxa de administração (%)">

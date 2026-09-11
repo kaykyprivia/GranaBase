@@ -468,6 +468,9 @@ export interface Database {
           total_installments: number;
           current_installment_amount: number;
           first_due_date: string;
+          initial_paid_installments: number;
+          initial_paid_amount: number;
+          due_day: number;
           status: ConsortiumStatus;
           contemplated: boolean;
           contemplated_at: string | null;
@@ -487,6 +490,9 @@ export interface Database {
           total_installments: number;
           current_installment_amount: number;
           first_due_date: string;
+          initial_paid_installments?: number;
+          initial_paid_amount?: number;
+          due_day?: number;
           status?: ConsortiumStatus;
           contemplated?: boolean;
           contemplated_at?: string | null;
@@ -506,6 +512,9 @@ export interface Database {
           total_installments?: number;
           current_installment_amount?: number;
           first_due_date?: string;
+          initial_paid_installments?: number;
+          initial_paid_amount?: number;
+          due_day?: number;
           status?: ConsortiumStatus;
           contemplated?: boolean;
           contemplated_at?: string | null;
@@ -1471,6 +1480,24 @@ export interface Database {
           p_total_installments: number;
           p_current_installment_amount: number;
           p_first_due_date: string;
+          p_administrator?: string | null;
+          p_administration_fee_percent?: number | null;
+          p_reserve_fund_percent?: number | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      create_consortium_v2: {
+        Args: {
+          p_name: string;
+          p_holder_name: string;
+          p_credit_amount: number;
+          p_total_installments: number;
+          p_current_installment_amount: number;
+          p_current_installment_number: number;
+          p_current_due_date: string;
+          p_initial_paid_amount?: number;
+          p_due_day?: number | null;
           p_administrator?: string | null;
           p_administration_fee_percent?: number | null;
           p_reserve_fund_percent?: number | null;

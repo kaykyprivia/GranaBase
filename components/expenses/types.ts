@@ -6,7 +6,7 @@ export interface DisplayExpense {
   spent_at: string;
   payment_method: string | null;
   created_at: string;
-  source: "manual" | "bill" | "installment";
+  source: "manual" | "bill" | "installment" | "consortium";
   status: "paid" | "pending" | "overdue";
   dueAmount?: number;
   scheduledAmount?: number;

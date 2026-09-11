@@ -9,7 +9,7 @@ import {
   AlertCircle, CheckCircle2, ChevronRight, Target, Plus, Heart,
   CalendarClock, Car, UtensilsCrossed, Gamepad2,
   Home, ShoppingCart, HeartPulse, GraduationCap,
-  Zap, MoreHorizontal, LayoutDashboard,
+  Zap, MoreHorizontal, LayoutDashboard, Landmark,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getDaysUntilDue, isOverdue, cn } from "@/lib/utils";
-import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment, Receivable } from "@/types/database";
+import type { Bill, IncomeEntry, ExpenseEntry, FinancialGoal, Installment, InstallmentPayment, Receivable, Database } from "@/types/database";
 
 interface DashboardAreaChartProps {
   data: ChartData[];
@@ -79,6 +79,9 @@ interface ChartData {
   expenses: number;
 }
 
+type Consortium = Database["public"]["Tables"]["consortiums"]["Row"];
+type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Row"];
+
 const CATEGORY_META: Record<string, { icon: React.ElementType; color: string }> = {
   Transporte:   { icon: Car,              color: "#F97316" },
   Alimentação:  { icon: UtensilsCrossed,  color: "#22C55E" },
@@ -89,6 +92,7 @@ const CATEGORY_META: Record<string, { icon: React.ElementType; color: string }> 
   Educação:     { icon: GraduationCap,    color: "#FACC15" },
   Emergência:   { icon: Zap,              color: "#FB923C" },
   Internet:     { icon: Zap,              color: "#6366F1" },
+  "Cons\u00f3rcio": { icon: Landmark, color: "#38BDF8" },
 };
 
 function getCategoryMeta(category: string): { icon: React.ElementType; color: string } {
@@ -120,6 +124,12 @@ export default function DashboardPage() {
     amount: number;
     due_date: string;
   }>>([]);
+  const [upcomingConsortiums, setUpcomingConsortiums] = useState<Array<{
+    id: string;
+    description: string;
+    amount: number;
+    due_date: string;
+  }>>([]);
   const [recentTransactions, setRecentTransactions] = useState<Array<IncomeEntry & { type: "income" } | ExpenseEntry & { type: "expense" }>>([]);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -142,6 +152,8 @@ export default function DashboardPage() {
       { data: installmentsData },
       { data: receivablesData },
       { data: investmentsData },
+      { data: consortiumsData },
+      { data: consortiumPaymentsData },
       { data: goalsData },
       { data: recentIncome },
       { data: recentExpenses },
@@ -154,6 +166,8 @@ export default function DashboardPage() {
       supabase.from("installments").select("*").eq("user_id", user.id),
       supabase.from("receivables").select("*").eq("user_id", user.id),
       supabase.from("investments").select("amount").eq("user_id", user.id),
+      supabase.from("consortiums").select("*").eq("user_id", user.id),
+      supabase.from("consortium_payments").select("*").eq("user_id", user.id),
       supabase.from("financial_goals").select("*").eq("user_id", user.id).neq("status", "completed").limit(3),
       supabase.from("income_entries").select("*").eq("user_id", user.id).order("received_at", { ascending: false }).limit(5),
       supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }).limit(5),
@@ -167,6 +181,54 @@ export default function DashboardPage() {
     const upcomingBillRows = coerceData<Bill[]>(upcomingBillsData ?? []).filter((bill) => appliesMaeFilter(user.id, "exclude-mae", bill.name));
     const installmentPayments = coerceData<InstallmentPayment[]>(installmentPaymentsData ?? [])
       .filter((payment) => appliesMaeFilter(user.id, "exclude-mae", installmentsById.get(payment.installment_id)?.description));
+
+    const consortiums = coerceData<Consortium[]>(consortiumsData ?? []);
+    const consortiumsById = new Map(
+      consortiums.map((consortium) => [consortium.id, consortium])
+    );
+    const consortiumPayments = coerceData<ConsortiumPayment[]>(
+      consortiumPaymentsData ?? []
+    );
+
+    const paidConsortiumPayments = consortiumPayments.filter(
+      (payment) =>
+        (payment.status === "paid" ||
+          payment.status === "paid_with_discount") &&
+        payment.paid_at
+    );
+
+    const monthPaidConsortiumAmount = paidConsortiumPayments
+      .filter((payment) => payment.paid_at!.startsWith(monthKey))
+      .reduce(
+        (sum, payment) => sum + (payment.paid_amount ?? payment.amount),
+        0
+      );
+
+    const totalPaidConsortiumAmount = paidConsortiumPayments.reduce(
+      (sum, payment) => sum + (payment.paid_amount ?? payment.amount),
+      0
+    );
+
+    const consortiumExpenseRows: ExpenseEntry[] =
+      paidConsortiumPayments.map((payment) => {
+        const consortium = consortiumsById.get(payment.consortium_id);
+
+        return {
+          id: `consortium-${payment.id}`,
+          user_id: payment.user_id,
+          description: consortium
+            ? `${consortium.name} (${payment.installment_number}/${consortium.total_installments})`
+            : `Cons\u00f3rcio - parcela ${payment.installment_number}`,
+          amount: payment.paid_amount ?? payment.amount,
+          category: "Cons\u00f3rcio",
+          spent_at: payment.paid_at!.slice(0, 10),
+          payment_method: null,
+          card_due_date: null,
+          notes: payment.notes,
+          created_at: payment.paid_at!,
+        };
+      });
+
     const goalRows = coerceData<FinancialGoal[]>(goalsData ?? []);
     const recentIncomeRows = coerceData<IncomeEntry[]>(recentIncome ?? []);
     const recentExpenseRows = coerceData<ExpenseEntry[]>(recentExpenses ?? []);
@@ -200,13 +262,17 @@ export default function DashboardPage() {
 
     setStats({
       totalIncome,
-      totalExpenses: totalExpenses + totalPaidBillsAmount,
+      totalExpenses:
+        totalExpenses + totalPaidBillsAmount + totalPaidConsortiumAmount,
       monthIncome,
-      monthExpenses: monthExpenses + monthPaidBillsAmount,
+      monthExpenses:
+        monthExpenses + monthPaidBillsAmount + monthPaidConsortiumAmount,
       futureInstallmentsAmount,
       futureInstallmentsCount: futureInstallments.length,
       investedTotal,
-      freeEstimate: monthIncome - (monthExpenses + monthPaidBillsAmount),
+      freeEstimate:
+        monthIncome -
+        (monthExpenses + monthPaidBillsAmount + monthPaidConsortiumAmount),
     });
 
     setUpcomingBills(
@@ -234,9 +300,35 @@ export default function DashboardPage() {
         })
     );
 
+    setUpcomingConsortiums(
+      consortiumPayments
+        .filter(
+          (payment) =>
+            payment.status === "pending" &&
+            (isOverdue(payment.due_date) ||
+              getDaysUntilDue(payment.due_date) <= 7)
+        )
+        .map((payment) => {
+          const consortium = consortiumsById.get(payment.consortium_id);
+
+          return {
+            id: payment.id,
+            description: consortium
+              ? `${consortium.name} (${payment.installment_number}/${consortium.total_installments})`
+              : `Consórcio - parcela ${payment.installment_number}`,
+            amount: payment.amount,
+            due_date: payment.due_date,
+          };
+        })
+    );
+
     const inc = recentIncomeRows.map(e => ({ ...e, type: "income" as const }));
     const exp = recentExpenseRows.map(e => ({ ...e, type: "expense" as const }));
-    const combined = [...inc, ...exp]
+    const consortiumRecent = consortiumExpenseRows.map(e => ({
+      ...e,
+      type: "expense" as const,
+    }));
+    const combined = [...inc, ...exp, ...consortiumRecent]
       .sort((a, b) => {
         const dateA = "received_at" in a ? a.received_at : a.spent_at;
         const dateB = "received_at" in b ? b.received_at : b.spent_at;
@@ -246,7 +338,15 @@ export default function DashboardPage() {
     setRecentTransactions(combined);
 
     setGoals(goalRows);
-    setChartData(buildMonthSeries(incomeRows, expenseRows, 6, installmentPayments, receivables));
+    setChartData(
+      buildMonthSeries(
+        incomeRows,
+        [...expenseRows, ...consortiumExpenseRows],
+        6,
+        installmentPayments,
+        receivables
+      )
+    );
 
     setLoading(false);
   }, []);
@@ -274,6 +374,13 @@ export default function DashboardPage() {
       amount: payment.amount,
       due_date: payment.due_date,
       source: "installment" as const,
+    })),
+    ...upcomingConsortiums.map((payment) => ({
+      id: `consortium-${payment.id}`,
+      name: payment.description,
+      amount: payment.amount,
+      due_date: payment.due_date,
+      source: "consortium" as const,
     })),
   ]
     .sort((a, b) => a.due_date.localeCompare(b.due_date))
@@ -494,7 +601,11 @@ export default function DashboardPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-text-primary break-words">{payment.name}</p>
                         <p className="text-[10px] text-text-secondary">
-                          {payment.source === "installment" ? "Parcela" : "Conta"}
+                          {payment.source === "installment"
+                            ? "Parcela"
+                            : payment.source === "consortium"
+                              ? "Consórcio"
+                              : "Conta"}
                         </p>
                         <p className={cn("text-xs", overdue ? "text-expense" : "text-warning")}>
                           {overdue

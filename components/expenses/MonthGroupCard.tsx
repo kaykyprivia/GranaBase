@@ -36,6 +36,7 @@ const SOURCE_SECTIONS: { source: DisplayExpense["source"]; label: string }[] = [
   { source: "manual", label: "Gastos avulsos" },
   { source: "bill", label: "Contas fixas" },
   { source: "installment", label: "Parcelamentos" },
+  { source: "consortium", label: "Cons\u00f3rcios" },
 ];
 
 export function MonthGroupCard(props: MonthGroupCardProps) {

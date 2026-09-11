@@ -884,6 +884,14 @@ export default function InvestmentsPage() {
   const isConsortiumsTab = activeTab === "consortiums";
   const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
 
+  if (isConsortiumsTab) {
+    return (
+      <div className="page-container animate-fade-in">
+        <ConsortiumsPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="page-container animate-fade-in">
       <PageIntro
@@ -999,9 +1007,7 @@ export default function InvestmentsPage() {
                 ))}
               </div>
 
-            ) : isConsortiumsTab ? (
-  <ConsortiumsPanel />
-) : activeTab === "contributions" ? (
+            ) : activeTab === "contributions" ? (
               contributions.length === 0 ? (
                 <EmptyState
                   icon={PiggyBank}

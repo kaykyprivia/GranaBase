@@ -18,7 +18,7 @@ import { billSchema, expenseSchema, installmentSchema, type BillFormData, type E
 import { getEffectiveInstallmentStatus, getInstallmentPaidAmount, isInstallmentPaid, summarizeInstallmentPayments } from "@/lib/installments";
 import { Progress } from "@/components/ui/progress";
 import { appliesMaeFilter } from "@/lib/mae";
-import type { Bill, ExpenseEntry, Installment, InstallmentPayment } from "@/types/database";
+import type { Bill, ExpenseEntry, Installment, InstallmentPayment, Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,9 @@ const OTHER_MONTHS_WINDOW = 5;
 const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
+
+type Consortium = Database["public"]["Tables"]["consortiums"]["Row"];
+type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Row"];
 
 const installmentWithExtrasSchema = installmentSchema.extend({
   category: z.string().min(1, "Categoria é obrigatória"),
@@ -90,6 +93,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Assinatura:   "#8B5CF6",
   Emergência:   "#EF4444",
   Outro:        "#94A3B8",
+  "Cons\u00f3rcio": "#38BDF8",
 };
 
 function formatMonthLabel(key: string) {
@@ -134,6 +138,8 @@ export default function ExpensesPage() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [payments, setPayments] = useState<InstallmentPayment[]>([]);
+  const [consortiums, setConsortiums] = useState<Consortium[]>([]);
+  const [consortiumPayments, setConsortiumPayments] = useState<ConsortiumPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -194,28 +200,40 @@ export default function ExpensesPage() {
     if (!user) return;
     setUserId(user.id);
 
-    const [expensesRes, billsRes, installmentsRes, paymentsRes, settingsRes] = await Promise.all([
+    const [expensesRes, billsRes, installmentsRes, paymentsRes, consortiumsRes, consortiumPaymentsRes, settingsRes] = await Promise.all([
       supabase.from("expense_entries").select("*").eq("user_id", user.id).order("spent_at", { ascending: false }),
       supabase.from("bills").select("*").eq("user_id", user.id),
       supabase.from("installments").select("*").eq("user_id", user.id),
       supabase.from("installment_payments").select("*").eq("user_id", user.id),
+      supabase.from("consortiums").select("*").eq("user_id", user.id),
+      supabase.from("consortium_payments").select("*").eq("user_id", user.id),
       supabase.from("user_settings").select("custom_categories").eq("user_id", user.id).maybeSingle(),
     ]);
 
     const settingsRow = coerceData<{ custom_categories?: string[] } | null>(settingsRes.data ?? null);
     setCustomCategories(Array.isArray(settingsRow?.custom_categories) ? settingsRow.custom_categories : []);
-
-    if (expensesRes.error) { toast.error("Erro ao carregar gastos"); return; }
+    if (expensesRes.error || consortiumsRes.error || consortiumPaymentsRes.error) {
+      toast.error("Erro ao carregar gastos");
+      setLoading(false);
+      return;
+    }
     setEntries(expensesRes.data ?? []);
     setBills(coerceData<Bill[]>(billsRes.data ?? []).filter((bill) => appliesMaeFilter(user.id, "exclude-mae", bill.name)));
     setInstallments(coerceData<Installment[]>(installmentsRes.data ?? []));
     setPayments(coerceData<InstallmentPayment[]>(paymentsRes.data ?? []));
+    setConsortiums(coerceData<Consortium[]>(consortiumsRes.data ?? []));
+    setConsortiumPayments(coerceData<ConsortiumPayment[]>(consortiumPaymentsRes.data ?? []));
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   const installmentsById = useMemo(() => new Map(installments.map((installment) => [installment.id, installment])), [installments]);
+
+  const consortiumsById = useMemo(
+    () => new Map(consortiums.map((consortium) => [consortium.id, consortium])),
+    [consortiums]
+  );
 
   const installmentSummaries = useMemo(() => {
     return installments
@@ -277,6 +295,35 @@ export default function ExpensesPage() {
     return [...billItems, ...paymentItems];
   }, [bills, payments, installmentsById, userId]);
 
+  const consortiumPaymentsDisplay = useMemo<DisplayExpense[]>(() => {
+    return consortiumPayments
+      .filter((payment) =>
+        (payment.status === "paid" || payment.status === "paid_with_discount") &&
+        payment.paid_at
+      )
+      .map((payment) => {
+        const consortium = consortiumsById.get(payment.consortium_id);
+        const paidAmount = payment.paid_amount ?? payment.amount;
+
+        return {
+          id: payment.id,
+          description: consortium
+            ? `${consortium.name} (${payment.installment_number}/${consortium.total_installments})`
+            : `Cons\u00f3rcio - parcela ${payment.installment_number}`,
+          amount: paidAmount,
+          category: "Cons\u00f3rcio",
+          spent_at: payment.paid_at!.slice(0, 10),
+          payment_method: null,
+          created_at: payment.paid_at!,
+          source: "consortium" as const,
+          status: "paid" as const,
+          dueAmount: payment.amount,
+          scheduledAmount: payment.amount,
+          dueDateRef: payment.due_date,
+        };
+      });
+  }, [consortiumPayments, consortiumsById]);
+
   const allEntries = useMemo<DisplayExpense[]>(() => [
     ...entries.map((e) => {
       const isCardWithDueDate = e.payment_method === "Cartão Crédito" && !!e.card_due_date;
@@ -289,7 +336,8 @@ export default function ExpensesPage() {
       };
     }),
     ...billsAndInstallmentsDisplay,
-  ], [entries, billsAndInstallmentsDisplay]);
+    ...consortiumPaymentsDisplay,
+  ], [entries, billsAndInstallmentsDisplay, consortiumPaymentsDisplay]);
 
   const realizedEntries = useMemo(() => allEntries.filter((e) => e.status === "paid"), [allEntries]);
 
@@ -853,7 +901,8 @@ export default function ExpensesPage() {
   const getCategoryColor = (category: string) => CATEGORY_COLORS[category] ?? "#94A3B8";
 
   const isEntryDiscounted = (entry: DisplayExpense) =>
-    entry.status === "paid" && entry.source === "installment" &&
+    entry.status === "paid" &&
+    (entry.source === "installment" || entry.source === "consortium") &&
     entry.scheduledAmount !== undefined && entry.amount < entry.scheduledAmount;
 
   const handleEntryEdit = (entry: DisplayExpense) => {
