@@ -882,6 +882,8 @@ export default function InvestmentsPage() {
   const isOverviewTab = activeTab === "overview";
   const isPortfolioTab = activeTab === "portfolio";
   const isConsortiumsTab = activeTab === "consortiums";
+  const activeTabMeta =
+    investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
   const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
 
   if (isConsortiumsTab) {
@@ -895,9 +897,9 @@ export default function InvestmentsPage() {
   return (
     <div className="page-container animate-fade-in">
       <PageIntro
-        icon={PiggyBank}
+        icon={activeTabMeta.icon}
         iconTone="accent"
-        title="Investimentos"
+        title={activeTabMeta.label}
         description="Carteira global, aportes centralizados e uma base preparada para dados reais de mercado."
         actions={
           <Button onClick={openCreate} variant="default" className="gap-2">

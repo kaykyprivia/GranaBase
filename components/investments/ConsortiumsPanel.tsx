@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { StatCard } from "@/components/shared/StatCard";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
+import { PageIntro } from "@/components/shared/PageIntro";
 
 type Consortium = Database["public"]["Tables"]["consortiums"]["Row"];
 type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Row"];
@@ -302,22 +303,21 @@ export function ConsortiumsPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Consórcios</h2>
-          <p className="text-sm text-text-secondary">
-            Acompanhe cartas, parcelas, progresso e próximos vencimentos.
-          </p>
-        </div>
+    <div>
+      <PageIntro
+        icon={Landmark}
+        iconTone="accent"
+        title="Consórcios"
+        description="Acompanhe cartas, parcelas, progresso e próximos vencimentos."
+        actions={
+          <Button className="gap-2" type="button" onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Novo consórcio
+          </Button>
+        }
+      />
 
-        <Button className="gap-2" type="button" onClick={() => setFormOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Novo consórcio
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           title="Valor das cartas"
           value={formatCurrency(totalCredit)}
@@ -357,12 +357,12 @@ export function ConsortiumsPanel() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <CardTitle className="text-base">{consortium.name}</CardTitle>
-                      <p className="mt-1 text-xs text-text-secondary">
-                        {consortium.holder_name}
-                        {consortium.administrator
-                          ? ` ? ${consortium.administrator}`
-                          : ""}
-                      </p>
+                      <div className="mt-1 space-y-0.5 text-xs text-text-secondary">
+                        <p>{consortium.holder_name}</p>
+                        {consortium.administrator ? (
+                          <p>{consortium.administrator}</p>
+                        ) : null}
+                      </div>
                     </div>
 
                     <span className="text-sm font-semibold text-accent">
