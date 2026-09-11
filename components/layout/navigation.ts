@@ -61,7 +61,7 @@ export const businessNavItems: NavigationItem[] = [
   { href: "/business/inventory", label: "Estoque", icon: Boxes },
   { href: "/business/sales", label: "Vendas", icon: PackageCheck },
   { href: "/business/customers", label: "Clientes", icon: Users },
-  { href: "/business/expenses", label: "Despesas", icon: ReceiptText, disabled: true },
+  { href: "/business/expenses", label: "Despesas", icon: ReceiptText },
   { href: "/business/reports", label: "Relatórios", icon: BarChart3, disabled: true },
 ];
 
