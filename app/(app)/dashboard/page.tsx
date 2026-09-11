@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
-  Wallet, TrendingUp, TrendingDown, FileText,
+  Wallet, TrendingUp, TrendingDown,
   PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight,
   AlertCircle, CheckCircle2, ChevronRight, Target, Plus, Heart,
   CalendarClock, Car, UtensilsCrossed, Gamepad2,
@@ -100,8 +100,6 @@ interface DashboardStats {
   totalExpenses: number;
   monthIncome: number;
   monthExpenses: number;
-  pendingBills: number;
-  pendingBillsAmount: number;
   futureInstallmentsAmount: number;
   futureInstallmentsCount: number;
   investedTotal: number;
@@ -113,9 +111,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalIncome: 0, totalExpenses: 0, monthIncome: 0, monthExpenses: 0,
-    pendingBills: 0, pendingBillsAmount: 0, futureInstallmentsAmount: 0, futureInstallmentsCount: 0, investedTotal: 0, freeEstimate: 0,
+    futureInstallmentsAmount: 0, futureInstallmentsCount: 0, investedTotal: 0, freeEstimate: 0,
   });
   const [upcomingBills, setUpcomingBills] = useState<Bill[]>([]);
+  const [upcomingInstallments, setUpcomingInstallments] = useState<Array<{
+    id: string;
+    description: string;
+    amount: number;
+    due_date: string;
+  }>>([]);
   const [recentTransactions, setRecentTransactions] = useState<Array<IncomeEntry & { type: "income" } | ExpenseEntry & { type: "expense" }>>([]);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -184,8 +188,6 @@ export default function DashboardPage() {
     const totalExpenses = expenseRows.reduce((sum, entry) => sum + entry.amount, 0) + totalPaidInstallmentsAmount;
     const monthIncome = incomeRows.filter((entry) => entry.received_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0) + monthReceivedAmount;
     const monthExpenses = expenseRows.filter((entry) => entry.spent_at.startsWith(monthKey)).reduce((sum, entry) => sum + entry.amount, 0) + monthPaidInstallmentsAmount;
-    const openBills = billRows.filter((bill) => bill.status !== "paid");
-    const pendingBillsAmount = openBills.reduce((sum, bill) => sum + bill.amount, 0);
     const futureInstallments = installmentPayments.filter((payment) => !isInstallmentPaid(getEffectiveInstallmentStatus(payment)));
     const futureInstallmentsAmount = futureInstallments.reduce((sum, payment) => sum + payment.amount, 0);
     const investedTotal = (investmentsData ?? []).reduce((sum, inv) => sum + (inv as { amount: number }).amount, 0);
@@ -201,8 +203,6 @@ export default function DashboardPage() {
       totalExpenses: totalExpenses + totalPaidBillsAmount,
       monthIncome,
       monthExpenses: monthExpenses + monthPaidBillsAmount,
-      pendingBills: openBills.length,
-      pendingBillsAmount,
       futureInstallmentsAmount,
       futureInstallmentsCount: futureInstallments.length,
       investedTotal,
@@ -213,6 +213,25 @@ export default function DashboardPage() {
       upcomingBillRows.filter(b =>
         b.status !== "paid" && (isOverdue(b.due_date) || getDaysUntilDue(b.due_date) <= 7)
       )
+    );
+
+    setUpcomingInstallments(
+      installmentPayments
+        .filter((payment) =>
+          !isInstallmentPaid(getEffectiveInstallmentStatus(payment)) &&
+          (isOverdue(payment.due_date) || getDaysUntilDue(payment.due_date) <= 7)
+        )
+        .map((payment) => {
+          const installment = installmentsById.get(payment.installment_id);
+          return {
+            id: payment.id,
+            description: installment
+              ? `${installment.description} (${payment.installment_number}/${installment.installment_count})`
+              : `Parcela ${payment.installment_number}`,
+            amount: payment.amount,
+            due_date: payment.due_date,
+          };
+        })
     );
 
     const inc = recentIncomeRows.map(e => ({ ...e, type: "income" as const }));
@@ -240,6 +259,25 @@ export default function DashboardPage() {
   }, [loadData]);
 
   const currentBalance = stats.totalIncome - stats.totalExpenses;
+
+  const upcomingPayments = [
+    ...upcomingBills.map((bill) => ({
+      id: `bill-${bill.id}`,
+      name: bill.name,
+      amount: bill.amount,
+      due_date: bill.due_date,
+      source: "bill" as const,
+    })),
+    ...upcomingInstallments.map((payment) => ({
+      id: `installment-${payment.id}`,
+      name: payment.description,
+      amount: payment.amount,
+      due_date: payment.due_date,
+      source: "installment" as const,
+    })),
+  ]
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+    .slice(0, 6);
 
   return (
     <div className="page-container animate-fade-in">
@@ -349,16 +387,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <StatCard
-          title="Contas Pendentes"
-          value={formatCurrency(stats.pendingBillsAmount)}
-          icon={FileText}
-          variant="warning"
-          loading={loading}
-          size="compact"
-          subtitle={`${stats.pendingBills} conta${stats.pendingBills !== 1 ? "s" : ""}`}
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
         <StatCard
           title="Parcelas Futuras"
           value={formatCurrency(stats.futureInstallmentsAmount)}
@@ -429,7 +458,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-text-secondary" />
-              <CardTitle className="text-base">Contas Pendentes</CardTitle>
+              <CardTitle className="text-base">Próximos pagamentos</CardTitle>
             </div>
             <Link href="/bills" className="-mr-2 flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary">
               Ver todas
@@ -441,27 +470,32 @@ export default function DashboardPage() {
               <div className="px-5 space-y-3 pb-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}
               </div>
-            ) : upcomingBills.length === 0 ? (
+            ) : upcomingPayments.length === 0 ? (
               <EmptyState
                 icon={CheckCircle2}
-                title="Sem contas pendentes"
-                description="Nenhuma conta pendente no momento"
+                title="Nenhum pagamento próximo"
+                description="Sem contas ou parcelas próximas do vencimento"
               />
             ) : (
               <div className="divide-y divide-border">
-                {upcomingBills.map(bill => {
-                  const overdue = isOverdue(bill.due_date);
-                  const days = getDaysUntilDue(bill.due_date);
+                {upcomingPayments.map(payment => {
+                  const overdue = isOverdue(payment.due_date);
+                  const days = getDaysUntilDue(payment.due_date);
+
                   return (
-                    <div key={bill.id} className="px-4 py-3 flex items-center gap-3">
+                    <div key={payment.id} className="px-4 py-3 flex items-center gap-3">
                       <div className={cn(
                         "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
                         overdue ? "bg-expense/15" : "bg-warning/15"
                       )}>
                         <AlertCircle className={cn("h-4 w-4", overdue ? "text-expense" : "text-warning")} />
                       </div>
+
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-text-primary break-words">{bill.name}</p>
+                        <p className="text-sm font-medium text-text-primary break-words">{payment.name}</p>
+                        <p className="text-[10px] text-text-secondary">
+                          {payment.source === "installment" ? "Parcela" : "Conta"}
+                        </p>
                         <p className={cn("text-xs", overdue ? "text-expense" : "text-warning")}>
                           {overdue
                             ? `Atrasada ${Math.abs(days)} dia${Math.abs(days) !== 1 ? "s" : ""}`
@@ -469,9 +503,10 @@ export default function DashboardPage() {
                             : `Vence em ${days} dia${days !== 1 ? "s" : ""}`}
                         </p>
                       </div>
+
                       <div className="text-right shrink-0">
                         <p className={cn("text-sm font-semibold", overdue ? "text-expense" : "text-warning")}>
-                          {formatCurrency(bill.amount)}
+                          {formatCurrency(payment.amount)}
                         </p>
                         <Badge variant={overdue ? "overdue" : "pending"} className="text-[10px]">
                           {overdue ? "Atrasada" : "Pendente"}

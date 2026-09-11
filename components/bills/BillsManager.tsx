@@ -341,7 +341,16 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
-  const pendingTotal = bills.filter((bill) => getEffectiveStatus(bill) === "pending").reduce((sum, bill) => sum + bill.amount, 0);
+  const pendingTotal = bills
+    .filter((bill) => {
+      const effective = getEffectiveStatus(bill);
+      if (effective === "overdue") return true;
+      if (effective !== "pending") return false;
+
+      const daysUntil = getDaysUntilDue(bill.due_date);
+      return daysUntil >= 0 && daysUntil <= 7;
+    })
+    .reduce((sum, bill) => sum + bill.amount, 0);
   const overdueTotal = bills.filter((bill) => getEffectiveStatus(bill) === "overdue").reduce((sum, bill) => sum + bill.amount, 0);
   const paidThisMonth = bills
     .filter((bill) => {
@@ -557,7 +566,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
             <Section title="Atrasadas" tone="expense" bills={overdue} />
             <Section title="Vence hoje" tone="warning" bills={today} />
             <Section title="Vence esta semana" tone="caution" bills={week} />
-            <Section title="Próximas" tone="accent" bills={upcoming} />
+            <Section title="Agendadas" tone="accent" bills={upcoming} />
             <PaidSection bills={paid} />
           </div>
         );
