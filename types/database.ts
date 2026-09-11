@@ -9,6 +9,8 @@ export type Json =
 type BillStatus = "pending" | "paid" | "overdue";
 export type ReceivableStatus = "pending" | "received" | "overdue";
 export type InstallmentStatus = "pending" | "paid" | "paid_with_discount";
+export type ConsortiumStatus = "active" | "completed" | "cancelled";
+export type ConsortiumPaymentStatus = "pending" | "paid" | "paid_with_discount";
 type GoalStatus = "active" | "completed" | "paused";
 type InvestmentContributionType = "deposit" | "withdraw";
 export type BusinessPurchaseOrderStatus =
@@ -452,6 +454,115 @@ export interface Database {
             columns: ["installment_id"];
             referencedRelation: "installments";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      consortiums: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          holder_name: string;
+          administrator: string | null;
+          credit_amount: number;
+          total_installments: number;
+          current_installment_amount: number;
+          first_due_date: string;
+          status: ConsortiumStatus;
+          contemplated: boolean;
+          contemplated_at: string | null;
+          bid_amount: number | null;
+          administration_fee_percent: number | null;
+          reserve_fund_percent: number | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          holder_name: string;
+          administrator?: string | null;
+          credit_amount: number;
+          total_installments: number;
+          current_installment_amount: number;
+          first_due_date: string;
+          status?: ConsortiumStatus;
+          contemplated?: boolean;
+          contemplated_at?: string | null;
+          bid_amount?: number | null;
+          administration_fee_percent?: number | null;
+          reserve_fund_percent?: number | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          holder_name?: string;
+          administrator?: string | null;
+          credit_amount?: number;
+          total_installments?: number;
+          current_installment_amount?: number;
+          first_due_date?: string;
+          status?: ConsortiumStatus;
+          contemplated?: boolean;
+          contemplated_at?: string | null;
+          bid_amount?: number | null;
+          administration_fee_percent?: number | null;
+          reserve_fund_percent?: number | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      consortium_payments: {
+        Row: {
+          id: string;
+          user_id: string;
+          consortium_id: string;
+          installment_number: number;
+          due_date: string;
+          amount: number;
+          status: ConsortiumPaymentStatus;
+          paid_amount: number | null;
+          paid_at: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          consortium_id: string;
+          installment_number: number;
+          due_date: string;
+          amount: number;
+          status?: ConsortiumPaymentStatus;
+          paid_amount?: number | null;
+          paid_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          consortium_id?: string;
+          installment_number?: number;
+          due_date?: string;
+          amount?: number;
+          status?: ConsortiumPaymentStatus;
+          paid_amount?: number | null;
+          paid_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "consortium_payments_owner_fkey";
+            columns: ["consortium_id", "user_id"];
+            referencedRelation: "consortiums";
+            referencedColumns: ["id", "user_id"];
           },
         ];
       };
@@ -1352,6 +1463,29 @@ export interface Database {
       };
     };
     Functions: {
+      create_consortium: {
+        Args: {
+          p_name: string;
+          p_holder_name: string;
+          p_credit_amount: number;
+          p_total_installments: number;
+          p_current_installment_amount: number;
+          p_first_due_date: string;
+          p_administrator?: string | null;
+          p_administration_fee_percent?: number | null;
+          p_reserve_fund_percent?: number | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      pay_consortium_payment: {
+        Args: {
+          p_payment_id: string;
+          p_paid_amount: number;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
       mark_notification_read: {
         Args: {
           notification_id: string;

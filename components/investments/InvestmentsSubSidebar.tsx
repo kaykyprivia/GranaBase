@@ -1,10 +1,10 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, PlusCircle, Wallet } from "lucide-react";
+import { Landmark, LayoutDashboard, PlusCircle, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type InvestmentTabId = "overview" | "portfolio" | "contributions";
+export type InvestmentTabId = "overview" | "portfolio" | "contributions" | "consortiums";
 
 export interface InvestmentTabItem {
   id: InvestmentTabId;
@@ -16,6 +16,7 @@ export const investmentTabs: InvestmentTabItem[] = [
   { id: "overview", label: "Visão geral", icon: LayoutDashboard },
   { id: "portfolio", label: "Carteira", icon: Wallet },
   { id: "contributions", label: "Aportes", icon: PlusCircle },
+  { id: "consortiums", label: "Consórcios", icon: Landmark },
 ];
 
 export const investmentNavGroups: InvestmentTabItem[] = investmentTabs;

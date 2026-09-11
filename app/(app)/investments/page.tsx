@@ -52,6 +52,7 @@ import {
 } from "@/components/investments/InvestmentsSubSidebar";
 import { MarketTicker } from "@/components/investments/MarketTicker";
 import { PortfolioAllocationChart } from "@/components/investments/PortfolioAllocationChart";
+import { ConsortiumsPanel } from "@/components/investments/ConsortiumsPanel";
 import { useChartColors } from "@/hooks/useChartColors";
 
 interface LiveQuote {
@@ -880,6 +881,7 @@ export default function InvestmentsPage() {
 
   const isOverviewTab = activeTab === "overview";
   const isPortfolioTab = activeTab === "portfolio";
+  const isConsortiumsTab = activeTab === "consortiums";
   const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
 
   return (
@@ -997,7 +999,9 @@ export default function InvestmentsPage() {
                 ))}
               </div>
 
-            ) : activeTab === "contributions" ? (
+            ) : isConsortiumsTab ? (
+  <ConsortiumsPanel />
+) : activeTab === "contributions" ? (
               contributions.length === 0 ? (
                 <EmptyState
                   icon={PiggyBank}
