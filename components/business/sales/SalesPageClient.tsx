@@ -20,6 +20,8 @@ import {
   SALE_FILTER_OPTIONS,
   SALE_PAYMENT_FILTER_OPTIONS,
   SALE_PERIOD_OPTIONS,
+  calculatePaymentSummary,
+  calculateSaleFinancials,
   getSaleErrorMessage,
   getSalesDateRange,
   type SaleListFilter,
@@ -37,6 +39,8 @@ import type {
   BusinessSale,
   BusinessSaleItem,
   BusinessSaleOrderStatus,
+  BusinessSaleReturn,
+  BusinessSaleReturnItem,
   Database,
 } from "@/types/database";
 
@@ -93,16 +97,28 @@ export function SalesPageClient() {
       }
 
       const saleIds = saleRows.map((sale) => sale.id);
-      const [itemsRes, paymentsRes, customersRes] = await Promise.all([
+      const [itemsRes, paymentsRes, customersRes, returnsRes] = await Promise.all([
         supabase.from("business_sale_items").select("*").in("sale_id", saleIds).order("created_at", { ascending: true }),
         supabase.from("business_payments").select("*").in("sale_id", saleIds).order("paid_at", { ascending: true }),
         supabase.from("business_customers").select("*").eq("workspace_id", workspace.workspace_id).limit(500),
+        supabase.from("business_sale_returns").select("*").in("sale_id", saleIds).order("created_at", { ascending: true }),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
       if (customersRes.error) throw customersRes.error;
+      if (returnsRes.error) throw returnsRes.error;
 
       const items = coerceData<BusinessSaleItem[]>(itemsRes.data ?? []);
+      const itemIds = items.map((item) => item.id);
+      const returnItemsRes = itemIds.length > 0
+        ? await supabase
+            .from("business_sale_return_items")
+            .select("*")
+            .in("sale_item_id", itemIds)
+            .order("created_at", { ascending: true })
+        : { data: [], error: null };
+      if (returnItemsRes.error) throw returnItemsRes.error;
+
       const productIds = Array.from(new Set(items.map((item) => item.product_id)));
       const productsRes = productIds.length > 0
         ? await supabase.from("business_products").select("*").in("id", productIds)
@@ -113,6 +129,9 @@ export function SalesPageClient() {
       const customersById = new Map(coerceData<BusinessCustomer[]>(customersRes.data ?? []).map((customer) => [customer.id, customer]));
       const itemsBySaleId = groupBy(items, "sale_id");
       const paymentsBySaleId = groupBy(coerceData<BusinessPayment[]>(paymentsRes.data ?? []), "sale_id");
+      const returnsBySaleId = groupBy(coerceData<BusinessSaleReturn[]>(returnsRes.data ?? []), "sale_id");
+      const returnItems = coerceData<BusinessSaleReturnItem[]>(returnItemsRes.data ?? []);
+      const returnItemsBySaleItemId = groupBy(returnItems, "sale_item_id");
 
       setSales(saleRows.map((sale) => ({
         ...sale,
@@ -120,9 +139,16 @@ export function SalesPageClient() {
         items: (itemsBySaleId.get(sale.id) ?? []).map((item) => ({
           ...item,
           product: productsById.get(item.product_id) ?? null,
-          returnedQuantity: 0,
+          returnedQuantity: (returnItemsBySaleItemId.get(item.id) ?? []).reduce(
+            (sum, row) => sum + Number(row.quantity || 0),
+            0
+          ),
         })),
         payments: paymentsBySaleId.get(sale.id) ?? [],
+        returns: returnsBySaleId.get(sale.id) ?? [],
+        returnItems: (itemsBySaleId.get(sale.id) ?? []).flatMap(
+          (item) => returnItemsBySaleItemId.get(item.id) ?? []
+        ),
       })));
     } catch (error) {
       console.error("Erro ao carregar vendas", error);
@@ -163,24 +189,46 @@ export function SalesPageClient() {
   }, [dateRange, paymentFilter, sales, search, statusFilter]);
 
   const summary = useMemo(() => {
-    const billableSales = filteredSales.filter((sale) => sale.order_status !== "CANCELLED");
-    const revenue = billableSales.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.final_amount, 0), 0);
-    const paid = billableSales.reduce(
-      (sum, sale) => sum + sale.payments.reduce((paymentSum, payment) => paymentSum + (payment.status === "PAID" ? payment.amount : -payment.amount), 0),
-      0
+    const validSales = filteredSales.filter(
+      (sale) => !["DRAFT", "CANCELLED"].includes(sale.order_status)
     );
-    const profit = billableSales
-      .filter((sale) => ["DELIVERED", "RETURNED"].includes(sale.order_status))
-      .reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.net_profit, 0), 0);
-    const delivered = billableSales.filter((sale) => sale.order_status === "DELIVERED").length;
+
+    let revenue = 0;
+    let receivable = 0;
+    let profit = 0;
+
+    for (const sale of validSales) {
+      const financials = calculateSaleFinancials({
+        items: sale.items,
+        returns: sale.returns ?? [],
+        returnItems: sale.returnItems ?? [],
+      });
+
+      revenue += financials.netRevenue;
+
+      const paymentSummary = calculatePaymentSummary({
+        totalAmount: financials.netRevenue,
+        payments: sale.payments,
+      });
+
+      receivable += paymentSummary.remainingAmount;
+
+      if (["DELIVERED", "RETURNED"].includes(sale.order_status)) {
+        profit += financials.netProfit;
+      }
+    }
+
+    const realized = validSales.filter((sale) =>
+      ["DELIVERED", "RETURNED"].includes(sale.order_status)
+    ).length;
 
     return {
-      count: billableSales.length,
+      count: validSales.length,
       revenue,
-      receivable: Math.max(revenue - paid, 0),
+      receivable,
       profit,
-      ticket: billableSales.length > 0 ? revenue / billableSales.length : 0,
-      delivered,
+      ticket: validSales.length > 0 ? revenue / validSales.length : 0,
+      realized,
     };
   }, [filteredSales]);
 
@@ -286,8 +334,8 @@ export function SalesPageClient() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <StatCard title="Vendas no periodo" value={String(summary.count)} subtitle={`${summary.delivered} entregues`} icon={PackageCheck} variant="default" size="compact" loading={loading} />
-        <StatCard title="Faturamento" value={formatCurrency(summary.revenue)} icon={TrendingUp} variant="accent" size="compact" loading={loading} />
+        <StatCard title="Vendas no periodo" value={String(summary.count)} subtitle={`${summary.realized} realizadas`} icon={PackageCheck} variant="default" size="compact" loading={loading} />
+        <StatCard title="Valor vendido" value={formatCurrency(summary.revenue)} icon={TrendingUp} variant="accent" size="compact" loading={loading} />
         <StatCard title="A receber" value={formatCurrency(summary.receivable)} icon={HandCoins} variant="warning" size="compact" loading={loading} />
         <StatCard title="Lucro realizado" value={formatCurrency(summary.profit)} icon={TrendingUp} variant={summary.profit < 0 ? "expense" : "profit"} size="compact" loading={loading} />
         <StatCard title="Ticket medio" value={formatCurrency(summary.ticket)} icon={Clock3} variant="default" size="compact" loading={loading} />

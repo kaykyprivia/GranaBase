@@ -1,4 +1,5 @@
 import { BUSINESS_EXPENSE_CATEGORY_META } from "@/lib/business-expenses";
+import { calculateSaleFinancials } from "@/lib/business-sales";
 
 import type {
   BusinessExpense,
@@ -322,50 +323,20 @@ function getSaleFinancials(
   const items = itemsBySaleId.get(saleId) ?? [];
   const saleReturns = returnsBySaleId.get(saleId) ?? [];
 
-  const grossRevenue = items.reduce(
-    (sum, item) => sum + Number(item.final_amount || 0),
-    0
+  const returnItems = items.flatMap(
+    (item) =>
+      returnItemsBySaleItemId.get(item.id) ?? []
   );
 
-  const baseProfit = items.reduce(
-    (sum, item) => sum + Number(item.net_profit || 0),
-    0
-  );
-
-  const refunds = saleReturns.reduce(
-    (sum, row) => sum + Number(row.refund_amount || 0),
-    0
-  );
-
-  let recoveredCogs = 0;
-
-  for (const item of items) {
-    if (item.quantity <= 0) continue;
-
-    const returnRows =
-      returnItemsBySaleItemId.get(item.id) ?? [];
-
-    const restockableQuantity = Math.min(
-      item.quantity,
-      returnRows
-        .filter((row) => row.restockable)
-        .reduce(
-          (sum, row) =>
-            sum + Number(row.quantity || 0),
-          0
-        )
-    );
-
-    const unitCogs =
-      Number(item.cogs_amount || 0) / item.quantity;
-
-    recoveredCogs +=
-      unitCogs * restockableQuantity;
-  }
+  const financials = calculateSaleFinancials({
+    items,
+    returns: saleReturns,
+    returnItems,
+  });
 
   return {
-    revenue: Math.max(grossRevenue - refunds, 0),
-    profit: baseProfit - refunds + recoveredCogs,
+    revenue: financials.netRevenue,
+    profit: financials.netProfit,
   };
 }
 

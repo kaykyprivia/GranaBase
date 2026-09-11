@@ -25,6 +25,8 @@ export type SaleRow = BusinessSale & {
   customer: BusinessCustomer | null;
   items: SaleItemRow[];
   payments: BusinessPayment[];
+  returns?: BusinessSaleReturn[];
+  returnItems?: BusinessSaleReturnItem[];
 };
 
 export type SaleDetail = SaleRow & {

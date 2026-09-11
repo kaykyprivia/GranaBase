@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculatePaymentSummary,
+  calculateSaleFinancials,
   calculateSalePreview,
   canCancelSale,
   canReturnSale,
@@ -100,6 +101,80 @@ describe("business sales UI helpers", () => {
     expect(errors.itemErrors[0].discountAmount).toBe("Desconto deve ficar entre zero e o subtotal.");
   });
 
+  it("calculates canonical sale financials for normal sales and returns", () => {
+    const items = [
+      {
+        id: "item-1",
+        quantity: 2,
+        final_amount: 200,
+        cogs_amount: 120,
+        net_profit: 80,
+      },
+    ];
+
+    const normal = calculateSaleFinancials({
+      items,
+    });
+
+    expect(normal).toEqual({
+      grossRevenue: 200,
+      refunds: 0,
+      netRevenue: 200,
+      baseProfit: 80,
+      recoveredCogs: 0,
+      netProfit: 80,
+    });
+
+    const partialReturn = calculateSaleFinancials({
+      items,
+      returns: [
+        {
+          refund_amount: 100,
+        },
+      ],
+      returnItems: [
+        {
+          sale_item_id: "item-1",
+          quantity: 1,
+          restockable: true,
+        },
+      ],
+    });
+
+    expect(partialReturn).toEqual({
+      grossRevenue: 200,
+      refunds: 100,
+      netRevenue: 100,
+      baseProfit: 80,
+      recoveredCogs: 60,
+      netProfit: 40,
+    });
+
+    const fullReturn = calculateSaleFinancials({
+      items,
+      returns: [
+        {
+          refund_amount: 200,
+        },
+      ],
+      returnItems: [
+        {
+          sale_item_id: "item-1",
+          quantity: 2,
+          restockable: true,
+        },
+      ],
+    });
+
+    expect(fullReturn).toEqual({
+      grossRevenue: 200,
+      refunds: 200,
+      netRevenue: 0,
+      baseProfit: 80,
+      recoveredCogs: 120,
+      netProfit: 0,
+    });
+  });
   it("derives payment status and remaining values from paid and refunded events", () => {
     expect(calculatePaymentSummary({ totalAmount: 100, payments: [] }).status).toBe("PENDING");
     expect(calculatePaymentSummary({ totalAmount: 100, payments: [{ amount: 40, status: "PAID" }] })).toMatchObject({

@@ -1,8 +1,11 @@
 import type {
   BusinessInventorySummary,
   BusinessPaymentStatus,
+  BusinessSaleItem,
   BusinessSaleOrderStatus,
   BusinessSalePaymentStatus,
+  BusinessSaleReturn,
+  BusinessSaleReturnItem,
 } from "@/types/database";
 import { roundCurrency } from "@/lib/business";
 
@@ -281,6 +284,96 @@ export function hasSaleFormErrors(errors: SaleFormErrors): boolean {
   );
 }
 
+export type SaleFinancialSummary = {
+  grossRevenue: number;
+  refunds: number;
+  netRevenue: number;
+  baseProfit: number;
+  recoveredCogs: number;
+  netProfit: number;
+};
+
+type SaleFinancialItem = Pick<
+  BusinessSaleItem,
+  "id" | "quantity" | "final_amount" | "cogs_amount" | "net_profit"
+>;
+
+type SaleFinancialReturn = Pick<
+  BusinessSaleReturn,
+  "refund_amount"
+>;
+
+type SaleFinancialReturnItem = Pick<
+  BusinessSaleReturnItem,
+  "sale_item_id" | "quantity" | "restockable"
+>;
+
+export function calculateSaleFinancials(input: {
+  items: SaleFinancialItem[];
+  returns?: SaleFinancialReturn[];
+  returnItems?: SaleFinancialReturnItem[];
+}): SaleFinancialSummary {
+  const returns = input.returns ?? [];
+  const returnItems = input.returnItems ?? [];
+
+  const grossRevenue = sumMoney(
+    input.items.map((item) => Number(item.final_amount || 0))
+  );
+
+  const baseProfit = sumMoney(
+    input.items.map((item) => Number(item.net_profit || 0))
+  );
+
+  const refunds = sumMoney(
+    returns.map((row) => Number(row.refund_amount || 0))
+  );
+
+  let recoveredCogs = 0;
+
+  for (const item of input.items) {
+    if (item.quantity <= 0) {
+      continue;
+    }
+
+    const restockableQuantity = Math.min(
+      item.quantity,
+      returnItems
+        .filter(
+          (row) =>
+            row.sale_item_id === item.id &&
+            row.restockable
+        )
+        .reduce(
+          (sum, row) =>
+            sum + Number(row.quantity || 0),
+          0
+        )
+    );
+
+    const unitCogs =
+      Number(item.cogs_amount || 0) /
+      item.quantity;
+
+    recoveredCogs +=
+      unitCogs * restockableQuantity;
+  }
+
+  recoveredCogs = roundCurrency(recoveredCogs);
+
+  return {
+    grossRevenue,
+    refunds,
+    netRevenue: Math.max(
+      roundCurrency(grossRevenue - refunds),
+      0
+    ),
+    baseProfit,
+    recoveredCogs,
+    netProfit: roundCurrency(
+      baseProfit - refunds + recoveredCogs
+    ),
+  };
+}
 export function calculatePaymentSummary(input: {
   totalAmount: number;
   payments: Array<{ amount: number; status: BusinessPaymentStatus }>;
