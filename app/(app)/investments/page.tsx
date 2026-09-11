@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, LabelList } from "recharts";
-import { Calculator, PiggyBank, Pencil, Percent, Plus, Search, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { Calculator, PiggyBank, Pencil, Percent, Plus, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { coerceMutation } from "@/lib/supabase/casts";
@@ -44,6 +44,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { SearchFilterBar } from "@/components/shared/SearchFilterBar";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -877,6 +878,45 @@ export default function InvestmentsPage() {
     });
   }, [entries, monthFilter, search, typeFilter]);
 
+  const filteredContributions = useMemo(() => {
+    const normalizedSearch =
+      search.trim().toLowerCase();
+
+    return contributions.filter(
+      (contribution) => {
+        const contributionMonth =
+          contribution.created_at.slice(0, 7);
+
+        const matchMonth =
+          monthFilter === "all" ||
+          contributionMonth === monthFilter;
+
+        const movementLabel =
+          contribution.type === "deposit"
+            ? "aporte"
+            : "retirada";
+
+        const searchable = [
+          contribution.description,
+          movementLabel,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        const matchSearch =
+          !normalizedSearch ||
+          searchable.includes(normalizedSearch);
+
+        return matchMonth && matchSearch;
+      }
+    );
+  }, [
+    contributions,
+    monthFilter,
+    search,
+  ]);
+
   const tabEntries = filtered;
 
   const isOverviewTab = activeTab === "overview";
@@ -884,7 +924,18 @@ export default function InvestmentsPage() {
   const isConsortiumsTab = activeTab === "consortiums";
   const activeTabMeta =
     investmentTabs.find((tab) => tab.id === activeTab) ?? investmentTabs[0];
-  const hasFilterApplied = Boolean(search) || monthFilter !== "all" || typeFilter !== "all";
+  const activeFilterCount =
+    (monthFilter !== "all" ? 1 : 0) +
+    (
+      activeTab !== "contributions" &&
+      typeFilter !== "all"
+        ? 1
+        : 0
+    );
+
+  const hasFilterApplied =
+    Boolean(search.trim()) ||
+    activeFilterCount > 0;
 
   if (isConsortiumsTab) {
     return (
@@ -966,37 +1017,59 @@ export default function InvestmentsPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row">
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={
+          activeTab === "contributions"
+            ? "Buscar aporte ou retirada..."
+            : "Buscar investimento..."
+        }
+        activeFilterCount={activeFilterCount}
+        onClearFilters={() => {
+          setMonthFilter("all");
+
+          if (
+            activeTab !== "contributions"
+          ) {
+            setTypeFilter("all");
+          }
+        }}
+      >
         <MonthFilter
           months={monthOptions}
           value={monthFilter}
           onChange={setMonthFilter}
           currentMonth={currentMonth}
-          className="lg:w-48"
+          className="w-full"
         />
 
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-full lg:w-52">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            {uniqueTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
+        {activeTab !== "contributions" && (
+          <Select
+            value={typeFilter}
+            onValueChange={setTypeFilter}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="all">
+                Todos os tipos
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar investimento..."
-          leftIcon={<Search className="h-4 w-4" />}
-          className="flex-1"
-        />
-      </div>
+              {uniqueTypes.map((type) => (
+                <SelectItem
+                  key={type}
+                  value={type}
+                >
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </SearchFilterBar>
 
       {/* Main panel */}
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface/85 backdrop-blur">
@@ -1010,14 +1083,24 @@ export default function InvestmentsPage() {
               </div>
 
             ) : activeTab === "contributions" ? (
-              contributions.length === 0 ? (
+              filteredContributions.length === 0 ? (
                 <EmptyState
                   icon={PiggyBank}
-                  title="Nenhuma movimentacao"
-                  description="Use Novo aporte para registrar aportes e retiradas da carteira global."
+                  title={
+                    hasFilterApplied
+                      ? "Nenhuma movimentação encontrada"
+                      : "Nenhuma movimentação"
+                  }
+                  description={
+                    hasFilterApplied
+                      ? "Ajuste a pesquisa ou o filtro para encontrar outros aportes."
+                      : "Use Novo aporte para registrar aportes e retiradas da carteira global."
+                  }
                 />
               ) : (
-                <ContributionsTable entries={contributions} />
+                <ContributionsTable
+                  entries={filteredContributions}
+                />
               )
 
             ) : isOverviewTab ? (

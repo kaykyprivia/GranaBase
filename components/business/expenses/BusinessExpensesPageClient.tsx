@@ -13,7 +13,6 @@ import {
   CircleDollarSign,
   Plus,
   ReceiptText,
-  Search,
   TrendingDown,
 } from "lucide-react";
 
@@ -24,6 +23,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { SearchFilterBar } from "@/components/shared/SearchFilterBar";
 import { StatCard } from "@/components/shared/StatCard";
 
 import { Button } from "@/components/ui/button";
@@ -373,87 +373,87 @@ export function BusinessExpensesPageClient() {
         />
       </div>
 
-      <div className="mb-5 space-y-3">
-        <Input
-          value={search}
-          onChange={(event) =>
-            setSearch(event.target.value)
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar despesa, categoria ou observação..."
+        activeFilterCount={
+          (periodFilter !== "month" ? 1 : 0) +
+          (categoryFilter !== "all" ? 1 : 0)
+        }
+        onClearFilters={() => {
+          setPeriodFilter("month");
+          setCategoryFilter("all");
+        }}
+      >
+        <Select
+          value={periodFilter}
+          onValueChange={(value) =>
+            setPeriodFilter(
+              value as BusinessExpensePeriod
+            )
           }
-          placeholder="Buscar despesa, categoria ou observação..."
-          leftIcon={<Search className="h-4 w-4" />}
-          className="min-h-11"
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Select
-            value={periodFilter}
-            onValueChange={(value) =>
-              setPeriodFilter(
-                value as BusinessExpensePeriod
-              )
-            }
+        >
+          <SelectTrigger
+            className="w-full"
+            aria-label="Período das despesas"
           >
-            <SelectTrigger
-              className="min-h-11"
-              aria-label="Período das despesas"
-            >
-              <SelectValue />
-            </SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
 
-            <SelectContent>
-              {BUSINESS_EXPENSE_PERIOD_OPTIONS.map(
-                (option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </SelectItem>
-                )
-              )}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={categoryFilter}
-            onValueChange={(value) =>
-              setCategoryFilter(
-                value as
-                  | BusinessExpenseCategory
-                  | "all"
+          <SelectContent>
+            {BUSINESS_EXPENSE_PERIOD_OPTIONS.map(
+              (option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </SelectItem>
               )
-            }
+            )}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={categoryFilter}
+          onValueChange={(value) =>
+            setCategoryFilter(
+              value as
+                | BusinessExpenseCategory
+                | "all"
+            )
+          }
+        >
+          <SelectTrigger
+            className="w-full"
+            aria-label="Categoria das despesas"
           >
-            <SelectTrigger
-              className="min-h-11"
-              aria-label="Categoria das despesas"
-            >
-              <SelectValue />
-            </SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
 
-            <SelectContent>
-              <SelectItem value="all">
-                Todas as categorias
-              </SelectItem>
+          <SelectContent>
+            <SelectItem value="all">
+              Todas as categorias
+            </SelectItem>
 
-              {BUSINESS_EXPENSE_CATEGORIES.map(
-                (category) => (
-                  <SelectItem
-                    key={category}
-                    value={category}
-                  >
-                    {
-                      BUSINESS_EXPENSE_CATEGORY_META[
-                        category
-                      ].label
-                    }
-                  </SelectItem>
-                )
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            {BUSINESS_EXPENSE_CATEGORIES.map(
+              (category) => (
+                <SelectItem
+                  key={category}
+                  value={category}
+                >
+                  {
+                    BUSINESS_EXPENSE_CATEGORY_META[
+                      category
+                    ].label
+                  }
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
+      </SearchFilterBar>
 
       {loading ? (
         <div className="space-y-3">
