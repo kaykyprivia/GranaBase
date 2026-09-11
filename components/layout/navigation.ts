@@ -62,7 +62,7 @@ export const businessNavItems: NavigationItem[] = [
   { href: "/business/sales", label: "Vendas", icon: PackageCheck },
   { href: "/business/customers", label: "Clientes", icon: Users },
   { href: "/business/expenses", label: "Despesas", icon: ReceiptText },
-  { href: "/business/reports", label: "Relatórios", icon: BarChart3, disabled: true },
+  { href: "/business/reports", label: "Relatórios", icon: BarChart3 },
 ];
 
 export function getNavigationGroups(isMaeUser: boolean): NavigationGroup[] {
