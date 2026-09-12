@@ -186,7 +186,7 @@ export function BusinessExpensesPageClient() {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        toast.error("Sessão expirada. Entre novamente.");
+        toast.error("SessÃ£o expirada. Entre novamente.");
         router.push("/login");
         return;
       }
@@ -277,7 +277,7 @@ export function BusinessExpensesPageClient() {
         error
       );
       toast.error(
-        "Não foi possível carregar as despesas agora."
+        "NÃ£o foi possÃ­vel carregar as despesas agora."
       );
     } finally {
       setLoading(false);
@@ -332,7 +332,7 @@ export function BusinessExpensesPageClient() {
 
     if (!workspaceId) {
       toast.error(
-        "O ambiente do negócio ainda não está pronto."
+        "O ambiente do negÃ³cio ainda nÃ£o estÃ¡ pronto."
       );
       return;
     }
@@ -376,7 +376,7 @@ export function BusinessExpensesPageClient() {
       );
 
       toast.error(
-        "Não foi possível registrar a despesa."
+        "NÃ£o foi possÃ­vel registrar a despesa."
       );
     } finally {
       setSaving(false);
@@ -395,7 +395,7 @@ export function BusinessExpensesPageClient() {
         icon={ReceiptText}
         iconTone="accent"
         title="Despesas"
-        description="Controle os custos operacionais do negócio sem misturar com seus gastos pessoais."
+        description="Controle os custos operacionais do negÃ³cio sem misturar com seus gastos pessoais."
         actions={
           <Button
             type="button"
@@ -411,9 +411,9 @@ export function BusinessExpensesPageClient() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
-          title="Total no período"
+          title="Total no perÃ­odo"
           value={formatCurrency(summary.total)}
-          subtitle={`${summary.count} lançamento${
+          subtitle={`${summary.count} lanÃ§amento${
             summary.count === 1 ? "" : "s"
           }`}
           icon={TrendingDown}
@@ -425,7 +425,7 @@ export function BusinessExpensesPageClient() {
         <StatCard
           title="Despesas"
           value={String(summary.count)}
-          subtitle="Lançamentos filtrados"
+          subtitle="LanÃ§amentos filtrados"
           icon={ReceiptText}
           variant="default"
           size="compact"
@@ -433,7 +433,7 @@ export function BusinessExpensesPageClient() {
         />
 
         <StatCard
-          title="Média por despesa"
+          title="MÃ©dia por despesa"
           value={formatCurrency(summary.average)}
           icon={CircleDollarSign}
           variant="warning"
@@ -449,7 +449,7 @@ export function BusinessExpensesPageClient() {
               ? formatCurrency(
                   summary.topCategoryAmount
                 )
-              : "Sem despesas no período"
+              : "Sem despesas no perÃ­odo"
           }
           icon={BarChart3}
           variant="accent"
@@ -461,7 +461,7 @@ export function BusinessExpensesPageClient() {
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Buscar despesa, categoria ou observação..."
+        searchPlaceholder="Buscar despesa, categoria ou observaÃ§Ã£o..."
         activeFilterCount={
           (periodFilter !== "month" ? 1 : 0) +
           (categoryFilter !== "all" ? 1 : 0)
@@ -481,7 +481,7 @@ export function BusinessExpensesPageClient() {
         >
           <SelectTrigger
             className="w-full"
-            aria-label="Período das despesas"
+            aria-label="PerÃ­odo das despesas"
           >
             <SelectValue />
           </SelectTrigger>
@@ -562,8 +562,8 @@ export function BusinessExpensesPageClient() {
             }
             description={
               expenses.length === 0
-                ? "Registre custos como combustível, embalagens, anúncios, entregas, manutenção e taxas."
-                : "Altere os filtros ou a busca para encontrar outros lançamentos."
+                ? "Registre custos como combustÃ­vel, embalagens, anÃºncios, entregas, manutenÃ§Ã£o e taxas."
+                : "Altere os filtros ou a busca para encontrar outros lanÃ§amentos."
             }
             actionLabel={
               expenses.length === 0
@@ -667,7 +667,7 @@ export function BusinessExpensesPageClient() {
             </Button>
 
             <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
+              PÃ¡gina {pagination.page} de{" "}
               {pagination.total_pages}
             </span>
 
@@ -687,7 +687,7 @@ export function BusinessExpensesPageClient() {
                 )
               }
             >
-              Próxima
+              PrÃ³xima
             </Button>
           </div>
         </div>
@@ -706,187 +706,10 @@ export function BusinessExpensesPageClient() {
         }}
       >
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogContent className="max-w-lg">
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogHeader>
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogTitle>
               Nova despesa
             </DialogTitle>
@@ -894,7 +717,7 @@ export function BusinessExpensesPageClient() {
 
           <div className="space-y-4">
             <FormField
-              label="Descrição"
+              label="DescriÃ§Ã£o"
               required
               error={errors.description}
             >
@@ -984,13 +807,13 @@ export function BusinessExpensesPageClient() {
             </FormField>
 
             <FormField
-              label="Observações"
+              label="ObservaÃ§Ãµes"
               hint="Opcional"
             >
               <Textarea
                 rows={4}
                 value={draft.notes}
-                placeholder="Detalhes úteis sobre esta despesa..."
+                placeholder="Detalhes Ãºteis sobre esta despesa..."
                 onChange={(event) =>
                   updateDraft(
                     "notes",
@@ -1002,65 +825,6 @@ export function BusinessExpensesPageClient() {
           </div>
 
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogFooter>
             <Button
               type="button"

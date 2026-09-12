@@ -165,7 +165,7 @@ export function CustomersPageClient() {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        toast.error("Sessão expirada. Entre novamente.");
+        toast.error("SessÃ£o expirada. Entre novamente.");
         router.push("/login");
         return;
       }
@@ -272,7 +272,7 @@ export function CustomersPageClient() {
         error
       );
       toast.error(
-        "Não foi possível carregar os clientes agora."
+        "NÃ£o foi possÃ­vel carregar os clientes agora."
       );
     } finally {
       setLoading(false);
@@ -317,7 +317,7 @@ export function CustomersPageClient() {
     }
 
     if (!userId || !workspaceId) {
-      toast.error("O ambiente do negócio ainda não está pronto.");
+      toast.error("O ambiente do negÃ³cio ainda nÃ£o estÃ¡ pronto.");
       return;
     }
 
@@ -367,7 +367,7 @@ export function CustomersPageClient() {
       await loadCustomers();
     } catch (error) {
       console.error("Erro ao salvar cliente", error);
-      toast.error("Não foi possível salvar o cliente.");
+      toast.error("NÃ£o foi possÃ­vel salvar o cliente.");
     } finally {
       setSaving(false);
     }
@@ -379,7 +379,7 @@ export function CustomersPageClient() {
         icon={Users}
         iconTone="accent"
         title="Clientes"
-        description="Centralize contatos, histórico de compras e relacionamento com seus clientes."
+        description="Centralize contatos, histÃ³rico de compras e relacionamento com seus clientes."
         actions={
           <Button
             type="button"
@@ -404,7 +404,7 @@ export function CustomersPageClient() {
         />
 
         <StatCard
-          title="Já compraram"
+          title="JÃ¡ compraram"
           value={String(summary.buyers)}
           subtitle={
             summary.total > 0
@@ -444,7 +444,7 @@ export function CustomersPageClient() {
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, WhatsApp ou observação..."
+          placeholder="Buscar por nome, WhatsApp ou observaÃ§Ã£o..."
           leftIcon={<Search className="h-4 w-4" />}
           className="min-h-11"
         />
@@ -470,8 +470,8 @@ export function CustomersPageClient() {
             }
             description={
               search
-                ? "Tente outro nome ou número de WhatsApp."
-                : "Cadastre seu primeiro cliente ou registre uma venda com cliente rápido."
+                ? "Tente outro nome ou nÃºmero de WhatsApp."
+                : "Cadastre seu primeiro cliente ou registre uma venda com cliente rÃ¡pido."
             }
             actionLabel={
               search ? undefined : "Cadastrar cliente"
@@ -506,7 +506,7 @@ export function CustomersPageClient() {
 
                       <p className="truncate text-sm text-text-secondary">
                         {customer.whatsapp ||
-                          "WhatsApp não informado"}
+                          "WhatsApp nÃ£o informado"}
                       </p>
 
                       {customer.notes && (
@@ -531,7 +531,7 @@ export function CustomersPageClient() {
                     />
 
                     <CustomerMetric
-                      label="Última compra"
+                      label="Ãšltima compra"
                       value={formatDate(
                         customer.lastPurchase
                       )}
@@ -613,7 +613,7 @@ export function CustomersPageClient() {
             </Button>
 
             <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
+              PÃ¡gina {pagination.page} de{" "}
               {pagination.total_pages}
             </span>
 
@@ -633,7 +633,7 @@ export function CustomersPageClient() {
                 )
               }
             >
-              Próxima
+              PrÃ³xima
             </Button>
           </div>
         </div>
@@ -652,187 +652,10 @@ export function CustomersPageClient() {
         }}
       >
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogContent className="max-w-lg">
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogHeader>
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogTitle>
               {editingCustomer
                 ? "Editar cliente"
@@ -872,13 +695,13 @@ export function CustomersPageClient() {
             </FormField>
 
             <FormField
-              label="Observações"
+              label="ObservaÃ§Ãµes"
               hint="Opcional"
             >
               <Textarea
                 rows={4}
                 value={form.notes}
-                placeholder="Preferências, endereço, informações úteis..."
+                placeholder="PreferÃªncias, endereÃ§o, informaÃ§Ãµes Ãºteis..."
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -890,65 +713,6 @@ export function CustomersPageClient() {
           </div>
 
 
-      {pagination.total_pages > 1 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-secondary">
-            {Math.min(
-              (pagination.page - 1) *
-                pagination.page_size +
-                1,
-              pagination.total_count
-            )}{" "}
-            -{" "}
-            {Math.min(
-              pagination.page *
-                pagination.page_size,
-              pagination.total_count
-            )}{" "}
-            de {pagination.total_count}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() =>
-                setPage((current) =>
-                  Math.max(current - 1, 1)
-                )
-              }
-            >
-              Anterior
-            </Button>
-
-            <span className="px-2 text-sm text-text-secondary">
-              Página {pagination.page} de{" "}
-              {pagination.total_pages}
-            </span>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                page >= pagination.total_pages
-              }
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(
-                    current + 1,
-                    pagination.total_pages
-                  )
-                )
-              }
-            >
-              Próxima
-            </Button>
-          </div>
-        </div>
-      )}
       <DialogFooter>
             <Button
               type="button"
@@ -965,7 +729,7 @@ export function CustomersPageClient() {
               onClick={saveCustomer}
             >
               {editingCustomer
-                ? "Salvar alterações"
+                ? "Salvar alteraÃ§Ãµes"
                 : "Cadastrar cliente"}
             </Button>
           </DialogFooter>
