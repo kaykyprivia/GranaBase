@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, PackageCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,16 +16,19 @@ import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import type { BusinessCustomer, BusinessInventorySummary, Database } from "@/types/database";
 
 type CreateSaleArgs = Database["public"]["Functions"]["create_business_sale"]["Args"];
+type SearchCustomersArgs = Database["public"]["Functions"]["search_business_customers"]["Args"];
 
 export function NewSalePageClient() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [products, setProducts] = useState<BusinessInventorySummary[]>([]);
   const [customers, setCustomers] = useState<BusinessCustomer[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -43,26 +46,21 @@ export function NewSalePageClient() {
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
       setWorkspaceId(workspace.workspace_id);
 
-      const [inventoryRes, customersRes] = await Promise.all([
-        supabase
-          .from("business_inventory_summary")
-          .select("*")
-          .eq("workspace_id", workspace.workspace_id)
-          .gt("available", 0)
-          .eq("active", true)
-          .order("name", { ascending: true }),
-        supabase
-          .from("business_customers")
-          .select("*")
-          .eq("workspace_id", workspace.workspace_id)
-          .order("name", { ascending: true })
-          .limit(80),
-      ]);
+      const inventoryRes = await supabase
+        .from("business_inventory_summary")
+        .select("*")
+        .eq("workspace_id", workspace.workspace_id)
+        .gt("available", 0)
+        .eq("active", true)
+        .order("name", { ascending: true });
 
       if (inventoryRes.error) throw inventoryRes.error;
-      if (customersRes.error) throw customersRes.error;
-      setProducts(coerceData<BusinessInventorySummary[]>(inventoryRes.data ?? []));
-      setCustomers(coerceData<BusinessCustomer[]>(customersRes.data ?? []));
+
+      setProducts(
+        coerceData<BusinessInventorySummary[]>(
+          inventoryRes.data ?? []
+        )
+      );
     } catch (error) {
       console.error("Erro ao carregar nova venda", error);
       toast.error("Nao foi possivel preparar a venda agora.");
@@ -75,6 +73,61 @@ export function NewSalePageClient() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedCustomerSearch(
+        customerSearch.trim()
+      );
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [customerSearch]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    let active = true;
+
+    async function loadCustomers() {
+      const args = {
+        p_workspace_id: workspaceId,
+        p_search:
+          debouncedCustomerSearch || null,
+        p_limit: 20,
+      } satisfies SearchCustomersArgs;
+
+      const result = await supabase.rpc(
+        "search_business_customers",
+        coerceMutation(args)
+      );
+
+      if (!active) return;
+
+      if (result.error) {
+        console.error(
+          "Erro ao buscar clientes",
+          result.error
+        );
+        return;
+      }
+
+      setCustomers(
+        coerceData<BusinessCustomer[]>(
+          result.data ?? []
+        )
+      );
+    }
+
+    void loadCustomers();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    debouncedCustomerSearch,
+    supabase,
+    workspaceId,
+  ]);
   async function handleSubmit(draft: SaleFormDraft) {
     setSubmitting(true);
     try {
@@ -108,7 +161,22 @@ export function NewSalePageClient() {
         })),
         p_idempotency_key: makeBusinessIdempotencyKey("sale-create"),
         p_customer_id: customerId,
-        p_sale_date: new Date(`${draft.saleDate}T12:00:00`).toISOString(),
+        p_sale_date: (() => {
+          const [year, month, day] = draft.saleDate
+            .split("-")
+            .map(Number);
+          const now = new Date();
+
+          return new Date(
+            year,
+            month - 1,
+            day,
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds(),
+            now.getMilliseconds()
+          ).toISOString();
+        })(),
         p_notes: draft.notes?.trim() || null,
         p_reserve: true,
       } satisfies CreateSaleArgs;
@@ -159,7 +227,14 @@ export function NewSalePageClient() {
             </Button>
           </div>
         ) : (
-          <SaleForm products={products} customers={customers} submitting={submitting} onSubmit={handleSubmit} />
+          <SaleForm
+            products={products}
+            customers={customers}
+            customerSearch={customerSearch}
+            onCustomerSearchChange={setCustomerSearch}
+            submitting={submitting}
+            onSubmit={handleSubmit}
+          />
         )}
       </div>
     </div>

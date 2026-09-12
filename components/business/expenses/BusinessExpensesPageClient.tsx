@@ -54,9 +54,8 @@ import {
   BUSINESS_EXPENSE_CATEGORIES,
   BUSINESS_EXPENSE_CATEGORY_META,
   BUSINESS_EXPENSE_PERIOD_OPTIONS,
-  filterBusinessExpenses,
+  getBusinessExpenseDateRange,
   hasBusinessExpenseErrors,
-  summarizeBusinessExpenses,
   validateBusinessExpenseDraft,
   type BusinessExpenseDraft,
   type BusinessExpenseErrors,
@@ -90,6 +89,25 @@ type WorkspaceRpcResult = {
 
 type RecordExpenseArgs =
   Database["public"]["Functions"]["record_business_expense"]["Args"];
+type ExpensesPageArgs =
+  Database["public"]["Functions"]["get_business_expenses_page"]["Args"];
+
+type ExpensesPageRpcResult = {
+  rows: BusinessExpense[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  summary: {
+    count: number;
+    total: number;
+    average: number;
+    top_category: BusinessExpenseCategory | null;
+    top_category_amount: number;
+  };
+};
+
+const EXPENSE_PAGE_SIZE = 25;
 
 function createEmptyDraft(): BusinessExpenseDraft {
   return {
@@ -103,7 +121,7 @@ function createEmptyDraft(): BusinessExpenseDraft {
 
 export function BusinessExpensesPageClient() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -115,6 +133,21 @@ export function BusinessExpensesPageClient() {
   >([]);
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total_count: 0,
+    page: 1,
+    page_size: EXPENSE_PAGE_SIZE,
+    total_pages: 0,
+  });
+  const [summary, setSummary] = useState({
+    count: 0,
+    total: 0,
+    average: 0,
+    topCategory: null as BusinessExpenseCategory | null,
+    topCategoryAmount: 0,
+  });
   const [categoryFilter, setCategoryFilter] = useState<
     BusinessExpenseCategory | "all"
   >("all");
@@ -129,6 +162,19 @@ export function BusinessExpensesPageClient() {
 
   const [errors, setErrors] =
     useState<BusinessExpenseErrors>({});
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter, periodFilter]);
 
   const loadExpenses = useCallback(async () => {
     setLoading(true);
@@ -161,56 +207,95 @@ export function BusinessExpensesPageClient() {
 
       setWorkspaceId(workspace.workspace_id);
 
-      const expensesRes = await supabase
-        .from("business_expenses")
-        .select("*")
-        .eq("workspace_id", workspace.workspace_id)
-        .order("spent_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const range =
+        getBusinessExpenseDateRange(periodFilter);
+
+      const args = {
+        p_workspace_id: workspace.workspace_id,
+        p_page: page,
+        p_page_size: EXPENSE_PAGE_SIZE,
+        p_category: categoryFilter,
+        p_start_date: range?.start ?? null,
+        p_end_date: range?.end ?? null,
+        p_search: debouncedSearch || null,
+      } satisfies ExpensesPageArgs;
+
+      const expensesRes = await supabase.rpc(
+        "get_business_expenses_page",
+        coerceMutation(args)
+      );
 
       if (expensesRes.error) {
         throw expensesRes.error;
       }
 
-      setExpenses(
-        coerceData<BusinessExpense[]>(
-          expensesRes.data ?? []
-        )
-      );
+      const result =
+        coerceData<ExpensesPageRpcResult>(
+          expensesRes.data
+        );
+
+      setPagination({
+        total_count: Number(result.total_count ?? 0),
+        page: Number(result.page ?? 1),
+        page_size: Number(
+          result.page_size ?? EXPENSE_PAGE_SIZE
+        ),
+        total_pages: Number(result.total_pages ?? 0),
+      });
+
+      setSummary({
+        count: Number(result.summary?.count ?? 0),
+        total: Number(result.summary?.total ?? 0),
+        average: Number(result.summary?.average ?? 0),
+        topCategory:
+          result.summary?.top_category ?? null,
+        topCategoryAmount: Number(
+          result.summary?.top_category_amount ?? 0
+        ),
+      });
+
+      if (
+        result.total_pages > 0 &&
+        page > result.total_pages
+      ) {
+        setPage(result.total_pages);
+        return;
+      }
+
+      if (
+        result.total_pages === 0 &&
+        page !== 1
+      ) {
+        setPage(1);
+        return;
+      }
+
+      setExpenses(result.rows ?? []);
     } catch (error) {
-      console.error("Erro ao carregar despesas", error);
+      console.error(
+        "Erro ao carregar despesas",
+        error
+      );
       toast.error(
         "Não foi possível carregar as despesas agora."
       );
     } finally {
       setLoading(false);
     }
-  }, [router, supabase]);
+  }, [
+    categoryFilter,
+    debouncedSearch,
+    page,
+    periodFilter,
+    router,
+    supabase,
+  ]);
 
   useEffect(() => {
     void loadExpenses();
   }, [loadExpenses]);
 
-  const filteredExpenses = useMemo(
-    () =>
-      filterBusinessExpenses(expenses, {
-        search,
-        category: categoryFilter,
-        period: periodFilter,
-      }),
-    [
-      categoryFilter,
-      expenses,
-      periodFilter,
-      search,
-    ]
-  );
 
-  const summary = useMemo(
-    () => summarizeBusinessExpenses(filteredExpenses),
-    [filteredExpenses]
-  );
 
   function openCreateExpense() {
     setDraft(createEmptyDraft());
@@ -466,7 +551,7 @@ export function BusinessExpensesPageClient() {
             )
           )}
         </div>
-      ) : filteredExpenses.length === 0 ? (
+      ) : expenses.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-surface">
           <EmptyState
             icon={ReceiptText}
@@ -494,7 +579,7 @@ export function BusinessExpensesPageClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredExpenses.map((expense) => (
+          {expenses.map((expense) => (
             <div
               key={expense.id}
               className="rounded-xl border border-border/60 bg-surface p-4 shadow-card"
@@ -547,6 +632,66 @@ export function BusinessExpensesPageClient() {
         </div>
       )}
 
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
       <Dialog
         open={formOpen}
         onOpenChange={(open) => {
@@ -560,9 +705,189 @@ export function BusinessExpensesPageClient() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogContent className="max-w-lg">
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogHeader>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogTitle>
               Nova despesa
             </DialogTitle>
           </DialogHeader>
@@ -676,7 +1001,67 @@ export function BusinessExpensesPageClient() {
             </FormField>
           </div>
 
-          <DialogFooter>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogFooter>
             <Button
               type="button"
               variant="outline"

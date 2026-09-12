@@ -139,7 +139,7 @@ export function ReturnSaleDialog({ open, sale, loading, onOpenChange, onConfirm 
               <p className="text-xs text-text-secondary">Maximo: {formatCurrency(payment.refundableAmount)}</p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sale-return-notes">Observacao</Label>
+              <Label htmlFor="sale-return-notes">Observação</Label>
               <Textarea id="sale-return-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
             </div>
           </div>

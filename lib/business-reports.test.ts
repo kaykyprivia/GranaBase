@@ -33,6 +33,7 @@ function makeSale(
     created_at: "2026-09-10T12:00:00.000Z",
     updated_at: "2026-09-10T13:00:00.000Z",
     ...overrides,
+    sale_number: overrides.sale_number ?? 1,
   };
 }
 

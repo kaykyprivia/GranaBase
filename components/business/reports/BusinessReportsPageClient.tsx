@@ -52,8 +52,7 @@ import { useChartColors } from "@/hooks/useChartColors";
 
 import {
   BUSINESS_REPORT_PERIOD_OPTIONS,
-  buildBusinessReportsAnalytics,
-  type BusinessReportsDataset,
+  type BusinessReportsAnalytics,
   type BusinessReportsPeriod,
 } from "@/lib/business-reports";
 
@@ -67,20 +66,33 @@ import {
 import {
   cn,
   formatCurrency,
+  toLocalDateString,
 } from "@/lib/utils";
 
-import type {
-  BusinessExpense,
-  BusinessPayment,
-  BusinessProduct,
-  BusinessSale,
-  BusinessSaleItem,
-  BusinessSaleReturn,
-  BusinessSaleReturnItem,
-} from "@/types/database";
+import type { Database } from "@/types/database";
 
 type WorkspaceRpcResult = {
   workspace_id: string;
+};
+type ReportsArgs =
+  Database["public"]["Functions"]["get_business_reports_analytics"]["Args"];
+
+const EMPTY_ANALYTICS: BusinessReportsAnalytics = {
+  summary: {
+    revenue: 0,
+    saleProfit: 0,
+    expenses: 0,
+    result: 0,
+    margin: 0,
+    salesCount: 0,
+    ticket: 0,
+    received: 0,
+    receivable: 0,
+  },
+  series: [],
+  expensesByCategory: [],
+  topByRevenue: [],
+  topByProfit: [],
 };
 
 const PIE_COLORS = [
@@ -157,16 +169,7 @@ export function BusinessReportsPageClient() {
   const [period, setPeriod] =
     useState<BusinessReportsPeriod>("month");
 
-  const [dataset, setDataset] =
-    useState<BusinessReportsDataset>({
-      sales: [],
-      saleItems: [],
-      payments: [],
-      returns: [],
-      returnItems: [],
-      expenses: [],
-      products: [],
-    });
+  const [analytics, setAnalytics] = useState<BusinessReportsAnalytics>(EMPTY_ANALYTICS);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -202,138 +205,26 @@ export function BusinessReportsPageClient() {
           workspaceRes.data
         );
 
-      const [
-        salesRes,
-        saleItemsRes,
-        paymentsRes,
-        returnsRes,
-        returnItemsRes,
-        expensesRes,
-        productsRes,
-      ] = await Promise.all([
-        supabase
-          .from("business_sales")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .order("sale_date", {
-            ascending: true,
-          })
-          .limit(5000),
+      const args = {
+        p_workspace_id: workspace.workspace_id,
+        p_period: period,
+        p_today: toLocalDateString(),
+      } satisfies ReportsArgs;
 
-        supabase
-          .from("business_sale_items")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .limit(10000),
-
-        supabase
-          .from("business_payments")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .limit(10000),
-
-        supabase
-          .from("business_sale_returns")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .limit(5000),
-
-        supabase
-          .from("business_sale_return_items")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .limit(10000),
-
-        supabase
-          .from("business_expenses")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .order("spent_at", {
-            ascending: true,
-          })
-          .limit(5000),
-
-        supabase
-          .from("business_products")
-          .select("*")
-          .eq(
-            "workspace_id",
-            workspace.workspace_id
-          )
-          .limit(5000),
-      ]);
-
-      const results = [
-        salesRes,
-        saleItemsRes,
-        paymentsRes,
-        returnsRes,
-        returnItemsRes,
-        expensesRes,
-        productsRes,
-      ];
-
-      const failed = results.find(
-        (result) => result.error
+      const reportsRes = await supabase.rpc(
+        "get_business_reports_analytics",
+        coerceMutation(args)
       );
 
-      if (failed?.error) {
-        throw failed.error;
+      if (reportsRes.error) {
+        throw reportsRes.error;
       }
 
-      setDataset({
-        sales: coerceData<BusinessSale[]>(
-          salesRes.data ?? []
-        ),
-
-        saleItems:
-          coerceData<BusinessSaleItem[]>(
-            saleItemsRes.data ?? []
-          ),
-
-        payments:
-          coerceData<BusinessPayment[]>(
-            paymentsRes.data ?? []
-          ),
-
-        returns:
-          coerceData<BusinessSaleReturn[]>(
-            returnsRes.data ?? []
-          ),
-
-        returnItems:
-          coerceData<BusinessSaleReturnItem[]>(
-            returnItemsRes.data ?? []
-          ),
-
-        expenses:
-          coerceData<BusinessExpense[]>(
-            expensesRes.data ?? []
-          ),
-
-        products:
-          coerceData<BusinessProduct[]>(
-            productsRes.data ?? []
-          ),
-      });
+      setAnalytics(
+        coerceData<BusinessReportsAnalytics>(
+          reportsRes.data
+        )
+      );
     } catch (error) {
       console.error(
         "Erro ao carregar relatórios do negócio",
@@ -346,20 +237,12 @@ export function BusinessReportsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [router, supabase]);
+  }, [period, router, supabase]);
 
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
 
-  const analytics = useMemo(
-    () =>
-      buildBusinessReportsAnalytics(
-        dataset,
-        period
-      ),
-    [dataset, period]
-  );
 
   const hasActivity =
     analytics.summary.salesCount > 0 ||

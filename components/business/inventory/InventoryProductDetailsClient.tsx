@@ -34,6 +34,8 @@ import type {
 type AdjustArgs = Database["public"]["Functions"]["adjust_business_inventory"]["Args"];
 type ProductUpdateArgs = Database["public"]["Functions"]["update_business_product_metadata"]["Args"];
 
+const INVENTORY_HISTORY_PAGE_SIZE = 40;
+
 export function InventoryProductDetailsClient({ productId }: { productId: string }) {
   const router = useRouter();
   const supabase = createClient();
@@ -108,18 +110,20 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
           .maybeSingle(),
         supabase
           .from("business_inventory_lots")
-          .select("*")
+          .select("*", { count: "exact" })
           .eq("workspace_id", workspace.workspace_id)
           .eq("product_id", productId)
           .order("received_at", { ascending: false })
-          .limit(80),
+          .order("id", { ascending: false })
+          .range(0, INVENTORY_HISTORY_PAGE_SIZE - 1),
         supabase
           .from("business_inventory_movements")
-          .select("*")
+          .select("*", { count: "exact" })
           .eq("workspace_id", workspace.workspace_id)
           .eq("product_id", productId)
           .order("created_at", { ascending: false })
-          .limit(80),
+          .order("id", { ascending: false })
+          .range(0, INVENTORY_HISTORY_PAGE_SIZE - 1),
       ]);
 
       if (summaryRes.error) throw summaryRes.error;

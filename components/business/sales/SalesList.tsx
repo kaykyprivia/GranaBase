@@ -89,7 +89,7 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesList
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="break-words text-base font-semibold text-text-primary">
-            {sale.customer?.name ?? `Venda #${sale.id.slice(0, 8)}`}
+            {`Venda #${sale.sale_number}`}
           </h2>
           <p className="mt-0.5 line-clamp-2 text-xs text-text-secondary">{describeItems(sale)}</p>
         </div>
@@ -102,7 +102,7 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesList
         <Info label="Pago" value={formatCurrency(payment.netPaidAmount)} />
         <Info label="Restante" value={formatCurrency(payment.remainingAmount)} strong={payment.remainingAmount > 0} />
         <Info label="Lucro liquido" value={formatCurrency(netProfit)} strong />
-        <Info label="Data" value={`${formatDate(sale.sale_date.slice(0, 10))} as ${formatTime(sale.sale_date)}`} />
+        <Info label="Data" value={`${formatDate(sale.sale_date.slice(0, 10))} às ${formatTime(sale.sale_date)}`} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
@@ -146,7 +146,7 @@ function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListPr
     <tr className="transition-colors hover:bg-border/20">
       <td className="px-4 py-3">
         <p className="font-medium text-text-primary">{sale.customer?.name ?? "Cliente nao informado"}</p>
-        <p className="text-xs text-text-secondary">#{sale.id.slice(0, 8)}</p>
+        <p className="text-xs text-text-secondary">Venda #{sale.sale_number}</p>
       </td>
       <td className="px-4 py-3">
         <p className="max-w-56 truncate text-text-secondary">{describeItems(sale)}</p>

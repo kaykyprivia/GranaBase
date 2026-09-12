@@ -34,23 +34,12 @@ import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 import type {
   BusinessCustomer,
-  BusinessSale,
-  BusinessSaleItem,
+  Database,
 } from "@/types/database";
 
 type WorkspaceRpcResult = {
   workspace_id: string;
 };
-
-type CustomerSaleSnapshot = Pick<
-  BusinessSale,
-  "id" | "customer_id" | "sale_date" | "order_status"
->;
-
-type SaleItemSnapshot = Pick<
-  BusinessSaleItem,
-  "sale_id" | "final_amount"
->;
 
 type CustomerMetrics = {
   orders: number;
@@ -59,6 +48,25 @@ type CustomerMetrics = {
 };
 
 type CustomerRow = BusinessCustomer & CustomerMetrics;
+
+type CustomersPageRpcResult = {
+  rows: CustomerRow[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  summary: {
+    total: number;
+    buyers: number;
+    recurring: number;
+    total_sold: number;
+  };
+};
+
+type CustomersPageArgs =
+  Database["public"]["Functions"]["get_business_customers_page"]["Args"];
+
+const CUSTOMER_PAGE_SIZE = 25;
 
 type CustomerForm = {
   name: string;
@@ -107,7 +115,7 @@ function buildWhatsappLink(value: string | null) {
 
 export function CustomersPageClient() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,12 +125,35 @@ export function CustomersPageClient() {
 
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total_count: 0,
+    page: 1,
+    page_size: CUSTOMER_PAGE_SIZE,
+    total_pages: 0,
+  });
+  const [summary, setSummary] = useState({
+    total: 0,
+    buyers: 0,
+    recurring: 0,
+    total_sold: 0,
+  });
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] =
     useState<BusinessCustomer | null>(null);
 
   const [form, setForm] = useState<CustomerForm>(emptyForm);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -152,164 +183,112 @@ export function CustomersPageClient() {
         throw workspaceRes.error;
       }
 
-      const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
+      const workspace =
+        coerceData<WorkspaceRpcResult>(workspaceRes.data);
 
       setWorkspaceId(workspace.workspace_id);
 
-      const [customersRes, salesRes] = await Promise.all([
-        supabase
-          .from("business_customers")
-          .select("*")
-          .eq("workspace_id", workspace.workspace_id)
-          .order("created_at", { ascending: false })
-          .limit(500),
+      const args = {
+        p_workspace_id: workspace.workspace_id,
+        p_page: page,
+        p_page_size: CUSTOMER_PAGE_SIZE,
+        p_search: debouncedSearch || null,
+      } satisfies CustomersPageArgs;
 
-        supabase
-          .from("business_sales")
-          .select("id, customer_id, sale_date, order_status")
-          .eq("workspace_id", workspace.workspace_id)
-          .order("sale_date", { ascending: false })
-          .limit(1000),
-      ]);
+      const customersRes = await supabase.rpc(
+        "get_business_customers_page",
+        coerceMutation(args)
+      );
 
       if (customersRes.error) {
         throw customersRes.error;
       }
 
-      if (salesRes.error) {
-        throw salesRes.error;
-      }
-
-      const customerRows = coerceData<BusinessCustomer[]>(
-        customersRes.data ?? []
-      );
-
-      const sales = coerceData<CustomerSaleSnapshot[]>(
-        salesRes.data ?? []
-      ).filter(
-        (sale) =>
-          Boolean(sale.customer_id) &&
-          sale.order_status !== "CANCELLED"
-      );
-
-      const saleIds = sales.map((sale) => sale.id);
-
-      let saleItems: SaleItemSnapshot[] = [];
-
-      if (saleIds.length > 0) {
-        const itemsRes = await supabase
-          .from("business_sale_items")
-          .select("sale_id, final_amount")
-          .in("sale_id", saleIds);
-
-        if (itemsRes.error) {
-          throw itemsRes.error;
-        }
-
-        saleItems = coerceData<SaleItemSnapshot[]>(
-          itemsRes.data ?? []
+      const result =
+        coerceData<CustomersPageRpcResult>(
+          customersRes.data
         );
+
+      setPagination({
+        total_count: Number(result.total_count ?? 0),
+        page: Number(result.page ?? 1),
+        page_size: Number(
+          result.page_size ?? CUSTOMER_PAGE_SIZE
+        ),
+        total_pages: Number(result.total_pages ?? 0),
+      });
+
+      setSummary({
+        total: Number(result.summary?.total ?? 0),
+        buyers: Number(result.summary?.buyers ?? 0),
+        recurring: Number(
+          result.summary?.recurring ?? 0
+        ),
+        total_sold: Number(
+          result.summary?.total_sold ?? 0
+        ),
+      });
+
+      if (
+        result.total_pages > 0 &&
+        page > result.total_pages
+      ) {
+        setPage(result.total_pages);
+        return;
       }
 
-      const amountBySaleId = new Map<string, number>();
-
-      for (const item of saleItems) {
-        amountBySaleId.set(
-          item.sale_id,
-          (amountBySaleId.get(item.sale_id) ?? 0) +
-            Number(item.final_amount ?? 0)
-        );
-      }
-
-      const metricsByCustomer = new Map<string, CustomerMetrics>();
-
-      for (const sale of sales) {
-        if (!sale.customer_id) continue;
-
-        const current =
-          metricsByCustomer.get(sale.customer_id) ?? {
-            orders: 0,
-            totalPurchased: 0,
-            lastPurchase: null,
-          };
-
-        current.orders += 1;
-        current.totalPurchased += amountBySaleId.get(sale.id) ?? 0;
-
-        if (
-          !current.lastPurchase ||
-          sale.sale_date > current.lastPurchase
-        ) {
-          current.lastPurchase = sale.sale_date;
-        }
-
-        metricsByCustomer.set(sale.customer_id, current);
+      if (
+        result.total_pages === 0 &&
+        page !== 1
+      ) {
+        setPage(1);
+        return;
       }
 
       setCustomers(
-        customerRows.map((customer) => ({
-          ...customer,
-          ...(metricsByCustomer.get(customer.id) ?? {
-            orders: 0,
-            totalPurchased: 0,
-            lastPurchase: null,
-          }),
-        }))
+        (result.rows ?? []).map((row) => {
+          const raw = row as CustomerRow & {
+            total_purchased?: number;
+            last_purchase?: string | null;
+          };
+
+          return {
+            ...row,
+            totalPurchased: Number(
+              raw.total_purchased ??
+                row.totalPurchased ??
+                0
+            ),
+            lastPurchase:
+              raw.last_purchase ??
+              row.lastPurchase ??
+              null,
+          };
+        })
       );
     } catch (error) {
-      console.error("Erro ao carregar clientes", error);
-      toast.error("Não foi possível carregar os clientes agora.");
+      console.error(
+        "Erro ao carregar clientes",
+        error
+      );
+      toast.error(
+        "Não foi possível carregar os clientes agora."
+      );
     } finally {
       setLoading(false);
     }
-  }, [router, supabase]);
+  }, [
+    debouncedSearch,
+    page,
+    router,
+    supabase,
+  ]);
 
   useEffect(() => {
     void loadCustomers();
   }, [loadCustomers]);
 
-  const filteredCustomers = useMemo(() => {
-    const term = search.trim().toLowerCase();
 
-    if (!term) {
-      return customers;
-    }
-
-    return customers.filter((customer) => {
-      const searchable = [
-        customer.name,
-        customer.whatsapp,
-        customer.notes,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return searchable.includes(term);
-    });
-  }, [customers, search]);
-
-  const summary = useMemo(() => {
-    const buyers = customers.filter(
-      (customer) => customer.orders > 0
-    );
-
-    const recurring = customers.filter(
-      (customer) => customer.orders >= 2
-    );
-
-    const totalSold = customers.reduce(
-      (sum, customer) => sum + customer.totalPurchased,
-      0
-    );
-
-    return {
-      total: customers.length,
-      buyers: buyers.length,
-      recurring: recurring.length,
-      totalSold,
-    };
-  }, [customers]);
 
   function openCreateCustomer() {
     setEditingCustomer(null);
@@ -452,7 +431,7 @@ export function CustomersPageClient() {
 
         <StatCard
           title="Total vendido"
-          value={formatCurrency(summary.totalSold)}
+          value={formatCurrency(summary.total_sold)}
           subtitle="Vendas vinculadas a clientes"
           icon={WalletCards}
           variant="profit"
@@ -480,7 +459,7 @@ export function CustomersPageClient() {
             />
           ))}
         </div>
-      ) : filteredCustomers.length === 0 ? (
+      ) : customers.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-surface">
           <EmptyState
             icon={Users}
@@ -504,7 +483,7 @@ export function CustomersPageClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredCustomers.map((customer) => {
+          {customers.map((customer) => {
             const whatsappLink = buildWhatsappLink(
               customer.whatsapp
             );
@@ -599,6 +578,66 @@ export function CustomersPageClient() {
         </div>
       )}
 
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
       <Dialog
         open={formOpen}
         onOpenChange={(open) => {
@@ -612,9 +651,189 @@ export function CustomersPageClient() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogContent className="max-w-lg">
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogHeader>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogTitle>
               {editingCustomer
                 ? "Editar cliente"
                 : "Novo cliente"}
@@ -670,7 +889,67 @@ export function CustomersPageClient() {
             </FormField>
           </div>
 
-          <DialogFooter>
+
+      {pagination.total_pages > 1 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-secondary">
+            {Math.min(
+              (pagination.page - 1) *
+                pagination.page_size +
+                1,
+              pagination.total_count
+            )}{" "}
+            -{" "}
+            {Math.min(
+              pagination.page *
+                pagination.page_size,
+              pagination.total_count
+            )}{" "}
+            de {pagination.total_count}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() =>
+                setPage((current) =>
+                  Math.max(current - 1, 1)
+                )
+              }
+            >
+              Anterior
+            </Button>
+
+            <span className="px-2 text-sm text-text-secondary">
+              Página {pagination.page} de{" "}
+              {pagination.total_pages}
+            </span>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                page >= pagination.total_pages
+              }
+              onClick={() =>
+                setPage((current) =>
+                  Math.min(
+                    current + 1,
+                    pagination.total_pages
+                  )
+                )
+              }
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      )}
+      <DialogFooter>
             <Button
               type="button"
               variant="outline"

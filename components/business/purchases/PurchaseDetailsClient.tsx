@@ -349,7 +349,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
                   <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-text-primary">{event.label}</p>
-                    <p className="text-xs text-text-secondary">{formatDate(event.createdAt.slice(0, 10))} às {formatTime(event.createdAt)}</p>
+                    <p className="text-xs text-text-secondary">{formatDate(event.createdAt.slice(0, 10))} Ã s {formatTime(event.createdAt)}</p>
                   </div>
                 </li>
               ))}

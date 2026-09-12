@@ -69,7 +69,7 @@ export function EditProductDialog({ open, product, loading, onOpenChange, onConf
         <DialogHeader>
           <DialogTitle>Editar produto</DialogTitle>
           <DialogDescription>
-            Edite somente dados cadastrais. Estoque, custo médio e capital seguem derivados do ledger.
+            Edite somente dados cadastrais. Estoque, custo médio e capital são calculados automaticamente pelas movimentações.
           </DialogDescription>
         </DialogHeader>
 

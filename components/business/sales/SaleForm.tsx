@@ -24,13 +24,22 @@ import type { BusinessCustomer, BusinessInventorySummary } from "@/types/databas
 type SaleFormProps = {
   products: BusinessInventorySummary[];
   customers: BusinessCustomer[];
+  customerSearch: string;
+  onCustomerSearchChange: (value: string) => void;
   submitting: boolean;
   onSubmit: (draft: SaleFormDraft) => Promise<void>;
 };
 
 const emptyErrors: SaleFormErrors = { itemErrors: [] };
 
-export function SaleForm({ products, customers, submitting, onSubmit }: SaleFormProps) {
+export function SaleForm({
+  products,
+  customers,
+  customerSearch,
+  onCustomerSearchChange,
+  submitting,
+  onSubmit,
+}: SaleFormProps) {
   const availableProducts = useMemo(() => products.filter((product) => product.active && product.available > 0), [products]);
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>(availableProducts[0]?.product_id);
   const [draft, setDraft] = useState<SaleFormDraft>({
@@ -95,24 +104,48 @@ export function SaleForm({ products, customers, submitting, onSubmit }: SaleForm
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        {customers.length > 0 && (
-          <div className="space-y-1.5">
-            <Label>Cliente existente</Label>
-            <Select value={draft.customerId || "none"} onValueChange={(value) => updateDraft("customerId", value === "none" ? "" : value)}>
-              <SelectTrigger aria-label="Cliente existente">
-                <SelectValue placeholder="Cliente opcional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem cliente</SelectItem>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="space-y-1.5">
+          <Label>Cliente existente</Label>
+
+          <Input
+            value={customerSearch}
+            placeholder="Buscar cliente por nome ou WhatsApp..."
+            onChange={(event) =>
+              onCustomerSearchChange(
+                event.target.value
+              )
+            }
+          />
+
+          <Select
+            value={draft.customerId || "none"}
+            onValueChange={(value) =>
+              updateDraft(
+                "customerId",
+                value === "none" ? "" : value
+              )
+            }
+          >
+            <SelectTrigger aria-label="Cliente existente">
+              <SelectValue placeholder="Cliente opcional" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="none">
+                Sem cliente
+              </SelectItem>
+
+              {customers.map((customer) => (
+                <SelectItem
+                  key={customer.id}
+                  value={customer.id}
+                >
+                  {customer.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <FormField label="Data da venda" error={errors.saleDate} required>
           <Input
@@ -125,7 +158,7 @@ export function SaleForm({ products, customers, submitting, onSubmit }: SaleForm
       </div>
 
       <div className="rounded-xl border border-border/60 bg-background/35 p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Cliente rapido</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Cliente rápido</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Nome" error={errors.customer} hint="Opcional">
             <Input
@@ -190,7 +223,7 @@ export function SaleForm({ products, customers, submitting, onSubmit }: SaleForm
         </div>
       )}
 
-      <FormField label="Observacao">
+      <FormField label="Observação">
         <Textarea
           rows={3}
           value={draft.notes ?? ""}

@@ -54,5 +54,5 @@ export function InventoryMovementsTimeline({ movements }: InventoryMovementsTime
 function getReferenceLabel(movement: BusinessInventoryMovement): string {
   if (movement.reference_type === "purchase_order") return "Origem em compra registrada.";
   if (movement.reference_type === "inventory_adjustment") return "Ajuste manual auditável.";
-  return "Movimento registrado no ledger.";
+  return "Movimentação registrada no estoque.";
 }

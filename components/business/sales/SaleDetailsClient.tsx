@@ -318,7 +318,7 @@ export function SaleDetailsClient({ saleId }: { saleId: string }) {
       <PageIntro
         icon={PackageCheck}
         iconTone="accent"
-        title={`Venda #${sale.id.slice(0, 8)}`}
+        title={`Venda #${sale.sale_number}`}
         description={`${sale.customer?.name ?? "Cliente nao informado"} - ${formatDate(sale.sale_date.slice(0, 10))} as ${formatTime(sale.sale_date)}`}
         actions={
           <div className="flex flex-wrap gap-2">

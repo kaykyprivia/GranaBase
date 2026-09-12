@@ -1027,6 +1027,7 @@ export interface Database {
           id: string;
           user_id: string;
           workspace_id: string;
+          sale_number: number;
           customer_id: string | null;
           order_status: BusinessSaleOrderStatus;
           payment_status: BusinessSalePaymentStatus;
@@ -1040,6 +1041,7 @@ export interface Database {
           id?: string;
           user_id: string;
           workspace_id: string;
+          sale_number?: number;
           customer_id?: string | null;
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
@@ -1053,6 +1055,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           workspace_id?: string;
+          sale_number?: number;
           customer_id?: string | null;
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
@@ -1653,7 +1656,42 @@ export interface Database {
         };
         Returns: Json;
       };
-      get_business_sales_page: {
+      get_business_customers_page: {
+        Args: {
+          p_workspace_id: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_search?: string | null;
+        };
+        Returns: Json;
+      };
+      get_business_expenses_page: {
+        Args: {
+          p_workspace_id: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_category?: "all" | BusinessExpenseCategory;
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+          p_search?: string | null;
+        };
+        Returns: Json;
+      };
+      search_business_customers: {
+        Args: {
+          p_workspace_id: string;
+          p_search?: string | null;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };      get_business_reports_analytics: {
+        Args: {
+          p_workspace_id: string;
+          p_period?: "month" | "3m" | "6m" | "12m" | "all";
+          p_today?: string;
+        };
+        Returns: Json;
+      };      get_business_sales_page: {
         Args: {
           p_workspace_id: string;
           p_page?: number;

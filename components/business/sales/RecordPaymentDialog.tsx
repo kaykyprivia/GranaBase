@@ -99,7 +99,7 @@ export function RecordPaymentDialog({ open, sale, loading, onOpenChange, onConfi
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="sale-payment-notes">Observacao</Label>
+            <Label htmlFor="sale-payment-notes">Observação</Label>
             <Textarea id="sale-payment-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} />
           </div>
         </div>
