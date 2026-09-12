@@ -165,7 +165,7 @@ export function CustomersPageClient() {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        toast.error("SessÃ£o expirada. Entre novamente.");
+        toast.error("Sessão expirada. Entre novamente.");
         router.push("/login");
         return;
       }
@@ -272,7 +272,7 @@ export function CustomersPageClient() {
         error
       );
       toast.error(
-        "NÃ£o foi possÃ­vel carregar os clientes agora."
+        "Não foi possível carregar os clientes agora."
       );
     } finally {
       setLoading(false);
@@ -317,7 +317,7 @@ export function CustomersPageClient() {
     }
 
     if (!userId || !workspaceId) {
-      toast.error("O ambiente do negÃ³cio ainda nÃ£o estÃ¡ pronto.");
+      toast.error("O ambiente do negócio ainda não está pronto.");
       return;
     }
 
@@ -367,7 +367,7 @@ export function CustomersPageClient() {
       await loadCustomers();
     } catch (error) {
       console.error("Erro ao salvar cliente", error);
-      toast.error("NÃ£o foi possÃ­vel salvar o cliente.");
+      toast.error("Não foi possível salvar o cliente.");
     } finally {
       setSaving(false);
     }
@@ -379,7 +379,7 @@ export function CustomersPageClient() {
         icon={Users}
         iconTone="accent"
         title="Clientes"
-        description="Centralize contatos, histÃ³rico de compras e relacionamento com seus clientes."
+        description="Centralize contatos, histórico de compras e relacionamento com seus clientes."
         actions={
           <Button
             type="button"
@@ -404,7 +404,7 @@ export function CustomersPageClient() {
         />
 
         <StatCard
-          title="JÃ¡ compraram"
+          title="Já compraram"
           value={String(summary.buyers)}
           subtitle={
             summary.total > 0
@@ -444,7 +444,7 @@ export function CustomersPageClient() {
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, WhatsApp ou observaÃ§Ã£o..."
+          placeholder="Buscar por nome, WhatsApp ou observação..."
           leftIcon={<Search className="h-4 w-4" />}
           className="min-h-11"
         />
@@ -470,8 +470,8 @@ export function CustomersPageClient() {
             }
             description={
               search
-                ? "Tente outro nome ou nÃºmero de WhatsApp."
-                : "Cadastre seu primeiro cliente ou registre uma venda com cliente rÃ¡pido."
+                ? "Tente outro nome ou número de WhatsApp."
+                : "Cadastre seu primeiro cliente ou registre uma venda com cliente rápido."
             }
             actionLabel={
               search ? undefined : "Cadastrar cliente"
@@ -506,7 +506,7 @@ export function CustomersPageClient() {
 
                       <p className="truncate text-sm text-text-secondary">
                         {customer.whatsapp ||
-                          "WhatsApp nÃ£o informado"}
+                          "WhatsApp não informado"}
                       </p>
 
                       {customer.notes && (
@@ -531,7 +531,7 @@ export function CustomersPageClient() {
                     />
 
                     <CustomerMetric
-                      label="Ãšltima compra"
+                      label="Última compra"
                       value={formatDate(
                         customer.lastPurchase
                       )}
@@ -613,7 +613,7 @@ export function CustomersPageClient() {
             </Button>
 
             <span className="px-2 text-sm text-text-secondary">
-              PÃ¡gina {pagination.page} de{" "}
+              Página {pagination.page} de{" "}
               {pagination.total_pages}
             </span>
 
@@ -633,7 +633,7 @@ export function CustomersPageClient() {
                 )
               }
             >
-              PrÃ³xima
+              Próxima
             </Button>
           </div>
         </div>
@@ -695,13 +695,13 @@ export function CustomersPageClient() {
             </FormField>
 
             <FormField
-              label="ObservaÃ§Ãµes"
+              label="Observações"
               hint="Opcional"
             >
               <Textarea
                 rows={4}
                 value={form.notes}
-                placeholder="PreferÃªncias, endereÃ§o, informaÃ§Ãµes Ãºteis..."
+                placeholder="Preferências, endereço, informações úteis..."
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -729,7 +729,7 @@ export function CustomersPageClient() {
               onClick={saveCustomer}
             >
               {editingCustomer
-                ? "Salvar alteraÃ§Ãµes"
+                ? "Salvar alterações"
                 : "Cadastrar cliente"}
             </Button>
           </DialogFooter>

@@ -186,7 +186,7 @@ export function BusinessExpensesPageClient() {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        toast.error("SessÃ£o expirada. Entre novamente.");
+        toast.error("Sessão expirada. Entre novamente.");
         router.push("/login");
         return;
       }
@@ -277,7 +277,7 @@ export function BusinessExpensesPageClient() {
         error
       );
       toast.error(
-        "NÃ£o foi possÃ­vel carregar as despesas agora."
+        "Não foi possível carregar as despesas agora."
       );
     } finally {
       setLoading(false);
@@ -332,7 +332,7 @@ export function BusinessExpensesPageClient() {
 
     if (!workspaceId) {
       toast.error(
-        "O ambiente do negÃ³cio ainda nÃ£o estÃ¡ pronto."
+        "O ambiente do negócio ainda não está pronto."
       );
       return;
     }
@@ -376,7 +376,7 @@ export function BusinessExpensesPageClient() {
       );
 
       toast.error(
-        "NÃ£o foi possÃ­vel registrar a despesa."
+        "Não foi possível registrar a despesa."
       );
     } finally {
       setSaving(false);
@@ -395,7 +395,7 @@ export function BusinessExpensesPageClient() {
         icon={ReceiptText}
         iconTone="accent"
         title="Despesas"
-        description="Controle os custos operacionais do negÃ³cio sem misturar com seus gastos pessoais."
+        description="Controle os custos operacionais do negócio sem misturar com seus gastos pessoais."
         actions={
           <Button
             type="button"
@@ -411,9 +411,9 @@ export function BusinessExpensesPageClient() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
-          title="Total no perÃ­odo"
+          title="Total no período"
           value={formatCurrency(summary.total)}
-          subtitle={`${summary.count} lanÃ§amento${
+          subtitle={`${summary.count} lançamento${
             summary.count === 1 ? "" : "s"
           }`}
           icon={TrendingDown}
@@ -425,7 +425,7 @@ export function BusinessExpensesPageClient() {
         <StatCard
           title="Despesas"
           value={String(summary.count)}
-          subtitle="LanÃ§amentos filtrados"
+          subtitle="Lançamentos filtrados"
           icon={ReceiptText}
           variant="default"
           size="compact"
@@ -433,7 +433,7 @@ export function BusinessExpensesPageClient() {
         />
 
         <StatCard
-          title="MÃ©dia por despesa"
+          title="Média por despesa"
           value={formatCurrency(summary.average)}
           icon={CircleDollarSign}
           variant="warning"
@@ -449,7 +449,7 @@ export function BusinessExpensesPageClient() {
               ? formatCurrency(
                   summary.topCategoryAmount
                 )
-              : "Sem despesas no perÃ­odo"
+              : "Sem despesas no período"
           }
           icon={BarChart3}
           variant="accent"
@@ -461,7 +461,7 @@ export function BusinessExpensesPageClient() {
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Buscar despesa, categoria ou observaÃ§Ã£o..."
+        searchPlaceholder="Buscar despesa, categoria ou observação..."
         activeFilterCount={
           (periodFilter !== "month" ? 1 : 0) +
           (categoryFilter !== "all" ? 1 : 0)
@@ -481,7 +481,7 @@ export function BusinessExpensesPageClient() {
         >
           <SelectTrigger
             className="w-full"
-            aria-label="PerÃ­odo das despesas"
+            aria-label="Período das despesas"
           >
             <SelectValue />
           </SelectTrigger>
@@ -562,8 +562,8 @@ export function BusinessExpensesPageClient() {
             }
             description={
               expenses.length === 0
-                ? "Registre custos como combustÃ­vel, embalagens, anÃºncios, entregas, manutenÃ§Ã£o e taxas."
-                : "Altere os filtros ou a busca para encontrar outros lanÃ§amentos."
+                ? "Registre custos como combustível, embalagens, anúncios, entregas, manutenção e taxas."
+                : "Altere os filtros ou a busca para encontrar outros lançamentos."
             }
             actionLabel={
               expenses.length === 0
@@ -667,7 +667,7 @@ export function BusinessExpensesPageClient() {
             </Button>
 
             <span className="px-2 text-sm text-text-secondary">
-              PÃ¡gina {pagination.page} de{" "}
+              Página {pagination.page} de{" "}
               {pagination.total_pages}
             </span>
 
@@ -687,7 +687,7 @@ export function BusinessExpensesPageClient() {
                 )
               }
             >
-              PrÃ³xima
+              Próxima
             </Button>
           </div>
         </div>
@@ -717,7 +717,7 @@ export function BusinessExpensesPageClient() {
 
           <div className="space-y-4">
             <FormField
-              label="DescriÃ§Ã£o"
+              label="Descrição"
               required
               error={errors.description}
             >
@@ -807,13 +807,13 @@ export function BusinessExpensesPageClient() {
             </FormField>
 
             <FormField
-              label="ObservaÃ§Ãµes"
+              label="Observações"
               hint="Opcional"
             >
               <Textarea
                 rows={4}
                 value={draft.notes}
-                placeholder="Detalhes Ãºteis sobre esta despesa..."
+                placeholder="Detalhes úteis sobre esta despesa..."
                 onChange={(event) =>
                   updateDraft(
                     "notes",
