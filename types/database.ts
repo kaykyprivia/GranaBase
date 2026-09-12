@@ -1653,6 +1653,30 @@ export interface Database {
         };
         Returns: Json;
       };
+      get_business_sales_page: {
+        Args: {
+          p_workspace_id: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_status?: "all" | "open" | BusinessSaleOrderStatus;
+          p_payment_status?: "all" | BusinessSalePaymentStatus;
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+          p_search?: string | null;
+        };
+        Returns: Json;
+      };
+      get_business_sales_summary: {
+        Args: {
+          p_workspace_id: string;
+          p_status?: "all" | "open" | BusinessSaleOrderStatus;
+          p_payment_status?: "all" | BusinessSalePaymentStatus;
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+          p_search?: string | null;
+        };
+        Returns: Json;
+      };
       receive_business_purchase: {
         Args: {
           p_purchase_order_id: string;

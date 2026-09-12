@@ -5,7 +5,7 @@ import { ChevronRight, PackageCheck, PackageOpen, ReceiptText, Truck, XCircle } 
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { SaleOrderStatusBadge, SalePaymentStatusBadge } from "@/components/business/sales/SaleStatusBadges";
-import { calculatePaymentSummary, canCancelSale, getNextSaleAdvanceAction } from "@/lib/business-sales";
+import { calculatePaymentSummary, calculateSaleFinancials, canCancelSale, getNextSaleAdvanceAction } from "@/lib/business-sales";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { SaleRow } from "@/components/business/sales/types";
 import type { BusinessSaleOrderStatus } from "@/types/database";
@@ -78,8 +78,9 @@ export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }
 }
 
 function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow }) {
-  const total = getSaleTotal(sale);
-  const netProfit = getSaleNetProfit(sale);
+  const financials = getSaleFinancials(sale);
+  const total = financials.netRevenue;
+  const netProfit = financials.netProfit;
   const payment = calculatePaymentSummary({ totalAmount: total, payments: sale.payments });
   const action = getNextSaleAdvanceAction(sale.order_status);
 
@@ -135,8 +136,9 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesList
 }
 
 function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow }) {
-  const total = getSaleTotal(sale);
-  const netProfit = getSaleNetProfit(sale);
+  const financials = getSaleFinancials(sale);
+  const total = financials.netRevenue;
+  const netProfit = financials.netProfit;
   const payment = calculatePaymentSummary({ totalAmount: total, payments: sale.payments });
   const action = getNextSaleAdvanceAction(sale.order_status);
 
@@ -201,12 +203,12 @@ function Info({ label, value, strong }: { label: string; value: React.ReactNode;
   );
 }
 
-function getSaleTotal(sale: SaleRow): number {
-  return sale.items.reduce((sum, item) => sum + item.final_amount, 0);
-}
-
-function getSaleNetProfit(sale: SaleRow): number {
-  return sale.items.reduce((sum, item) => sum + item.net_profit, 0);
+function getSaleFinancials(sale: SaleRow) {
+  return calculateSaleFinancials({
+    items: sale.items,
+    returns: sale.returns ?? [],
+    returnItems: sale.returnItems ?? [],
+  });
 }
 
 function describeItems(sale: SaleRow): string {

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RecordPaymentDialog } from "@/components/business/sales/RecordPaymentDialog";
 import { SalesList } from "@/components/business/sales/SalesList";
-import type { SaleRow, WorkspaceRpcResult } from "@/components/business/sales/types";
+import type { SaleRow, SalesPageRpcResult, SalesSummaryRpcResult, WorkspaceRpcResult } from "@/components/business/sales/types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
@@ -20,8 +20,6 @@ import {
   SALE_FILTER_OPTIONS,
   SALE_PAYMENT_FILTER_OPTIONS,
   SALE_PERIOD_OPTIONS,
-  calculatePaymentSummary,
-  calculateSaleFinancials,
   getSaleErrorMessage,
   getSalesDateRange,
   type SaleListFilter,
@@ -48,10 +46,14 @@ type AdvanceArgs = Database["public"]["Functions"]["advance_business_sale_status
 type DeliverArgs = Database["public"]["Functions"]["deliver_business_sale"]["Args"];
 type CancelArgs = Database["public"]["Functions"]["cancel_business_sale"]["Args"];
 type PaymentArgs = Database["public"]["Functions"]["record_business_payment"]["Args"];
+type SalesPageArgs = Database["public"]["Functions"]["get_business_sales_page"]["Args"];
+type SalesSummaryArgs = Database["public"]["Functions"]["get_business_sales_summary"]["Args"];
+
+const SALES_PAGE_SIZE = 25;
 
 export function SalesPageClient() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<SaleListFilter>("all");
@@ -60,6 +62,23 @@ export function SalesPageClient() {
   const [customStart, setCustomStart] = useState(toLocalDateString(new Date()));
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<SalesPageRpcResult>({
+    sale_ids: [],
+    total_count: 0,
+    page: 1,
+    page_size: SALES_PAGE_SIZE,
+    total_pages: 0,
+  });
+  const [summary, setSummary] = useState<SalesSummaryRpcResult>({
+    count: 0,
+    realized: 0,
+    revenue: 0,
+    receivable: 0,
+    profit: 0,
+    ticket: 0,
+  });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<SaleRow | null>(null);
   const [recordingPayment, setRecordingPayment] = useState(false);
@@ -67,170 +86,254 @@ export function SalesPageClient() {
   const [cancelling, setCancelling] = useState(false);
   const [advancingSaleId, setAdvancingSaleId] = useState<string | null>(null);
 
+  const dateRange = useMemo(
+    () => getSalesDateRange(periodFilter, new Date(), customStart, customEnd),
+    [customEnd, customStart, periodFilter]
+  );
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, paymentFilter, periodFilter, customStart, customEnd]);
+
   const loadSales = useCallback(async () => {
     setLoading(true);
+
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
       if (authError || !user) {
         toast.error("Sessao expirada. Entre novamente.");
         router.push("/login");
         return;
       }
 
-      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", coerceMutation({ p_name: "Meu Negocio" }));
+      const workspaceRes = await supabase.rpc(
+        "get_or_create_business_workspace",
+        coerceMutation({ p_name: "Meu Negocio" })
+      );
+
       if (workspaceRes.error) throw workspaceRes.error;
+
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
 
-      const salesRes = await supabase
-        .from("business_sales")
-        .select("*")
-        .eq("workspace_id", workspace.workspace_id)
-        .order("sale_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(120);
-      if (salesRes.error) throw salesRes.error;
+      const pageArgs = {
+        p_workspace_id: workspace.workspace_id,
+        p_page: page,
+        p_page_size: SALES_PAGE_SIZE,
+        p_status: statusFilter,
+        p_payment_status: paymentFilter,
+        p_start_date: dateRange?.start ?? null,
+        p_end_date: dateRange?.end ?? null,
+        p_search: debouncedSearch || null,
+      } satisfies SalesPageArgs;
 
-      const saleRows = coerceData<BusinessSale[]>(salesRes.data ?? []);
-      if (saleRows.length === 0) {
+      const summaryArgs = {
+        p_workspace_id: workspace.workspace_id,
+        p_status: statusFilter,
+        p_payment_status: paymentFilter,
+        p_start_date: dateRange?.start ?? null,
+        p_end_date: dateRange?.end ?? null,
+        p_search: debouncedSearch || null,
+      } satisfies SalesSummaryArgs;
+
+      const [pageRes, summaryRes] = await Promise.all([
+        supabase.rpc("get_business_sales_page", coerceMutation(pageArgs)),
+        supabase.rpc("get_business_sales_summary", coerceMutation(summaryArgs)),
+      ]);
+
+      if (pageRes.error) throw pageRes.error;
+      if (summaryRes.error) throw summaryRes.error;
+
+      const pageData = coerceData<SalesPageRpcResult>(pageRes.data);
+      const summaryData = coerceData<SalesSummaryRpcResult>(summaryRes.data);
+
+      setPagination(pageData);
+      setSummary(summaryData);
+
+      if (pageData.total_pages > 0 && page > pageData.total_pages) {
+        setPage(pageData.total_pages);
+        return;
+      }
+
+      if (pageData.total_pages === 0 && page !== 1) {
+        setPage(1);
+        return;
+      }
+
+      const saleIds = pageData.sale_ids ?? [];
+
+      if (saleIds.length === 0) {
         setSales([]);
         return;
       }
 
-      const saleIds = saleRows.map((sale) => sale.id);
-      const [itemsRes, paymentsRes, customersRes, returnsRes] = await Promise.all([
-        supabase.from("business_sale_items").select("*").in("sale_id", saleIds).order("created_at", { ascending: true }),
-        supabase.from("business_payments").select("*").in("sale_id", saleIds).order("paid_at", { ascending: true }),
-        supabase.from("business_customers").select("*").eq("workspace_id", workspace.workspace_id).limit(500),
-        supabase.from("business_sale_returns").select("*").in("sale_id", saleIds).order("created_at", { ascending: true }),
+      const salesRes = await supabase
+        .from("business_sales")
+        .select("*")
+        .in("id", saleIds);
+
+      if (salesRes.error) throw salesRes.error;
+
+      const unorderedSales = coerceData<BusinessSale[]>(salesRes.data ?? []);
+      const salesById = new Map(unorderedSales.map((sale) => [sale.id, sale]));
+      const saleRows = saleIds
+        .map((saleId) => salesById.get(saleId))
+        .filter((sale): sale is BusinessSale => Boolean(sale));
+
+      const [itemsRes, paymentsRes, returnsRes] = await Promise.all([
+        supabase
+          .from("business_sale_items")
+          .select("*")
+          .in("sale_id", saleIds)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("business_payments")
+          .select("*")
+          .in("sale_id", saleIds)
+          .order("paid_at", { ascending: true }),
+        supabase
+          .from("business_sale_returns")
+          .select("*")
+          .in("sale_id", saleIds)
+          .order("created_at", { ascending: true }),
       ]);
+
       if (itemsRes.error) throw itemsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
-      if (customersRes.error) throw customersRes.error;
       if (returnsRes.error) throw returnsRes.error;
 
       const items = coerceData<BusinessSaleItem[]>(itemsRes.data ?? []);
       const itemIds = items.map((item) => item.id);
-      const returnItemsRes = itemIds.length > 0
-        ? await supabase
-            .from("business_sale_return_items")
-            .select("*")
-            .in("sale_item_id", itemIds)
-            .order("created_at", { ascending: true })
-        : { data: [], error: null };
+
+      const returnItemsRes =
+        itemIds.length > 0
+          ? await supabase
+              .from("business_sale_return_items")
+              .select("*")
+              .in("sale_item_id", itemIds)
+              .order("created_at", { ascending: true })
+          : { data: [], error: null };
+
       if (returnItemsRes.error) throw returnItemsRes.error;
 
-      const productIds = Array.from(new Set(items.map((item) => item.product_id)));
-      const productsRes = productIds.length > 0
-        ? await supabase.from("business_products").select("*").in("id", productIds)
-        : { data: [], error: null };
+      const productIds = Array.from(
+        new Set(items.map((item) => item.product_id))
+      );
+
+      const customerIds = Array.from(
+        new Set(
+          saleRows
+            .map((sale) => sale.customer_id)
+            .filter((customerId): customerId is string => Boolean(customerId))
+        )
+      );
+
+      const productsRes =
+        productIds.length > 0
+          ? await supabase
+              .from("business_products")
+              .select("*")
+              .in("id", productIds)
+          : { data: [], error: null };
+
+      const customersRes =
+        customerIds.length > 0
+          ? await supabase
+              .from("business_customers")
+              .select("*")
+              .in("id", customerIds)
+          : { data: [], error: null };
+
       if (productsRes.error) throw productsRes.error;
+      if (customersRes.error) throw customersRes.error;
 
-      const productsById = new Map(coerceData<BusinessProduct[]>(productsRes.data ?? []).map((product) => [product.id, product]));
-      const customersById = new Map(coerceData<BusinessCustomer[]>(customersRes.data ?? []).map((customer) => [customer.id, customer]));
+      const productsById = new Map(
+        coerceData<BusinessProduct[]>(productsRes.data ?? []).map((product) => [
+          product.id,
+          product,
+        ])
+      );
+
+      const customersById = new Map(
+        coerceData<BusinessCustomer[]>(customersRes.data ?? []).map((customer) => [
+          customer.id,
+          customer,
+        ])
+      );
+
       const itemsBySaleId = groupBy(items, "sale_id");
-      const paymentsBySaleId = groupBy(coerceData<BusinessPayment[]>(paymentsRes.data ?? []), "sale_id");
-      const returnsBySaleId = groupBy(coerceData<BusinessSaleReturn[]>(returnsRes.data ?? []), "sale_id");
-      const returnItems = coerceData<BusinessSaleReturnItem[]>(returnItemsRes.data ?? []);
-      const returnItemsBySaleItemId = groupBy(returnItems, "sale_item_id");
+      const paymentsBySaleId = groupBy(
+        coerceData<BusinessPayment[]>(paymentsRes.data ?? []),
+        "sale_id"
+      );
+      const returnsBySaleId = groupBy(
+        coerceData<BusinessSaleReturn[]>(returnsRes.data ?? []),
+        "sale_id"
+      );
 
-      setSales(saleRows.map((sale) => ({
-        ...sale,
-        customer: sale.customer_id ? customersById.get(sale.customer_id) ?? null : null,
-        items: (itemsBySaleId.get(sale.id) ?? []).map((item) => ({
-          ...item,
-          product: productsById.get(item.product_id) ?? null,
-          returnedQuantity: (returnItemsBySaleItemId.get(item.id) ?? []).reduce(
-            (sum, row) => sum + Number(row.quantity || 0),
-            0
+      const returnItems = coerceData<BusinessSaleReturnItem[]>(
+        returnItemsRes.data ?? []
+      );
+
+      const returnItemsBySaleItemId = groupBy(
+        returnItems,
+        "sale_item_id"
+      );
+
+      setSales(
+        saleRows.map((sale) => ({
+          ...sale,
+          customer: sale.customer_id
+            ? customersById.get(sale.customer_id) ?? null
+            : null,
+          items: (itemsBySaleId.get(sale.id) ?? []).map((item) => ({
+            ...item,
+            product: productsById.get(item.product_id) ?? null,
+            returnedQuantity: (
+              returnItemsBySaleItemId.get(item.id) ?? []
+            ).reduce(
+              (sum, row) => sum + Number(row.quantity || 0),
+              0
+            ),
+          })),
+          payments: paymentsBySaleId.get(sale.id) ?? [],
+          returns: returnsBySaleId.get(sale.id) ?? [],
+          returnItems: (itemsBySaleId.get(sale.id) ?? []).flatMap(
+            (item) => returnItemsBySaleItemId.get(item.id) ?? []
           ),
-        })),
-        payments: paymentsBySaleId.get(sale.id) ?? [],
-        returns: returnsBySaleId.get(sale.id) ?? [],
-        returnItems: (itemsBySaleId.get(sale.id) ?? []).flatMap(
-          (item) => returnItemsBySaleItemId.get(item.id) ?? []
-        ),
-      })));
+        }))
+      );
     } catch (error) {
       console.error("Erro ao carregar vendas", error);
       toast.error("Nao foi possivel carregar as vendas agora.");
     } finally {
       setLoading(false);
     }
-  }, [router, supabase]);
+  }, [
+    router,
+    supabase,
+    page,
+    statusFilter,
+    paymentFilter,
+    dateRange,
+    debouncedSearch,
+  ]);
 
   useEffect(() => {
     void loadSales();
   }, [loadSales]);
-
-  const dateRange = useMemo(
-    () => getSalesDateRange(periodFilter, new Date(), customStart, customEnd),
-    [customEnd, customStart, periodFilter]
-  );
-
-  const filteredSales = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return sales.filter((sale) => {
-      const matchStatus =
-        statusFilter === "all" ||
-        (statusFilter === "open"
-          ? !["DELIVERED", "CANCELLED", "RETURNED"].includes(sale.order_status)
-          : sale.order_status === statusFilter);
-      const matchPayment = paymentFilter === "all" || sale.payment_status === paymentFilter;
-      const saleDate = sale.sale_date.slice(0, 10);
-      const matchDate = !dateRange || (saleDate >= dateRange.start && saleDate <= dateRange.end);
-      const searchable = [
-        sale.id.slice(0, 8),
-        sale.customer?.name,
-        sale.customer?.whatsapp,
-        ...sale.items.map((item) => item.product?.name),
-      ].filter(Boolean).join(" ").toLowerCase();
-      return matchStatus && matchPayment && matchDate && (!normalizedSearch || searchable.includes(normalizedSearch));
-    });
-  }, [dateRange, paymentFilter, sales, search, statusFilter]);
-
-  const summary = useMemo(() => {
-    const validSales = filteredSales.filter(
-      (sale) => !["DRAFT", "CANCELLED"].includes(sale.order_status)
-    );
-
-    let revenue = 0;
-    let receivable = 0;
-    let profit = 0;
-
-    for (const sale of validSales) {
-      const financials = calculateSaleFinancials({
-        items: sale.items,
-        returns: sale.returns ?? [],
-        returnItems: sale.returnItems ?? [],
-      });
-
-      revenue += financials.netRevenue;
-
-      const paymentSummary = calculatePaymentSummary({
-        totalAmount: financials.netRevenue,
-        payments: sale.payments,
-      });
-
-      receivable += paymentSummary.remainingAmount;
-
-      if (["DELIVERED", "RETURNED"].includes(sale.order_status)) {
-        profit += financials.netProfit;
-      }
-    }
-
-    const realized = validSales.filter((sale) =>
-      ["DELIVERED", "RETURNED"].includes(sale.order_status)
-    ).length;
-
-    return {
-      count: validSales.length,
-      revenue,
-      receivable,
-      profit,
-      ticket: validSales.length > 0 ? revenue / validSales.length : 0,
-      realized,
-    };
-  }, [filteredSales]);
 
   async function handleAdvance(sale: SaleRow, nextStatus: Extract<BusinessSaleOrderStatus, "SEPARATED" | "SHIPPED" | "DELIVERED">) {
     setAdvancingSaleId(sale.id);
@@ -370,13 +473,65 @@ export function SalesPageClient() {
           ))}
         </div>
       ) : (
-        <SalesList
-          sales={filteredSales}
-          emptyAction={() => router.push("/business/sales/new")}
-          onPayment={setPaymentTarget}
-          onAdvance={handleAdvance}
-          onCancel={setCancelTarget}
-        />
+        <>
+          <SalesList
+            sales={sales}
+            emptyAction={() => router.push("/business/sales/new")}
+            onPayment={setPaymentTarget}
+            onAdvance={handleAdvance}
+            onCancel={setCancelTarget}
+          />
+
+          {pagination.total_pages > 1 && (
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {Math.min(
+                  (pagination.page - 1) * pagination.page_size + 1,
+                  pagination.total_count
+                )}
+                {" - "}
+                {Math.min(
+                  pagination.page * pagination.page_size,
+                  pagination.total_count
+                )}
+                {" de "}
+                {pagination.total_count}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page <= 1}
+                  onClick={() =>
+                    setPage((current) => Math.max(1, current - 1))
+                  }
+                >
+                  Anterior
+                </Button>
+
+                <span className="min-w-24 text-center text-sm text-muted-foreground">
+                  Pagina {pagination.page} de {pagination.total_pages}
+                </span>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page >= pagination.total_pages}
+                  onClick={() =>
+                    setPage((current) =>
+                      Math.min(pagination.total_pages, current + 1)
+                    )
+                  }
+                >
+                  Proxima
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {advancingSaleId && <span className="sr-only">Atualizando venda {advancingSaleId}</span>}

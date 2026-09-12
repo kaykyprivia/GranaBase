@@ -16,6 +16,23 @@ export type WorkspaceRpcResult = {
   name: string;
 };
 
+export type SalesPageRpcResult = {
+  sale_ids: string[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type SalesSummaryRpcResult = {
+  count: number;
+  realized: number;
+  revenue: number;
+  receivable: number;
+  profit: number;
+  ticket: number;
+};
+
 export type SaleItemRow = BusinessSaleItem & {
   product: BusinessProduct | BusinessInventorySummary | null;
   returnedQuantity: number;
