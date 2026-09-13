@@ -12,11 +12,21 @@ export type BusinessWorkspaceContext = {
   workspaceName: string;
 };
 
+export type PurchaseLine = {
+  item: BusinessPurchaseItem;
+  product: BusinessProduct | null;
+};
+
 export type PurchaseRow = BusinessPurchaseOrder & {
+  items: PurchaseLine[];
   item: BusinessPurchaseItem | null;
   product: BusinessProduct | null;
 };
 
+export type PurchaseReceiptInput = {
+  purchase_item_id: string;
+  quantity: number;
+};
 export type PurchaseDetail = PurchaseRow & {
   movements: BusinessInventoryMovement[];
   auditLogs: BusinessAuditLog[];

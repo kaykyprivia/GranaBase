@@ -1580,7 +1580,20 @@ export interface Database {
         };
         Returns: Json;
       };
-      create_business_product_and_purchase: {
+      create_business_purchase_multi: {
+        Args: {
+          p_workspace_id: string;
+          p_items: Json;
+          p_idempotency_key: string;
+          p_shipping_cost?: number;
+          p_additional_costs?: number;
+          p_purchase_date?: string;
+          p_expected_arrival_date?: string | null;
+          p_origin?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };      create_business_product_and_purchase: {
         Args: {
           p_workspace_id: string;
           p_product_name: string;
@@ -1715,7 +1728,30 @@ export interface Database {
         };
         Returns: Json;
       };
-      receive_business_purchase: {
+      update_business_purchase_multi: {
+        Args: {
+          p_purchase_order_id: string;
+          p_items: Json;
+          p_idempotency_key: string;
+          p_shipping_cost?: number;
+          p_additional_costs?: number;
+          p_purchase_date?: string | null;
+          p_expected_arrival_date?: string | null;
+          p_origin?: string | null;
+          p_notes?: string | null;
+          p_clear_expected_arrival_date?: boolean;
+          p_clear_origin?: boolean;
+          p_clear_notes?: boolean;
+        };
+        Returns: Json;
+      };      receive_business_purchase_items: {
+        Args: {
+          p_purchase_order_id: string;
+          p_items: Json;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };      receive_business_purchase: {
         Args: {
           p_purchase_order_id: string;
           p_idempotency_key: string;

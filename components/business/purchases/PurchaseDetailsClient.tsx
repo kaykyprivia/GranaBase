@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import {
-  calculatePurchasePreview,
+  buildPurchaseMultiRpcItems,
   canCancelPurchase,
   canEditPurchase,
   canReceivePurchase,
@@ -22,7 +22,7 @@ import {
   getPurchaseStatusMeta,
   makeBusinessStableIdempotencyKey,
 } from "@/lib/business-purchases";
-import type { PurchaseFormDraft } from "@/lib/business-purchases";
+import type { MultiPurchaseDraft } from "@/lib/business-purchases";
 import type {
   BusinessAuditLog,
   BusinessInventoryMovement,
@@ -33,13 +33,14 @@ import type {
 import { PurchaseStatusBadge } from "@/components/business/purchases/PurchaseStatusBadge";
 import { ReceivePurchaseDialog } from "@/components/business/purchases/ReceivePurchaseDialog";
 import { EditPurchaseDialog } from "@/components/business/purchases/EditPurchaseDialog";
-import type { PurchaseDetail, WorkspaceRpcResult } from "@/components/business/purchases/types";
+import type { PurchaseDetail, PurchaseReceiptInput, WorkspaceRpcResult } from "@/components/business/purchases/types";
 
 export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [purchase, setPurchase] = useState<PurchaseDetail | null>(null);
+  const [products, setProducts] = useState<BusinessProduct[]>([]);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiving, setReceiving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -80,8 +81,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
           .from("business_purchase_items")
           .select("*")
           .eq("purchase_order_id", order.id)
-          .order("created_at", { ascending: true })
-          .limit(1),
+          .order("created_at", { ascending: true }),
         supabase
           .from("business_inventory_movements")
           .select("*")
@@ -102,17 +102,50 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       if (movementsRes.error) throw movementsRes.error;
       if (auditRes.error) throw auditRes.error;
 
-      const item = coerceData<BusinessPurchaseItem[]>(itemsRes.data ?? [])[0] ?? null;
-      const productRes = item
-        ? await supabase.from("business_products").select("*").eq("id", item.product_id).maybeSingle()
-        : { data: null, error: null };
+      const items = coerceData<BusinessPurchaseItem[]>(
+        itemsRes.data ?? []
+      );
 
-      if (productRes.error) throw productRes.error;
+      const productsRes = await supabase
+        .from("business_products")
+        .select("*")
+        .eq("workspace_id", workspace.workspace_id)
+        .order("name", { ascending: true });
+
+      if (productsRes.error) {
+        throw productsRes.error;
+      }
+
+      const allProducts =
+        coerceData<BusinessProduct[]>(
+          productsRes.data ?? []
+        );
+
+      const productsById = new Map(
+        allProducts.map((product) => [
+          product.id,
+          product,
+        ])
+      );
+
+      setProducts(
+        allProducts.filter(
+          (product) => product.active
+        )
+      );
+
+      const purchaseItems = items.map((item) => ({
+        item,
+        product: productsById.get(item.product_id) ?? null,
+      }));
+
+      const primaryLine = purchaseItems[0] ?? null;
 
       setPurchase({
         ...order,
-        item,
-        product: coerceData<BusinessProduct | null>(productRes.data ?? null),
+        items: purchaseItems,
+        item: primaryLine?.item ?? null,
+        product: primaryLine?.product ?? null,
         movements: coerceData<BusinessInventoryMovement[]>(movementsRes.data ?? []),
         auditLogs: coerceData<BusinessAuditLog[]>(auditRes.data ?? []),
       });
@@ -128,36 +161,118 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     void loadPurchase();
   }, [loadPurchase]);
 
-  const receipt = purchase?.item
+  const totalOrdered = purchase?.items.reduce(
+    (sum, { item }) => sum + item.quantity_ordered,
+    0
+  ) ?? 0;
+
+  const totalReceived = purchase?.items.reduce(
+    (sum, { item }) => sum + item.quantity_received,
+    0
+  ) ?? 0;
+
+  const receipt = purchase && totalOrdered > 0
     ? getPurchaseReceiptState({
-        quantityOrdered: purchase.item.quantity_ordered,
-        quantityReceived: purchase.item.quantity_received,
+        quantityOrdered: totalOrdered,
+        quantityReceived: totalReceived,
       })
     : null;
-  const canReceive = purchase?.item
-    ? canReceivePurchase(purchase.status, purchase.item.quantity_ordered, purchase.item.quantity_received)
-    : false;
-  const canCancel = purchase?.item ? canCancelPurchase(purchase.status, purchase.item.quantity_received) : false;
-  const canEdit = purchase?.item ? canEditPurchase(purchase.status, purchase.item.quantity_received) : false;
-  const statusMeta = purchase ? getPurchaseStatusMeta(purchase.status) : null;
-  const timeline = useMemo(() => (purchase ? buildTimeline(purchase) : []), [purchase]);
 
-  const handleReceive = async (quantity: number) => {
+  const canReceive = purchase
+    ? canReceivePurchase(
+        purchase.status,
+        totalOrdered,
+        totalReceived
+      )
+    : false;
+
+  const canCancel = purchase
+    ? canCancelPurchase(
+        purchase.status,
+        totalReceived
+      )
+    : false;
+
+  const canEdit = purchase
+    ? canEditPurchase(
+        purchase.status,
+        totalReceived
+      )
+    : false;
+
+  const primaryProductName =
+    purchase?.items[0]?.product?.name ??
+    "Compra";
+
+  const extraProducts = Math.max(
+    (purchase?.items.length ?? 0) - 1,
+    0
+  );
+
+  const purchaseTitle =
+    extraProducts > 0
+      ? `${primaryProductName} + ${extraProducts} ${
+          extraProducts === 1
+            ? "produto"
+            : "produtos"
+        }`
+      : primaryProductName;
+
+  const statusMeta = purchase
+    ? getPurchaseStatusMeta(purchase.status)
+    : null;
+
+  const timeline = useMemo(
+    () => (purchase ? buildTimeline(purchase) : []),
+    [purchase]
+  );
+
+  const handleReceive = async (items: PurchaseReceiptInput[]) => {
     if (!purchase) return;
+
     setReceiving(true);
+
     try {
-      const { error } = await supabase.rpc("receive_business_purchase", coerceMutation({
-        p_purchase_order_id: purchase.id,
-        p_idempotency_key: makeBusinessStableIdempotencyKey("purchase-receipt", [
-          purchase.id,
-          purchase.item?.quantity_received ?? 0,
-          quantity,
-        ]),
-        p_quantity: quantity,
-      }));
+      const currentState = purchase.items.map(({ item }) => [
+        item.id,
+        item.quantity_received,
+      ]);
+
+      const totalRemaining = purchase.items.reduce(
+        (sum, { item }) =>
+          sum + (item.quantity_ordered - item.quantity_received),
+        0
+      );
+
+      const receivedNow = items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+
+      const { error } = await supabase.rpc(
+        "receive_business_purchase_items",
+        coerceMutation({
+          p_purchase_order_id: purchase.id,
+          p_items: items,
+          p_idempotency_key: makeBusinessStableIdempotencyKey(
+            "purchase-receipt-items",
+            [
+              purchase.id,
+              JSON.stringify(currentState),
+              JSON.stringify(items),
+            ]
+          ),
+        })
+      );
 
       if (error) throw error;
-      toast.success("Recebimento registrado.");
+
+      toast.success(
+        receivedNow >= totalRemaining
+          ? "Compra recebida."
+          : "Recebimento registrado."
+      );
+
       setReceiveOpen(false);
       await loadPurchase();
     } catch (error) {
@@ -167,56 +282,86 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       setReceiving(false);
     }
   };
-
-  const handleEdit = async (draft: PurchaseFormDraft) => {
+  const handleEdit = async (draft: MultiPurchaseDraft) => {
     if (!purchase) return;
+
     setEditing(true);
+
     try {
-      const preview = calculatePurchasePreview(draft);
-      const clearExpectedArrivalDate = !draft.expectedArrivalDate;
-      const clearOrigin = !draft.origin?.trim();
-      const clearNotes = !draft.notes?.trim();
-      const { error } = await supabase.rpc("update_business_purchase", coerceMutation({
-        p_purchase_order_id: purchase.id,
-        p_idempotency_key: makeBusinessStableIdempotencyKey("purchase-update", [
-          purchase.id,
-          draft.quantity,
-          preview.unitPurchaseCost,
-          draft.shippingCost ?? 0,
-          draft.additionalCosts ?? 0,
-          draft.purchaseDate,
-          clearExpectedArrivalDate ? null : draft.expectedArrivalDate,
-          clearOrigin ? null : draft.origin?.trim(),
-          clearNotes ? null : draft.notes?.trim(),
-          clearExpectedArrivalDate,
-          clearOrigin,
-          clearNotes,
-        ]),
-        p_quantity: draft.quantity,
-        p_unit_purchase_cost: preview.unitPurchaseCost,
-        p_shipping_cost: draft.shippingCost ?? 0,
-        p_additional_costs: draft.additionalCosts ?? 0,
-        p_purchase_date: draft.purchaseDate,
-        p_expected_arrival_date: clearExpectedArrivalDate ? null : draft.expectedArrivalDate,
-        p_origin: clearOrigin ? null : draft.origin?.trim(),
-        p_notes: clearNotes ? null : draft.notes?.trim(),
-        p_clear_expected_arrival_date: clearExpectedArrivalDate,
-        p_clear_origin: clearOrigin,
-        p_clear_notes: clearNotes,
-      }));
+      const rpcItems = buildPurchaseMultiRpcItems(draft);
+
+      const clearExpectedArrivalDate =
+        !draft.expectedArrivalDate;
+
+      const clearOrigin =
+        !draft.origin?.trim();
+
+      const clearNotes =
+        !draft.notes?.trim();
+
+      const { error } = await supabase.rpc(
+        "update_business_purchase_multi",
+        coerceMutation({
+          p_purchase_order_id: purchase.id,
+          p_items: rpcItems,
+          p_idempotency_key:
+            makeBusinessStableIdempotencyKey(
+              "purchase-update-multi",
+              [
+                purchase.id,
+                JSON.stringify(rpcItems),
+                draft.shippingCost ?? 0,
+                draft.additionalCosts ?? 0,
+                draft.purchaseDate,
+                draft.expectedArrivalDate ?? "",
+                draft.origin?.trim() ?? "",
+                draft.notes?.trim() ?? "",
+              ]
+            ),
+          p_shipping_cost:
+            draft.shippingCost ?? 0,
+          p_additional_costs:
+            draft.additionalCosts ?? 0,
+          p_purchase_date:
+            draft.purchaseDate,
+          p_expected_arrival_date:
+            clearExpectedArrivalDate
+              ? null
+              : draft.expectedArrivalDate,
+          p_origin:
+            clearOrigin
+              ? null
+              : draft.origin?.trim(),
+          p_notes:
+            clearNotes
+              ? null
+              : draft.notes?.trim(),
+          p_clear_expected_arrival_date:
+            clearExpectedArrivalDate,
+          p_clear_origin:
+            clearOrigin,
+          p_clear_notes:
+            clearNotes,
+        })
+      );
 
       if (error) throw error;
+
       toast.success("Compra atualizada.");
       setEditOpen(false);
       await loadPurchase();
     } catch (error) {
-      console.error("Erro ao editar compra", error);
-      toast.error("Não foi possível salvar as alterações.");
+      console.error(
+        "Erro ao editar compra",
+        error
+      );
+      toast.error(
+        "Não foi possível salvar as alterações."
+      );
     } finally {
       setEditing(false);
     }
   };
-
   const handleCancel = async () => {
     if (!purchase) return;
     setCancelling(true);
@@ -251,7 +396,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     );
   }
 
-  if (!purchase?.item || !receipt || !statusMeta) {
+  if (!purchase || purchase.items.length === 0 || !receipt || !statusMeta) {
     return (
       <div className="page-container animate-fade-in">
         <div className="rounded-xl border border-border/60 bg-surface p-6 text-center">
@@ -269,7 +414,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       <PageIntro
         icon={ShoppingCart}
         iconTone="accent"
-        title={purchase.product?.name ?? "Compra"}
+        title={purchaseTitle}
         description={statusMeta.description}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -303,7 +448,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         <StatCard title="Valor mercadoria" value={formatCurrency(purchase.product_subtotal)} icon={ReceiptText} variant="default" size="compact" />
         <StatCard title="Frete" value={formatCurrency(purchase.shipping_cost)} icon={Clock3} variant="warning" size="compact" />
         <StatCard title="Total" value={formatCurrency(purchase.total_cost)} icon={ShoppingCart} variant="accent" size="compact" />
-        <StatCard title="Custo real unitário" value={formatCurrency(purchase.item.real_unit_cost)} icon={PackageCheck} variant="profit" size="compact" />
+        <StatCard title="Produtos" value={String(purchase.items.length)} subtitle={`${totalOrdered} unidades`} icon={PackageCheck} variant="profit" size="compact" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
@@ -334,10 +479,86 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
             <InfoRow label="Data da compra" value={formatDate(purchase.purchase_date)} />
             <InfoRow label="Previsão de chegada" value={purchase.expected_arrival_date ? formatDate(purchase.expected_arrival_date) : "Sem previsão"} />
             <InfoRow label="Origem" value={purchase.origin || "Não informada"} />
-            <InfoRow label="SKU" value={purchase.product?.sku || "Não informado"} />
+            <InfoRow label="Itens no pedido" value={`${purchase.items.length} ${purchase.items.length === 1 ? "produto" : "produtos"}`} />
           </div>
         </section>
 
+        <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-text-primary">
+                Produtos da compra
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                {purchase.items.length} {purchase.items.length === 1 ? "produto" : "produtos"} · {totalOrdered} unidades
+              </p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
+            {purchase.items.map(({ item, product }) => {
+              const itemReceipt = getPurchaseReceiptState({
+                quantityOrdered: item.quantity_ordered,
+                quantityReceived: item.quantity_received,
+              });
+
+              return (
+                <div
+                  key={item.id}
+                  className="grid gap-4 bg-background/30 p-4 sm:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(90px,0.7fr))] sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold text-text-primary">
+                      {product?.name ?? "Produto não encontrado"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-secondary">
+                      {product?.sku || "Sem SKU"}
+                    </p>
+                  </div>
+
+                  <DetailProductValue
+                    label="Comprado"
+                    value={`${item.quantity_ordered} un.`}
+                  />
+
+                  <DetailProductValue
+                    label="Recebido"
+                    value={`${item.quantity_received} un.`}
+                  />
+
+                  <DetailProductValue
+                    label="Custo real/un."
+                    value={formatCurrency(item.real_unit_cost)}
+                  />
+
+                  <DetailProductValue
+                    label="Custo da linha"
+                    value={formatCurrency(
+                      item.real_unit_cost * item.quantity_ordered
+                    )}
+                  />
+
+                  {itemReceipt.remaining > 0 && (
+                    <div className="sm:col-span-5">
+                      <div className="mb-1 flex justify-between text-[11px] text-text-secondary">
+                        <span>
+                          {itemReceipt.received} de {itemReceipt.ordered} recebidos
+                        </span>
+                        <span>
+                          {itemReceipt.progress}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={itemReceipt.progress}
+                        className="h-1.5"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
         <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
           <h2 className="mb-4 text-base font-semibold text-text-primary">Histórico</h2>
           {timeline.length === 0 ? (
@@ -369,6 +590,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       <EditPurchaseDialog
         open={editOpen}
         purchase={purchase}
+        products={products}
         loading={editing}
         onOpenChange={setEditOpen}
         onConfirm={handleEdit}
@@ -429,4 +651,22 @@ function auditLabel(action: string): string {
   };
 
   return labels[action] ?? "Evento registrado";
+}
+function DetailProductValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wide text-text-muted">
+        {label}
+      </p>
+      <p className="mt-0.5 break-words text-sm font-semibold tabular-nums text-text-primary">
+        {value}
+      </p>
+    </div>
+  );
 }

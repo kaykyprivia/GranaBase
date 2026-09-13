@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, Clock3, PackageCheck, Plus, Search, ShoppingCart, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
@@ -29,8 +28,9 @@ import type {
   BusinessPurchaseOrderStatus,
 } from "@/types/database";
 import { PurchaseList } from "@/components/business/purchases/PurchaseList";
+import { NewPurchaseFormClient } from "@/components/business/purchases/NewPurchasePageClient";
 import { ReceivePurchaseDialog } from "@/components/business/purchases/ReceivePurchaseDialog";
-import type { PurchaseRow, WorkspaceRpcResult } from "@/components/business/purchases/types";
+import type { PurchaseReceiptInput, PurchaseRow, WorkspaceRpcResult } from "@/components/business/purchases/types";
 
 const statusOptions: Array<{ value: "all" | BusinessPurchaseOrderStatus; label: string }> = [
   { value: "all", label: "Todas" },
@@ -60,6 +60,7 @@ export function PurchasesPageClient() {
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<PurchaseRow | null>(null);
   const [receiving, setReceiving] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<PurchaseRow | null>(null);
@@ -119,15 +120,30 @@ export function PurchasesPageClient() {
       const items = coerceData<BusinessPurchaseItem[]>(itemsRes.data ?? []);
       const products = coerceData<BusinessProduct[]>(productsRes.data ?? []);
       const productsById = new Map(products.map((product) => [product.id, product]));
-      const itemByOrderId = new Map(items.map((item) => [item.purchase_order_id, item]));
+      const itemsByOrderId = new Map<string, BusinessPurchaseItem[]>();
+
+      for (const item of items) {
+        const currentItems = itemsByOrderId.get(item.purchase_order_id) ?? [];
+        currentItems.push(item);
+        itemsByOrderId.set(item.purchase_order_id, currentItems);
+      }
 
       setPurchases(
         orders.map((order) => {
-          const item = itemByOrderId.get(order.id) ?? null;
+          const orderItems = itemsByOrderId.get(order.id) ?? [];
+
+          const purchaseItems = orderItems.map((item) => ({
+            item,
+            product: productsById.get(item.product_id) ?? null,
+          }));
+
+          const primaryLine = purchaseItems[0] ?? null;
+
           return {
             ...order,
-            item,
-            product: item ? productsById.get(item.product_id) ?? null : null,
+            items: purchaseItems,
+            item: primaryLine?.item ?? null,
+            product: primaryLine?.product ?? null,
           };
         })
       );
@@ -155,8 +171,10 @@ export function PurchasesPageClient() {
         !dateRange ||
         (purchase.purchase_date >= dateRange.start && purchase.purchase_date <= dateRange.end);
       const searchable = [
-        purchase.product?.name,
-        purchase.product?.sku,
+        ...purchase.items.flatMap(({ product }) => [
+          product?.name,
+          product?.sku,
+        ]),
         purchase.origin,
         purchase.id.slice(0, 8),
       ].filter(Boolean).join(" ").toLowerCase();
@@ -193,23 +211,52 @@ export function PurchasesPageClient() {
     };
   }, [dateRange, filteredPurchases, movements]);
 
-  const handleReceive = async (quantity: number) => {
+  const handleReceive = async (items: PurchaseReceiptInput[]) => {
     if (!receiveTarget) return;
+
     setReceiving(true);
+
     try {
-      const { error } = await supabase.rpc("receive_business_purchase", coerceMutation({
-        p_purchase_order_id: receiveTarget.id,
-        p_idempotency_key: makeBusinessStableIdempotencyKey("purchase-receipt", [
-          receiveTarget.id,
-          receiveTarget.item?.quantity_received ?? 0,
-          quantity,
-        ]),
-        p_quantity: quantity,
-      }));
+      const currentState = receiveTarget.items.map(({ item }) => [
+        item.id,
+        item.quantity_received,
+      ]);
+
+      const totalRemaining = receiveTarget.items.reduce(
+        (sum, { item }) =>
+          sum + (item.quantity_ordered - item.quantity_received),
+        0
+      );
+
+      const receivedNow = items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+
+      const { error } = await supabase.rpc(
+        "receive_business_purchase_items",
+        coerceMutation({
+          p_purchase_order_id: receiveTarget.id,
+          p_items: items,
+          p_idempotency_key: makeBusinessStableIdempotencyKey(
+            "purchase-receipt-items",
+            [
+              receiveTarget.id,
+              JSON.stringify(currentState),
+              JSON.stringify(items),
+            ]
+          ),
+        })
+      );
 
       if (error) throw error;
-      const remaining = (receiveTarget.item?.quantity_ordered ?? 0) - (receiveTarget.item?.quantity_received ?? 0);
-      toast.success(quantity >= remaining ? "Compra recebida." : "Recebimento registrado.");
+
+      toast.success(
+        receivedNow >= totalRemaining
+          ? "Compra recebida."
+          : "Recebimento registrado."
+      );
+
       setReceiveTarget(null);
       await loadPurchases();
     } catch (error) {
@@ -219,7 +266,6 @@ export function PurchasesPageClient() {
       setReceiving(false);
     }
   };
-
   const handleCancel = async () => {
     if (!cancelTarget) return;
     setCancelling(true);
@@ -249,11 +295,14 @@ export function PurchasesPageClient() {
         title="Compras"
         description="Acompanhe seus produtos desde a compra até a entrada no estoque."
         actions={
-          <Button asChild size="sm" className="min-h-10 gap-1.5">
-            <Link href="/business/purchases/new">
-              <Plus className="h-4 w-4" />
-              Nova compra
-            </Link>
+          <Button
+            type="button"
+            size="sm"
+            className="min-h-10 gap-1.5"
+            onClick={() => setNewPurchaseOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Nova compra
           </Button>
         }
       />
@@ -296,12 +345,26 @@ export function PurchasesPageClient() {
       ) : (
         <PurchaseList
           purchases={filteredPurchases}
-          emptyAction={() => router.push("/business/purchases/new")}
+          emptyAction={() => setNewPurchaseOpen(true)}
           onReceive={setReceiveTarget}
           onCancel={setCancelTarget}
         />
       )}
 
+      <Dialog open={newPurchaseOpen} onOpenChange={setNewPurchaseOpen}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nova compra</DialogTitle>
+          </DialogHeader>
+          <NewPurchaseFormClient
+            onCancel={() => setNewPurchaseOpen(false)}
+            onCreated={async () => {
+              setNewPurchaseOpen(false);
+              await loadPurchases();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>

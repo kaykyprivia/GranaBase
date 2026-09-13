@@ -42,7 +42,19 @@ export const PURCHASE_STATUS_META: Record<BusinessPurchaseOrderStatus, PurchaseS
   },
 };
 
-export type PurchaseFormDraft = {
+export type PurchaseReceiptState = {
+  ordered: number;
+  received: number;
+  remaining: number;
+  progress: number;
+};
+
+
+export type PurchaseItemMode = "existing" | "new";
+
+export type PurchaseItemDraft = {
+  key: string;
+  mode: PurchaseItemMode;
   productId?: string;
   productName?: string;
   productSku?: string;
@@ -50,6 +62,10 @@ export type PurchaseFormDraft = {
   minimumStock?: number;
   quantity: number;
   productSubtotal: number;
+};
+
+export type MultiPurchaseDraft = {
+  items: PurchaseItemDraft[];
   shippingCost?: number;
   additionalCosts?: number;
   purchaseDate: string;
@@ -58,92 +74,320 @@ export type PurchaseFormDraft = {
   notes?: string;
 };
 
-export type PurchaseFormErrors = Partial<Record<keyof PurchaseFormDraft | "product", string>>;
+export type PurchaseItemDraftErrors = {
+  product?: string;
+  productName?: string;
+  productSku?: string;
+  suggestedSalePrice?: string;
+  minimumStock?: string;
+  quantity?: string;
+  productSubtotal?: string;
+};
 
-export type PurchasePreview = {
+export type MultiPurchaseFormErrors = {
+  items?: string;
+  shippingCost?: string;
+  additionalCosts?: string;
+  purchaseDate?: string;
+  expectedArrivalDate?: string;
+  itemErrors: Record<string, PurchaseItemDraftErrors>;
+};
+
+export type MultiPurchaseItemPreview = {
+  key: string;
+  quantity: number;
+  productSubtotal: number;
+  unitPurchaseCost: number;
+  allocatedExtraCost: number;
+  realUnitCost: number;
+};
+
+export type MultiPurchasePreview = {
+  itemCount: number;
+  totalQuantity: number;
   productSubtotal: number;
   shippingCost: number;
   additionalCosts: number;
   totalCost: number;
-  unitPurchaseCost: number;
-  realUnitCost: number;
+  items: MultiPurchaseItemPreview[];
 };
 
-export type PurchaseReceiptState = {
-  ordered: number;
-  received: number;
-  remaining: number;
-  progress: number;
-};
+export function createPurchaseItemDraft(
+  mode: PurchaseItemMode = "existing"
+): PurchaseItemDraft {
+  return {
+    key:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    mode,
+    productId: "",
+    productName: "",
+    productSku: "",
+    suggestedSalePrice: 0,
+    minimumStock: 0,
+    quantity: 1,
+    productSubtotal: 0,
+  };
+}
 
+export function calculateMultiPurchasePreview(
+  input: MultiPurchaseDraft
+): MultiPurchasePreview {
+  const shippingCost = normalizeMoney(input.shippingCost ?? 0);
+  const additionalCosts = normalizeMoney(input.additionalCosts ?? 0);
+  const extraTotal = roundCurrency(shippingCost + additionalCosts);
+
+  const normalizedItems = input.items.map((item) => ({
+    ...item,
+    quantity:
+      Number.isFinite(item.quantity) && item.quantity > 0
+        ? item.quantity
+        : 0,
+    productSubtotal: normalizeMoney(item.productSubtotal),
+  }));
+
+  const productSubtotal = roundCurrency(
+    normalizedItems.reduce(
+      (sum, item) => sum + item.productSubtotal,
+      0
+    )
+  );
+
+  const totalQuantity = normalizedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  let allocatedSoFar = 0;
+
+  const items = normalizedItems.map((item, index) => {
+    let allocatedExtraCost = 0;
+
+    if (index === normalizedItems.length - 1) {
+      allocatedExtraCost = roundCurrency(
+        extraTotal - allocatedSoFar
+      );
+    } else if (extraTotal > 0 && productSubtotal > 0) {
+      allocatedExtraCost = roundCurrency(
+        (extraTotal * item.productSubtotal) /
+          productSubtotal
+      );
+    } else if (extraTotal > 0 && totalQuantity > 0) {
+      allocatedExtraCost = roundCurrency(
+        (extraTotal * item.quantity) /
+          totalQuantity
+      );
+    }
+
+    allocatedSoFar = roundCurrency(
+      allocatedSoFar + allocatedExtraCost
+    );
+
+    const unitPurchaseCost =
+      item.quantity > 0
+        ? item.productSubtotal / item.quantity
+        : 0;
+
+    const realUnitCost =
+      item.quantity > 0
+        ? roundCurrency(
+            (item.productSubtotal +
+              allocatedExtraCost) /
+              item.quantity
+          )
+        : 0;
+
+    return {
+      key: item.key,
+      quantity: item.quantity,
+      productSubtotal: item.productSubtotal,
+      unitPurchaseCost,
+      allocatedExtraCost,
+      realUnitCost,
+    };
+  });
+
+  return {
+    itemCount: normalizedItems.length,
+    totalQuantity,
+    productSubtotal,
+    shippingCost,
+    additionalCosts,
+    totalCost: roundCurrency(
+      productSubtotal + extraTotal
+    ),
+    items,
+  };
+}
+
+export function validateMultiPurchaseForm(
+  input: MultiPurchaseDraft
+): MultiPurchaseFormErrors {
+  const errors: MultiPurchaseFormErrors = {
+    itemErrors: {},
+  };
+
+  if (!Array.isArray(input.items) || input.items.length === 0) {
+    errors.items = "Adicione pelo menos um produto à compra.";
+    return errors;
+  }
+
+  const existingProductIds = new Set<string>();
+  const newSkus = new Set<string>();
+
+  for (const item of input.items) {
+    const itemErrors: PurchaseItemDraftErrors = {};
+
+    if (item.mode === "existing") {
+      if (!item.productId) {
+        itemErrors.product = "Selecione um produto.";
+      } else if (existingProductIds.has(item.productId)) {
+        itemErrors.product =
+          "Este produto já foi adicionado à compra.";
+      } else {
+        existingProductIds.add(item.productId);
+      }
+    } else {
+      if (!item.productName?.trim()) {
+        itemErrors.productName =
+          "Informe o nome do produto.";
+      }
+
+      const sku = item.productSku?.trim().toLowerCase();
+      if (sku) {
+        if (newSkus.has(sku)) {
+          itemErrors.productSku =
+            "Este SKU já foi usado em outro item.";
+        } else {
+          newSkus.add(sku);
+        }
+      }
+
+      if (
+        (item.suggestedSalePrice ?? 0) < 0
+      ) {
+        itemErrors.suggestedSalePrice =
+          "Preço sugerido não pode ser negativo.";
+      }
+
+      if (
+        !Number.isInteger(item.minimumStock ?? 0) ||
+        (item.minimumStock ?? 0) < 0
+      ) {
+        itemErrors.minimumStock =
+          "Estoque mínimo deve ser inteiro e não negativo.";
+      }
+    }
+
+    if (
+      !Number.isInteger(item.quantity) ||
+      item.quantity <= 0
+    ) {
+      itemErrors.quantity =
+        "Informe uma quantidade inteira maior que zero.";
+    }
+
+    if (
+      !Number.isFinite(item.productSubtotal) ||
+      item.productSubtotal <= 0
+    ) {
+      itemErrors.productSubtotal =
+        "Informe o valor da mercadoria.";
+    }
+
+    if (Object.keys(itemErrors).length > 0) {
+      errors.itemErrors[item.key] = itemErrors;
+    }
+  }
+
+  if ((input.shippingCost ?? 0) < 0) {
+    errors.shippingCost =
+      "Frete não pode ser negativo.";
+  }
+
+  if ((input.additionalCosts ?? 0) < 0) {
+    errors.additionalCosts =
+      "Outros custos não podem ser negativos.";
+  }
+
+  if (!input.purchaseDate) {
+    errors.purchaseDate =
+      "Informe a data da compra.";
+  }
+
+  if (
+    input.expectedArrivalDate &&
+    input.purchaseDate &&
+    input.expectedArrivalDate < input.purchaseDate
+  ) {
+    errors.expectedArrivalDate =
+      "A chegada não pode ser anterior à compra.";
+  }
+
+  return errors;
+}
+
+export function hasMultiPurchaseErrors(
+  errors: MultiPurchaseFormErrors
+): boolean {
+  return Boolean(
+    errors.items ||
+      errors.shippingCost ||
+      errors.additionalCosts ||
+      errors.purchaseDate ||
+      errors.expectedArrivalDate ||
+      Object.keys(errors.itemErrors).length > 0
+  );
+}
+
+export function buildPurchaseMultiRpcItems(
+  draft: MultiPurchaseDraft
+): Array<Record<string, string | number | null>> {
+  const preview = calculateMultiPurchasePreview(draft);
+  const previewByKey = new Map(
+    preview.items.map((item) => [item.key, item])
+  );
+
+  return draft.items.map<Record<string, string | number | null>>((item) => {
+    const itemPreview = previewByKey.get(item.key);
+
+    if (!itemPreview) {
+      throw new Error(
+        "Não foi possível calcular o item da compra."
+      );
+    }
+
+    if (item.mode === "existing") {
+      return {
+        product_id: item.productId ?? null,
+        product_name: null,
+        product_sku: null,
+        default_sale_price: null,
+        minimum_stock: null,
+        quantity: item.quantity,
+        unit_purchase_cost:
+          itemPreview.unitPurchaseCost,
+      };
+    }
+
+    return {
+      product_id: null,
+      product_name: item.productName?.trim() ?? "",
+      product_sku: item.productSku?.trim() || null,
+      default_sale_price:
+        item.suggestedSalePrice || null,
+      minimum_stock: item.minimumStock ?? 0,
+      quantity: item.quantity,
+      unit_purchase_cost:
+        itemPreview.unitPurchaseCost,
+    };
+  });
+}
 export type DateRangePreset = "month" | "30d" | "year" | "custom";
 
 export function getPurchaseStatusMeta(status: BusinessPurchaseOrderStatus): PurchaseStatusMeta {
   return PURCHASE_STATUS_META[status];
-}
-
-export function calculatePurchasePreview(input: {
-  quantity: number;
-  productSubtotal: number;
-  shippingCost?: number;
-  additionalCosts?: number;
-}): PurchasePreview {
-  const quantity = Number.isFinite(input.quantity) ? input.quantity : 0;
-  const productSubtotal = normalizeMoney(input.productSubtotal);
-  const shippingCost = normalizeMoney(input.shippingCost ?? 0);
-  const additionalCosts = normalizeMoney(input.additionalCosts ?? 0);
-  const totalCost = roundCurrency(productSubtotal + shippingCost + additionalCosts);
-
-  return {
-    productSubtotal,
-    shippingCost,
-    additionalCosts,
-    totalCost,
-    unitPurchaseCost: quantity > 0 ? productSubtotal / quantity : 0,
-    realUnitCost: quantity > 0 ? roundCurrency(totalCost / quantity) : 0,
-  };
-}
-
-export function validatePurchaseForm(input: PurchaseFormDraft, mode: "existing" | "new"): PurchaseFormErrors {
-  const errors: PurchaseFormErrors = {};
-
-  if (mode === "existing" && !input.productId) {
-    errors.product = "Selecione um produto.";
-  }
-
-  if (mode === "new" && !input.productName?.trim()) {
-    errors.productName = "Informe o nome do produto.";
-  }
-
-  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
-    errors.quantity = "Informe uma quantidade inteira maior que zero.";
-  }
-
-  if (!Number.isFinite(input.productSubtotal) || input.productSubtotal <= 0) {
-    errors.productSubtotal = "Informe o valor da mercadoria.";
-  }
-
-  if ((input.shippingCost ?? 0) < 0) {
-    errors.shippingCost = "Frete não pode ser negativo.";
-  }
-
-  if ((input.additionalCosts ?? 0) < 0) {
-    errors.additionalCosts = "Outros custos não podem ser negativos.";
-  }
-
-  if (!input.purchaseDate) {
-    errors.purchaseDate = "Informe a data da compra.";
-  }
-
-  if ((input.suggestedSalePrice ?? 0) < 0) {
-    errors.suggestedSalePrice = "Preço sugerido não pode ser negativo.";
-  }
-
-  if (!Number.isInteger(input.minimumStock ?? 0) || (input.minimumStock ?? 0) < 0) {
-    errors.minimumStock = "Estoque mínimo deve ser inteiro e não negativo.";
-  }
-
-  return errors;
 }
 
 export function getPurchaseReceiptState(input: {

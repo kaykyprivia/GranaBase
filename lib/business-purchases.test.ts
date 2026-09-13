@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  calculatePurchasePreview,
+  buildPurchaseMultiRpcItems,
+  calculateMultiPurchasePreview,
+  validateMultiPurchaseForm,
   canCancelPurchase,
   canEditPurchase,
   canReceivePurchase,
@@ -8,7 +10,6 @@ import {
   getPurchaseReceiptState,
   getPurchaseStatusMeta,
   makeBusinessStableIdempotencyKey,
-  validatePurchaseForm,
   validateReceiveQuantity,
 } from "@/lib/business-purchases";
 
@@ -23,50 +24,7 @@ describe("business purchase UI helpers", () => {
     expect(getPurchaseStatusMeta("CANCELLED")).toMatchObject({ label: "Cancelado", tone: "expense" });
   });
 
-  it("calculates the visual landed-cost preview without persisting it", () => {
-    expect(
-      calculatePurchasePreview({
-        quantity: 10,
-        productSubtotal: 100,
-        shippingCost: 20,
-        additionalCosts: 0,
-      })
-    ).toEqual({
-      productSubtotal: 100,
-      shippingCost: 20,
-      additionalCosts: 0,
-      totalCost: 120,
-      unitPurchaseCost: 10,
-      realUnitCost: 12,
-    });
-  });
 
-  it("validates purchase forms for existing and inline products", () => {
-    expect(
-      validatePurchaseForm(
-        {
-          quantity: 10,
-          productSubtotal: 100,
-          purchaseDate: "2026-09-08",
-        },
-        "existing"
-      )
-    ).toHaveProperty("product");
-
-    expect(
-      validatePurchaseForm(
-        {
-          productName: "Suporte Celular",
-          quantity: 10,
-          productSubtotal: 100,
-          shippingCost: 20,
-          minimumStock: 0,
-          purchaseDate: "2026-09-08",
-        },
-        "new"
-      )
-    ).toEqual({});
-  });
 
   it("derives receipt progress and blocks invalid receives", () => {
     expect(getPurchaseReceiptState({ quantityOrdered: 10, quantityReceived: 6 })).toEqual({
@@ -127,6 +85,182 @@ describe("business purchase UI helpers", () => {
     );
     expect(makeBusinessStableIdempotencyKey("purchase-create", payload)).not.toBe(
       makeBusinessStableIdempotencyKey("purchase-create", [...payload, "changed"])
+    );
+  });
+  it("allocates shared purchase costs proportionally across multiple items", () => {
+    const preview = calculateMultiPurchasePreview({
+      items: [
+        {
+          key: "item-a",
+          mode: "existing",
+          productId: "product-a",
+          quantity: 2,
+          productSubtotal: 100,
+        },
+        {
+          key: "item-b",
+          mode: "existing",
+          productId: "product-b",
+          quantity: 1,
+          productSubtotal: 50,
+        },
+      ],
+      shippingCost: 10,
+      additionalCosts: 5,
+      purchaseDate: "2026-09-13",
+    });
+
+    expect(preview).toMatchObject({
+      itemCount: 2,
+      totalQuantity: 3,
+      productSubtotal: 150,
+      shippingCost: 10,
+      additionalCosts: 5,
+      totalCost: 165,
+    });
+
+    expect(preview.items[0]).toMatchObject({
+      key: "item-a",
+      quantity: 2,
+      productSubtotal: 100,
+      unitPurchaseCost: 50,
+      allocatedExtraCost: 10,
+      realUnitCost: 55,
+    });
+
+    expect(preview.items[1]).toMatchObject({
+      key: "item-b",
+      quantity: 1,
+      productSubtotal: 50,
+      unitPurchaseCost: 50,
+      allocatedExtraCost: 5,
+      realUnitCost: 55,
+    });
+  });
+
+  it("keeps cent allocation deterministic and assigns the rounding remainder to the last item", () => {
+    const preview = calculateMultiPurchasePreview({
+      items: [
+        {
+          key: "item-a",
+          mode: "existing",
+          productId: "product-a",
+          quantity: 1,
+          productSubtotal: 10,
+        },
+        {
+          key: "item-b",
+          mode: "existing",
+          productId: "product-b",
+          quantity: 1,
+          productSubtotal: 10,
+        },
+        {
+          key: "item-c",
+          mode: "existing",
+          productId: "product-c",
+          quantity: 1,
+          productSubtotal: 10,
+        },
+      ],
+      shippingCost: 1,
+      additionalCosts: 0,
+      purchaseDate: "2026-09-13",
+    });
+
+    expect(
+      preview.items.map((item) => item.allocatedExtraCost)
+    ).toEqual([0.33, 0.33, 0.34]);
+
+    expect(
+      preview.items.reduce(
+        (sum, item) => sum + item.allocatedExtraCost,
+        0
+      )
+    ).toBeCloseTo(1, 2);
+
+    expect(preview.totalCost).toBe(31);
+  });
+
+  it("builds the multi-purchase RPC payload for existing and inline products", () => {
+    const draft = {
+      items: [
+        {
+          key: "existing",
+          mode: "existing" as const,
+          productId: "product-1",
+          quantity: 3,
+          productSubtotal: 100,
+        },
+        {
+          key: "new",
+          mode: "new" as const,
+          productName: "Produto novo",
+          productSku: "NOVO-001",
+          suggestedSalePrice: 79.9,
+          minimumStock: 4,
+          quantity: 2,
+          productSubtotal: 50,
+        },
+      ],
+      shippingCost: 0,
+      additionalCosts: 0,
+      purchaseDate: "2026-09-13",
+    };
+
+    const payload = buildPurchaseMultiRpcItems(draft);
+
+    expect(payload).toHaveLength(2);
+
+    expect(payload[0]).toMatchObject({
+      product_id: "product-1",
+      product_name: null,
+      product_sku: null,
+      default_sale_price: null,
+      minimum_stock: null,
+      quantity: 3,
+    });
+
+    expect(payload[0].unit_purchase_cost).toBeCloseTo(
+      100 / 3,
+      6
+    );
+
+    expect(payload[1]).toMatchObject({
+      product_id: null,
+      product_name: "Produto novo",
+      product_sku: "NOVO-001",
+      default_sale_price: 79.9,
+      minimum_stock: 4,
+      quantity: 2,
+      unit_purchase_cost: 25,
+    });
+  });
+  it("blocks the same existing product from being added twice", () => {
+    const errors = validateMultiPurchaseForm({
+      items: [
+        {
+          key: "item-a",
+          mode: "existing",
+          productId: "product-1",
+          quantity: 1,
+          productSubtotal: 10,
+        },
+        {
+          key: "item-b",
+          mode: "existing",
+          productId: "product-1",
+          quantity: 2,
+          productSubtotal: 20,
+        },
+      ],
+      shippingCost: 0,
+      additionalCosts: 0,
+      purchaseDate: "2026-09-13",
+    });
+
+    expect(errors.itemErrors["item-b"]?.product).toBe(
+      "Este produto já foi adicionado à compra."
     );
   });
 });
