@@ -1678,6 +1678,15 @@ export interface Database {
         };
         Returns: Json;
       };
+      get_business_customer_360: {
+        Args: {
+          p_workspace_id: string;
+          p_customer_id: string;
+          p_page?: number;
+          p_page_size?: number;
+        };
+        Returns: Json;
+      };
       get_business_expenses_page: {
         Args: {
           p_workspace_id: string;

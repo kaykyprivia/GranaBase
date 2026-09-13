@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { Customer360Dialog } from "@/components/business/customers/Customer360Dialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
@@ -143,6 +144,7 @@ export function CustomersPageClient() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] =
     useState<BusinessCustomer | null>(null);
+  const [detailsCustomerId, setDetailsCustomerId] = useState<string | null>(null);
 
   const [form, setForm] = useState<CustomerForm>(emptyForm);
 
@@ -563,6 +565,16 @@ export function CustomersPageClient() {
                       size="sm"
                       variant="outline"
                       className="min-h-10 flex-1 gap-1.5 lg:flex-none"
+                      onClick={() => setDetailsCustomerId(customer.id)}
+                    >
+                      Ver detalhes
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-10 flex-1 gap-1.5 lg:flex-none"
                       onClick={() =>
                         openEditCustomer(customer)
                       }
@@ -638,6 +650,17 @@ export function CustomersPageClient() {
           </div>
         </div>
       )}
+      <Customer360Dialog
+        open={detailsCustomerId !== null}
+        customerId={detailsCustomerId}
+        workspaceId={workspaceId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsCustomerId(null);
+          }
+        }}
+      />
+
       <Dialog
         open={formOpen}
         onOpenChange={(open) => {
