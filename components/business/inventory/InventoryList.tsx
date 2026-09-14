@@ -5,11 +5,11 @@ import { ChevronRight, PackageOpen } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { InventoryStatusBadges } from "@/components/business/inventory/InventoryStatusBadges";
-import type { InventoryItem } from "@/lib/business-inventory";
+import type { InventoryIntelligenceItem } from "@/lib/business-inventory";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type InventoryListProps = {
-  items: InventoryItem[];
+  items: InventoryIntelligenceItem[];
   emptyAction: () => void;
 };
 
@@ -61,7 +61,7 @@ export function InventoryList({ items, emptyAction }: InventoryListProps) {
   );
 }
 
-function InventoryMobileCard({ item }: { item: InventoryItem }) {
+function InventoryMobileCard({ item }: { item: InventoryIntelligenceItem }) {
   return (
     <article className="rounded-xl border border-border/60 bg-surface p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
@@ -74,6 +74,7 @@ function InventoryMobileCard({ item }: { item: InventoryItem }) {
 
       <div className="mt-3">
         <InventoryStatusBadges item={item} />
+        <InventoryIntelligenceHint item={item} className="mt-2" />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -101,7 +102,7 @@ function InventoryMobileCard({ item }: { item: InventoryItem }) {
   );
 }
 
-function InventoryTableRow({ item }: { item: InventoryItem }) {
+function InventoryTableRow({ item }: { item: InventoryIntelligenceItem }) {
   return (
     <tr className="transition-colors hover:bg-border/20">
       <td className="px-4 py-3">
@@ -121,6 +122,7 @@ function InventoryTableRow({ item }: { item: InventoryItem }) {
       </td>
       <td className="px-4 py-3">
         <InventoryStatusBadges item={item} />
+        <InventoryIntelligenceHint item={item} className="mt-1.5" />
       </td>
       <td className="px-4 py-3">
         <div className="flex justify-end">
@@ -133,6 +135,37 @@ function InventoryTableRow({ item }: { item: InventoryItem }) {
       </td>
     </tr>
   );
+}
+
+function InventoryIntelligenceHint({
+  item,
+  className,
+}: {
+  item: InventoryIntelligenceItem;
+  className?: string;
+}) {
+  const parts: string[] = [];
+
+  if (item.average_daily_outflow > 0 && item.coverage_days !== null) {
+    parts.push(`Cobertura: ${formatDays(item.coverage_days)}`);
+  }
+
+  if (item.suggested_reorder_quantity > 0) {
+    parts.push(`Repor +${item.suggested_reorder_quantity} un.`);
+  }
+
+  if (parts.length === 0) return null;
+
+  return (
+    <p className={cn("text-[11px] tabular-nums text-text-muted", className)}>
+      {parts.join(" · ")}
+    </p>
+  );
+}
+
+function formatDays(value: number): string {
+  const rounded = Number.isInteger(value) ? value : Number(value.toFixed(1));
+  return `${rounded} ${rounded === 1 ? "dia" : "dias"}`;
 }
 
 function Info({ label, value, strong }: { label: string; value: string; strong?: boolean }) {

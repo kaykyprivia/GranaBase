@@ -19,5 +19,7 @@ export type InventoryProductDetail = {
   product: BusinessProduct;
   summary: BusinessInventorySummary | null;
   lots: InventoryLotWithOrigin[];
+  lotsCount: number;
   movements: BusinessInventoryMovement[];
+  movementsCount: number;
 };

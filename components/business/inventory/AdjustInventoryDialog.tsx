@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { BusinessInventoryMovementType } from "@/types/database";
+import type { BusinessInventoryMovementType, Database } from "@/types/database";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,17 @@ import {
   type InventoryAdjustmentErrors,
   type InventoryItem,
 } from "@/lib/business-inventory";
+import { createClient } from "@/lib/supabase/client";
+import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
+
+type ProductSearchArgs =
+  Database["public"]["Functions"]["search_business_inventory_products"]["Args"];
 
 type AdjustInventoryDialogProps = {
   open: boolean;
   products: InventoryItem[];
+  workspaceId?: string;
   selectedProductId?: string;
   loading: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,12 +47,20 @@ const outputTypes: Array<{ value: BusinessInventoryMovementType; label: string }
 export function AdjustInventoryDialog({
   open,
   products,
+  workspaceId,
   selectedProductId,
   loading,
   onOpenChange,
   onConfirm,
 }: AdjustInventoryDialogProps) {
+  const supabase = createClient();
+  const remoteSearchEnabled = Boolean(workspaceId);
+
   const [productId, setProductId] = useState(selectedProductId ?? "");
+  const [productSearch, setProductSearch] = useState("");
+  const [remoteProducts, setRemoteProducts] = useState<InventoryItem[]>([]);
+  const [searchingProducts, setSearchingProducts] = useState(false);
+  const [selectedProductSnapshot, setSelectedProductSnapshot] = useState<InventoryItem | null>(null);
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [movementType, setMovementType] = useState<BusinessInventoryMovementType>("ADJUSTMENT_OUT");
   const [quantity, setQuantity] = useState(1);
@@ -55,25 +69,108 @@ export function AdjustInventoryDialog({
   const [errors, setErrors] = useState<InventoryAdjustmentErrors>({});
 
   useEffect(() => {
-    if (open) {
-      setProductId(selectedProductId ?? products[0]?.product_id ?? "");
-      setDirection("out");
-      setMovementType("ADJUSTMENT_OUT");
-      setQuantity(1);
-      setReason("");
-      setUnitCost(0);
-      setErrors({});
-    }
+    if (!open) return;
+
+    const initialProduct =
+      products.find((product) => product.product_id === selectedProductId) ??
+      products[0] ??
+      null;
+
+    setProductId(selectedProductId ?? initialProduct?.product_id ?? "");
+    setSelectedProductSnapshot(initialProduct);
+    setProductSearch("");
+    setRemoteProducts([]);
+    setDirection("out");
+    setMovementType("ADJUSTMENT_OUT");
+    setQuantity(1);
+    setReason("");
+    setUnitCost(0);
+    setErrors({});
   }, [open, products, selectedProductId]);
 
+  useEffect(() => {
+    if (!open || !workspaceId) return;
+
+    let cancelled = false;
+
+    const timeout = window.setTimeout(async () => {
+      setSearchingProducts(true);
+
+      try {
+        const args = {
+          p_workspace_id: workspaceId,
+          p_search: productSearch.trim() || null,
+          p_limit: 20,
+        } satisfies ProductSearchArgs;
+
+        const result = await supabase.rpc(
+          "search_business_inventory_products",
+          coerceMutation(args)
+        );
+
+        if (result.error) throw result.error;
+        if (cancelled) return;
+
+        const nextProducts = coerceData<InventoryItem[]>(result.data ?? []);
+        const firstProduct = nextProducts[0] ?? null;
+
+        setRemoteProducts(nextProducts);
+        setProductId((current) => current || firstProduct?.product_id || "");
+        setSelectedProductSnapshot((current) => current || firstProduct);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Erro ao buscar produtos para ajuste", error);
+          setRemoteProducts([]);
+        }
+      } finally {
+        if (!cancelled) setSearchingProducts(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [open, productSearch, supabase, workspaceId]);
+
+  const productOptions = useMemo(() => {
+    const byId = new Map<string, InventoryItem>();
+
+    if (selectedProductSnapshot) {
+      byId.set(selectedProductSnapshot.product_id, selectedProductSnapshot);
+    }
+
+    for (const product of products) {
+      byId.set(product.product_id, product);
+    }
+
+    for (const product of remoteProducts) {
+      byId.set(product.product_id, product);
+    }
+
+    return Array.from(byId.values());
+  }, [products, remoteProducts, selectedProductSnapshot]);
+
   const selectedProduct = useMemo(
-    () => products.find((product) => product.product_id === productId) ?? null,
-    [productId, products]
+    () =>
+      productOptions.find((product) => product.product_id === productId) ??
+      selectedProductSnapshot,
+    [productId, productOptions, selectedProductSnapshot]
   );
+
   const quantityDelta = getSignedAdjustmentQuantity({ direction, quantity });
+
   const confirmationText = selectedProduct
     ? `${direction === "in" ? "Você está adicionando" : "Você está removendo"} ${quantity} unidade${quantity === 1 ? "" : "s"} de ${selectedProduct.name}${reason.trim() ? ` por ${reason.trim()}` : ""}.`
     : "Selecione um produto para ajustar o estoque.";
+
+  function handleProductChange(value: string) {
+    setProductId(value);
+    setSelectedProductSnapshot(
+      productOptions.find((product) => product.product_id === value) ?? null
+    );
+    setErrors((current) => ({ ...current, productId: undefined }));
+  }
 
   function handleDirectionChange(value: "in" | "out") {
     setDirection(value);
@@ -94,6 +191,7 @@ export function AdjustInventoryDialog({
       unitCost,
       availableQuantity: selectedProduct.available,
     });
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -117,13 +215,29 @@ export function AdjustInventoryDialog({
         </DialogHeader>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {remoteSearchEnabled && (
+            <FormField label="Buscar produto">
+              <Input
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                placeholder="Nome, SKU ou código..."
+                className="min-h-11"
+                disabled={loading}
+              />
+            </FormField>
+          )}
+
           <FormField label="Produto" required error={errors.productId}>
-            <Select value={productId} onValueChange={setProductId} disabled={loading || products.length === 0}>
+            <Select
+              value={productId}
+              onValueChange={handleProductChange}
+              disabled={loading || searchingProducts || productOptions.length === 0}
+            >
               <SelectTrigger error={errors.productId} className="min-h-11" aria-label="Produto">
-                <SelectValue placeholder="Selecione um produto" />
+                <SelectValue placeholder={searchingProducts ? "Buscando produtos..." : "Selecione um produto"} />
               </SelectTrigger>
               <SelectContent>
-                {products.map((product) => (
+                {productOptions.map((product) => (
                   <SelectItem key={product.product_id} value={product.product_id}>
                     {product.name} {product.sku ? `- ${product.sku}` : ""}
                   </SelectItem>
@@ -217,7 +331,7 @@ export function AdjustInventoryDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit" loading={loading} disabled={products.length === 0}>
+            <Button type="submit" loading={loading} disabled={!selectedProduct}>
               Confirmar ajuste
             </Button>
           </DialogFooter>

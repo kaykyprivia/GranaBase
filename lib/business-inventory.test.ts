@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterInventoryItems,
+  getInventoryIntelligenceMeta,
   getInventoryStatusTags,
   getMovementMeta,
   getMovementSign,
@@ -10,6 +11,7 @@ import {
   summarizeInventory,
   validateInventoryAdjustment,
   validateProductMetadata,
+  type InventoryIntelligenceItem,
   type InventoryItem,
 } from "@/lib/business-inventory";
 
@@ -41,6 +43,27 @@ const baseItem: InventoryItem = {
 
 function item(overrides: Partial<InventoryItem>): InventoryItem {
   return { ...baseItem, ...overrides };
+}
+
+function intelligenceItem(
+  overrides: Partial<InventoryIntelligenceItem>
+): InventoryIntelligenceItem {
+  return {
+    ...baseItem,
+    gross_sold_window: 12,
+    customer_returns_window: 0,
+    net_outflow_window: 12,
+    last_sale_at: "2026-09-12T10:00:00Z",
+    observation_days: 30,
+    average_daily_outflow: 0.4,
+    coverage_days: 20,
+    projected_coverage_days: 30,
+    target_stock: 12,
+    days_since_last_sale: 2,
+    suggested_reorder_quantity: 4,
+    intelligence_status: "attention",
+    ...overrides,
+  };
 }
 
 describe("business inventory summary", () => {
@@ -105,6 +128,82 @@ describe("business inventory summary", () => {
     expect(getPotentialProfit({ defaultSalePrice: null, averageUnitCost: 10 })).toEqual({
       profitPerUnit: null,
       marginPct: null,
+    });
+  });
+});
+
+describe("business inventory intelligence", () => {
+  const urgent = intelligenceItem({
+    product_id: "urgent",
+    name: "Urgente",
+    coverage_days: 3,
+    projected_coverage_days: 5,
+    average_daily_outflow: 2,
+    suggested_reorder_quantity: 10,
+    intelligence_status: "reorder_now",
+  });
+
+  const steady = intelligenceItem({
+    product_id: "steady",
+    name: "Estável",
+    coverage_days: 20,
+    projected_coverage_days: 25,
+    average_daily_outflow: 0.5,
+    suggested_reorder_quantity: 2,
+    intelligence_status: "attention",
+  });
+
+  const stagnant = intelligenceItem({
+    product_id: "stagnant",
+    name: "Sem Giro",
+    coverage_days: null,
+    projected_coverage_days: null,
+    average_daily_outflow: 0,
+    suggested_reorder_quantity: 0,
+    intelligence_status: "no_recent_turnover",
+  });
+
+  it("filters products that need replenishment or have no recent turnover", () => {
+    expect(
+      filterInventoryItems([urgent, steady, stagnant], "reorder", "")
+    ).toEqual([urgent, steady]);
+
+    expect(
+      filterInventoryItems(
+        [urgent, steady, stagnant],
+        "no_recent_turnover",
+        ""
+      )
+    ).toEqual([stagnant]);
+  });
+
+  it("sorts intelligence by coverage, velocity and suggested replenishment", () => {
+    const items = [steady, stagnant, urgent];
+
+    expect(sortInventoryItems(items, "coverage_asc")).toEqual([
+      urgent,
+      steady,
+      stagnant,
+    ]);
+
+    expect(sortInventoryItems(items, "velocity_desc")[0]).toBe(urgent);
+    expect(sortInventoryItems(items, "reorder_desc")[0]).toBe(urgent);
+  });
+
+  it("maps actionable intelligence statuses to consistent labels and tones", () => {
+    expect(getInventoryIntelligenceMeta("reorder_now")).toEqual({
+      label: "Repor agora",
+      tone: "expense",
+    });
+
+    expect(getInventoryIntelligenceMeta("no_recent_turnover")).toEqual({
+      label: "Sem giro recente",
+      tone: "secondary",
+    });
+
+    expect(getInventoryIntelligenceMeta("healthy")).toEqual({
+      label: "Estoque saudável",
+      tone: "profit",
     });
   });
 });

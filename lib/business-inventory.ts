@@ -1,10 +1,55 @@
 import type { BusinessInventoryMovementType, BusinessInventorySummary } from "@/types/database";
 import { roundCurrency } from "@/lib/business";
 
-export type InventoryFilter = "all" | "available" | "low" | "empty" | "reserved" | "in_transit";
-export type InventorySort = "name" | "stock_desc" | "stock_asc" | "capital_desc" | "cost_desc" | "recent";
+export type InventoryFilter = "all" | "available" | "low" | "empty" | "reserved" | "in_transit" | "reorder" | "no_recent_turnover";
+export type InventorySort = "name" | "stock_desc" | "stock_asc" | "capital_desc" | "cost_desc" | "recent" | "coverage_asc" | "velocity_desc" | "reorder_desc";
 export type InventoryStatusTone = "default" | "profit" | "warning" | "expense" | "secondary";
 export type InventoryItem = BusinessInventorySummary;
+export type InventoryIntelligenceStatus =
+  | "out_of_stock"
+  | "reorder_now"
+  | "attention"
+  | "no_recent_turnover"
+  | "healthy";
+
+export type InventoryIntelligenceItem = InventoryItem & {
+  gross_sold_window: number;
+  customer_returns_window: number;
+  net_outflow_window: number;
+  last_sale_at: string | null;
+  observation_days: number;
+  average_daily_outflow: number;
+  coverage_days: number | null;
+  projected_coverage_days: number | null;
+  target_stock: number;
+  days_since_last_sale: number | null;
+  suggested_reorder_quantity: number;
+  intelligence_status: InventoryIntelligenceStatus;
+};
+
+export type InventoryIntelligenceSummary = {
+  inventory_value: number;
+  products_in_stock: number;
+  available_units: number;
+  low_stock_products: number;
+  out_of_stock_products: number;
+  in_transit_units: number;
+  reorder_now_products: number;
+  attention_products: number;
+  no_recent_turnover_products: number;
+  suggested_reorder_units: number;
+};
+
+export type InventoryPageResponse = {
+  rows: InventoryIntelligenceItem[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  window_days: number;
+  target_days: number;
+  summary: InventoryIntelligenceSummary;
+};
 
 export type InventoryStatus = {
   key: "in_stock" | "low_stock" | "empty" | "reserved" | "in_transit" | "inactive";
@@ -54,6 +99,8 @@ export const INVENTORY_FILTER_OPTIONS: Array<{ value: InventoryFilter; label: st
   { value: "empty", label: "Sem estoque" },
   { value: "reserved", label: "Reservados" },
   { value: "in_transit", label: "A caminho" },
+  { value: "reorder", label: "Precisam de reposição" },
+  { value: "no_recent_turnover", label: "Sem giro recente" },
 ];
 
 export const INVENTORY_SORT_OPTIONS: Array<{ value: InventorySort; label: string }> = [
@@ -63,7 +110,27 @@ export const INVENTORY_SORT_OPTIONS: Array<{ value: InventorySort; label: string
   { value: "capital_desc", label: "Maior capital" },
   { value: "cost_desc", label: "Maior custo" },
   { value: "recent", label: "Mais recentes" },
+  { value: "coverage_asc", label: "Menor cobertura" },
+  { value: "velocity_desc", label: "Maior velocidade de saída" },
+  { value: "reorder_desc", label: "Maior reposição sugerida" },
 ];
+
+export type InventoryIntelligenceMeta = {
+  label: string;
+  tone: InventoryStatusTone;
+};
+
+export const INVENTORY_INTELLIGENCE_META: Record<InventoryIntelligenceStatus, InventoryIntelligenceMeta> = {
+  out_of_stock: { label: "Sem estoque", tone: "expense" },
+  reorder_now: { label: "Repor agora", tone: "expense" },
+  attention: { label: "Atenção", tone: "warning" },
+  no_recent_turnover: { label: "Sem giro recente", tone: "secondary" },
+  healthy: { label: "Estoque saudável", tone: "profit" },
+};
+
+export function getInventoryIntelligenceMeta(status: InventoryIntelligenceStatus): InventoryIntelligenceMeta {
+  return INVENTORY_INTELLIGENCE_META[status];
+}
 
 export const MOVEMENT_META: Record<BusinessInventoryMovementType, MovementMeta> = {
   PURCHASE_RECEIPT: { label: "Entrada por compra", tone: "profit" },
@@ -124,7 +191,17 @@ export function isLowStock(item: Pick<InventoryItem, "available" | "minimum_stoc
   return item.minimum_stock > 0 && item.available <= item.minimum_stock;
 }
 
-export function filterInventoryItems(items: InventoryItem[], filter: InventoryFilter, search: string): InventoryItem[] {
+function hasInventoryIntelligence(
+  item: InventoryItem
+): item is InventoryIntelligenceItem {
+  return "intelligence_status" in item;
+}
+
+export function filterInventoryItems<T extends InventoryItem>(
+  items: T[],
+  filter: InventoryFilter,
+  search: string
+): T[] {
   const normalizedSearch = normalizeSearch(search);
 
   return items.filter((item) => {
@@ -134,26 +211,85 @@ export function filterInventoryItems(items: InventoryItem[], filter: InventoryFi
       (filter === "low" && isLowStock(item)) ||
       (filter === "empty" && item.on_hand === 0 && item.in_transit === 0) ||
       (filter === "reserved" && item.reserved > 0) ||
-      (filter === "in_transit" && item.in_transit > 0);
+      (filter === "in_transit" && item.in_transit > 0) ||
+      (filter === "reorder" &&
+        hasInventoryIntelligence(item) &&
+        item.suggested_reorder_quantity > 0) ||
+      (filter === "no_recent_turnover" &&
+        hasInventoryIntelligence(item) &&
+        item.intelligence_status === "no_recent_turnover");
 
     if (!matchesFilter) return false;
     if (!normalizedSearch) return true;
 
-    return normalizeSearch([item.name, item.sku, item.barcode, item.product_id.slice(0, 8)].filter(Boolean).join(" ")).includes(normalizedSearch);
+    return normalizeSearch(
+      [item.name, item.sku, item.barcode, item.product_id.slice(0, 8)]
+        .filter(Boolean)
+        .join(" ")
+    ).includes(normalizedSearch);
   });
 }
 
-export function sortInventoryItems(items: InventoryItem[], sort: InventorySort): InventoryItem[] {
+export function sortInventoryItems<T extends InventoryItem>(
+  items: T[],
+  sort: InventorySort
+): T[] {
   return [...items].sort((first, second) => {
-    if (sort === "stock_desc") return second.available - first.available || compareNames(first, second);
-    if (sort === "stock_asc") return first.available - second.available || compareNames(first, second);
-    if (sort === "capital_desc") return second.inventory_value - first.inventory_value || compareNames(first, second);
-    if (sort === "cost_desc") return second.average_unit_cost - first.average_unit_cost || compareNames(first, second);
-    if (sort === "recent") return getRecentTimestamp(second) - getRecentTimestamp(first) || compareNames(first, second);
+    if (sort === "stock_desc") {
+      return second.available - first.available || compareNames(first, second);
+    }
+
+    if (sort === "stock_asc") {
+      return first.available - second.available || compareNames(first, second);
+    }
+
+    if (sort === "capital_desc") {
+      return second.inventory_value - first.inventory_value || compareNames(first, second);
+    }
+
+    if (sort === "cost_desc") {
+      return second.average_unit_cost - first.average_unit_cost || compareNames(first, second);
+    }
+
+    if (sort === "recent") {
+      return getRecentTimestamp(second) - getRecentTimestamp(first) || compareNames(first, second);
+    }
+
+    if (
+      sort === "coverage_asc" &&
+      hasInventoryIntelligence(first) &&
+      hasInventoryIntelligence(second)
+    ) {
+      const firstCoverage = first.coverage_days ?? Number.POSITIVE_INFINITY;
+      const secondCoverage = second.coverage_days ?? Number.POSITIVE_INFINITY;
+      return firstCoverage - secondCoverage || compareNames(first, second);
+    }
+
+    if (
+      sort === "velocity_desc" &&
+      hasInventoryIntelligence(first) &&
+      hasInventoryIntelligence(second)
+    ) {
+      return (
+        second.average_daily_outflow - first.average_daily_outflow ||
+        compareNames(first, second)
+      );
+    }
+
+    if (
+      sort === "reorder_desc" &&
+      hasInventoryIntelligence(first) &&
+      hasInventoryIntelligence(second)
+    ) {
+      return (
+        second.suggested_reorder_quantity - first.suggested_reorder_quantity ||
+        compareNames(first, second)
+      );
+    }
+
     return compareNames(first, second);
   });
 }
-
 export function getPotentialProfit(input: { defaultSalePrice: number | null; averageUnitCost: number }) {
   if (input.defaultSalePrice === null || input.defaultSalePrice <= 0 || input.averageUnitCost <= 0) {
     return { profitPerUnit: null, marginPct: null };

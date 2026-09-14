@@ -1733,6 +1733,27 @@ export interface Database {
         };
         Returns: Json;
       };
+      get_business_inventory_page: {
+        Args: {
+          p_workspace_id: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_filter?: "all" | "available" | "low" | "empty" | "reserved" | "in_transit" | "reorder" | "no_recent_turnover";
+          p_sort?: "name" | "stock_desc" | "stock_asc" | "capital_desc" | "cost_desc" | "recent" | "coverage_asc" | "velocity_desc" | "reorder_desc";
+          p_search?: string | null;
+          p_window_days?: number;
+          p_target_days?: number;
+        };
+        Returns: Json;
+      };
+      search_business_inventory_products: {
+        Args: {
+          p_workspace_id: string;
+          p_search?: string | null;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       search_business_customers: {
         Args: {
           p_workspace_id: string;

@@ -142,7 +142,9 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         product: coerceData<BusinessProduct>(productRes.data),
         summary: coerceData<BusinessInventorySummary | null>(summaryRes.data ?? null),
         lots: lotsWithOrigin,
+        lotsCount: Number(lotsRes.count ?? lots.length),
         movements: coerceData<BusinessInventoryMovement[]>(movementsRes.data ?? []),
+        movementsCount: Number(movementsRes.count ?? movementsRes.data?.length ?? 0),
       });
     } catch (error) {
       console.error("Erro ao carregar detalhe do estoque", error);
@@ -346,18 +348,28 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
             <InfoRow label="Atualmente em estoque" value={String(inventoryItem.on_hand)} />
             <InfoRow label="Reservado" value={String(inventoryItem.reserved)} />
             <InfoRow label="Total vendido" value={String(inventoryItem.total_sold)} />
-            <InfoRow label="Última entrada" value={detail.movements[0] ? `${formatDate(detail.movements[0].created_at.slice(0, 10))} às ${formatTime(detail.movements[0].created_at)}` : "Sem movimento"} />
+            <InfoRow label="Última movimentação" value={inventoryItem.last_movement_at ? `${formatDate(inventoryItem.last_movement_at.slice(0, 10))} às ${formatTime(inventoryItem.last_movement_at)}` : "Sem movimento"} />
           </div>
         </section>
 
         <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
           <h2 className="mb-4 text-base font-semibold text-text-primary">Lotes</h2>
           <InventoryLotsList lots={detail.lots} />
+          {detail.lotsCount > detail.lots.length && (
+            <p className="mt-3 text-xs text-text-muted">
+              Exibindo os {detail.lots.length} lotes mais recentes de {detail.lotsCount} no total.
+            </p>
+          )}
         </section>
 
         <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
           <h2 className="mb-4 text-base font-semibold text-text-primary">Histórico de movimentações</h2>
           <InventoryMovementsTimeline movements={detail.movements} />
+          {detail.movementsCount > detail.movements.length && (
+            <p className="mt-3 text-xs text-text-muted">
+              Exibindo as {detail.movements.length} movimentações mais recentes de {detail.movementsCount} no total.
+            </p>
+          )}
         </section>
       </div>
 
