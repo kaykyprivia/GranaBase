@@ -18,12 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   SALE_FILTER_OPTIONS,
+  SALE_CHANNEL_OPTIONS,
   SALE_PAYMENT_FILTER_OPTIONS,
   SALE_PERIOD_OPTIONS,
   getSaleErrorMessage,
   getSalesDateRange,
   type SaleListFilter,
   type SalePaymentFilter,
+  type SaleChannelFilter,
   type SalesDateRangePreset,
 } from "@/lib/business-sales";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
@@ -58,6 +60,7 @@ export function SalesPageClient() {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<SaleListFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<SalePaymentFilter>("all");
+  const [channelFilter, setChannelFilter] = useState<SaleChannelFilter>("all");
   const [periodFilter, setPeriodFilter] = useState<SalesDateRangePreset>("month");
   const [customStart, setCustomStart] = useState(toLocalDateString(new Date()));
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
@@ -102,7 +105,7 @@ export function SalesPageClient() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, paymentFilter, periodFilter, customStart, customEnd]);
+  }, [statusFilter, paymentFilter, channelFilter, periodFilter, customStart, customEnd]);
 
   const loadSales = useCallback(async () => {
     setLoading(true);
@@ -134,6 +137,7 @@ export function SalesPageClient() {
         p_page_size: SALES_PAGE_SIZE,
         p_status: statusFilter,
         p_payment_status: paymentFilter,
+        p_sales_channel: channelFilter,
         p_start_date: dateRange?.start ?? null,
         p_end_date: dateRange?.end ?? null,
         p_search: debouncedSearch || null,
@@ -143,6 +147,7 @@ export function SalesPageClient() {
         p_workspace_id: workspace.workspace_id,
         p_status: statusFilter,
         p_payment_status: paymentFilter,
+        p_sales_channel: channelFilter,
         p_start_date: dateRange?.start ?? null,
         p_end_date: dateRange?.end ?? null,
         p_search: debouncedSearch || null,
@@ -327,6 +332,7 @@ export function SalesPageClient() {
     page,
     statusFilter,
     paymentFilter,
+    channelFilter,
     dateRange,
     debouncedSearch,
   ]);
@@ -545,11 +551,13 @@ export function SalesPageClient() {
             <Filters
               statusFilter={statusFilter}
               paymentFilter={paymentFilter}
+              channelFilter={channelFilter}
               periodFilter={periodFilter}
               customStart={customStart}
               customEnd={customEnd}
               onStatusChange={setStatusFilter}
               onPaymentChange={setPaymentFilter}
+              onChannelChange={setChannelFilter}
               onPeriodChange={setPeriodFilter}
               onCustomStartChange={setCustomStart}
               onCustomEndChange={setCustomEnd}
@@ -585,22 +593,26 @@ export function SalesPageClient() {
 function Filters({
   statusFilter,
   paymentFilter,
+  channelFilter,
   periodFilter,
   customStart,
   customEnd,
   onStatusChange,
   onPaymentChange,
+  onChannelChange,
   onPeriodChange,
   onCustomStartChange,
   onCustomEndChange,
 }: {
   statusFilter: SaleListFilter;
   paymentFilter: SalePaymentFilter;
+  channelFilter: SaleChannelFilter;
   periodFilter: SalesDateRangePreset;
   customStart: string;
   customEnd: string;
   onStatusChange: (value: SaleListFilter) => void;
   onPaymentChange: (value: SalePaymentFilter) => void;
+  onChannelChange: (value: SaleChannelFilter) => void;
   onPeriodChange: (value: SalesDateRangePreset) => void;
   onCustomStartChange: (value: string) => void;
   onCustomEndChange: (value: string) => void;
@@ -624,6 +636,18 @@ function Filters({
         </SelectTrigger>
         <SelectContent>
           {SALE_PAYMENT_FILTER_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={channelFilter} onValueChange={(value) => onChannelChange(value as SaleChannelFilter)}>
+        <SelectTrigger className="w-full" aria-label="Filtrar canal de venda">
+          <SelectValue placeholder="Canal de venda" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os canais</SelectItem>
+          {SALE_CHANNEL_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
           ))}
         </SelectContent>

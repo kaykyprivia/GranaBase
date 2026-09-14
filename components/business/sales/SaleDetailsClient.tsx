@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { RecordPaymentDialog } from "@/components/business/sales/RecordPaymentDialog";
 import { ReturnSaleDialog } from "@/components/business/sales/ReturnSaleDialog";
 import { SaleOrderStatusBadge, SalePaymentStatusBadge } from "@/components/business/sales/SaleStatusBadges";
-import type { SaleDetail, SaleItemRow, WorkspaceRpcResult } from "@/components/business/sales/types";
+import type { SaleDetail, WorkspaceRpcResult } from "@/components/business/sales/types";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
@@ -15,10 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   calculatePaymentSummary,
+  calculateSaleFinancials,
   canCancelSale,
   canReturnSale,
   getNextSaleAdvanceAction,
   getSaleErrorMessage,
+  getSaleChannelLabel,
 } from "@/lib/business-sales";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
@@ -160,10 +162,10 @@ export function SaleDetailsClient({ saleId }: { saleId: string }) {
     void loadSale();
   }, [loadSale]);
 
-  const totals = useMemo(() => getSaleTotals(sale?.items ?? []), [sale?.items]);
+  const totals = useMemo(() => getSaleTotals(sale), [sale]);
   const payment = useMemo(
-    () => calculatePaymentSummary({ totalAmount: totals.totalAmount, payments: sale?.payments ?? [] }),
-    [sale?.payments, totals.totalAmount]
+    () => calculatePaymentSummary({ totalAmount: totals.netRevenue, payments: sale?.payments ?? [] }),
+    [sale?.payments, totals.netRevenue]
   );
   const timeline = useMemo(() => (sale ? buildTimeline(sale) : []), [sale]);
   const advanceAction = sale ? getNextSaleAdvanceAction(sale.order_status) : null;
@@ -355,7 +357,7 @@ export function SaleDetailsClient({ saleId }: { saleId: string }) {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <StatCard title="Total vendido" value={formatCurrency(totals.totalAmount)} icon={PackageCheck} variant="accent" size="compact" />
+        <StatCard title="Total vendido" value={formatCurrency(totals.grossRevenue)} icon={PackageCheck} variant="accent" size="compact" />
         <StatCard title="Pago" value={formatCurrency(payment.netPaidAmount)} icon={HandCoins} variant="profit" size="compact" />
         <StatCard title="Restante" value={formatCurrency(payment.remainingAmount)} icon={Clock3} variant={payment.remainingAmount > 0 ? "warning" : "default"} size="compact" />
         <StatCard title="CMV oficial" value={formatCurrency(totals.cogsAmount)} icon={ReceiptText} variant="default" size="compact" />
@@ -401,10 +403,14 @@ export function SaleDetailsClient({ saleId }: { saleId: string }) {
             <div className="space-y-2 text-sm">
               <InfoRow label="Subtotal" value={formatCurrency(totals.subtotal)} />
               <InfoRow label="Desconto" value={formatCurrency(totals.discountAmount)} />
-              <InfoRow label="Total vendido" value={formatCurrency(totals.totalAmount)} strong />
+              <InfoRow label="Produtos apos desconto" value={formatCurrency(totals.productRevenue)} />
+              <InfoRow label="Taxa de entrega recebida" value={formatCurrency(totals.deliveryFee)} />
+              <InfoRow label="Total vendido" value={formatCurrency(totals.grossRevenue)} strong />
+              <InfoRow label="Reembolsos" value={formatCurrency(totals.refunds)} />
+              <InfoRow label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
               <InfoRow label="CMV" value={formatCurrency(totals.cogsAmount)} />
               <InfoRow label="Taxas" value={formatCurrency(totals.platformFee)} />
-              <InfoRow label="Entrega" value={formatCurrency(totals.shippingCost)} />
+              <InfoRow label="Custo real da entrega" value={formatCurrency(totals.deliveryCost)} />
               <InfoRow label="Outros custos" value={formatCurrency(totals.additionalCosts)} />
               <InfoRow label="Lucro bruto" value={formatCurrency(totals.grossProfit)} strong />
               <InfoRow label="Lucro liquido" value={formatCurrency(totals.netProfit)} strong danger={totals.netProfit < 0} />
@@ -509,28 +515,44 @@ function InfoRow({ label, value, strong, danger }: { label: string; value: strin
   );
 }
 
-function getSaleTotals(items: SaleItemRow[]) {
+function getSaleTotals(sale: SaleDetail | null) {
+  const items = sale?.items ?? [];
   const subtotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
   const discountAmount = items.reduce((sum, item) => sum + item.discount_amount, 0);
-  const totalAmount = items.reduce((sum, item) => sum + item.final_amount, 0);
+  const productRevenue = items.reduce((sum, item) => sum + item.final_amount, 0);
   const cogsAmount = items.reduce((sum, item) => sum + item.cogs_amount, 0);
   const platformFee = items.reduce((sum, item) => sum + item.platform_fee, 0);
-  const shippingCost = items.reduce((sum, item) => sum + item.shipping_cost, 0);
+  const legacyShippingCost = items.reduce((sum, item) => sum + item.shipping_cost, 0);
   const additionalCosts = items.reduce((sum, item) => sum + item.additional_costs, 0);
-  const grossProfit = items.reduce((sum, item) => sum + item.gross_profit, 0);
-  const netProfit = items.reduce((sum, item) => sum + item.net_profit, 0);
+  const deliveryFee = Number(sale?.delivery_fee || 0);
+  const saleDeliveryCost = Number(sale?.delivery_cost || 0);
+  const deliveryCost = saleDeliveryCost + legacyShippingCost;
+
+  const financials = calculateSaleFinancials({
+    items,
+    returns: sale?.returns ?? [],
+    returnItems: sale?.returnItems ?? [],
+    deliveryFee,
+    deliveryCost: saleDeliveryCost,
+  });
+
+  const grossProfit = financials.grossRevenue - cogsAmount;
 
   return {
     subtotal,
     discountAmount,
-    totalAmount,
+    productRevenue,
+    deliveryFee,
+    deliveryCost,
+    grossRevenue: financials.grossRevenue,
+    netRevenue: financials.netRevenue,
+    refunds: financials.refunds,
     cogsAmount,
     platformFee,
-    shippingCost,
     additionalCosts,
     grossProfit,
-    netProfit,
-    netMarginPct: totalAmount > 0 ? (netProfit / totalAmount) * 100 : null,
+    netProfit: financials.netProfit,
+    netMarginPct: financials.netRevenue > 0 ? (financials.netProfit / financials.netRevenue) * 100 : null,
   };
 }
 

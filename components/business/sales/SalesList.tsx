@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { ChevronRight, PackageCheck, PackageOpen, ReceiptText, Truck, XCircle } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SaleOrderStatusBadge, SalePaymentStatusBadge } from "@/components/business/sales/SaleStatusBadges";
-import { calculatePaymentSummary, calculateSaleFinancials, canCancelSale, getNextSaleAdvanceAction } from "@/lib/business-sales";
+import { calculatePaymentSummary, calculateSaleFinancials, canCancelSale, getNextSaleAdvanceAction, getSaleChannelLabel } from "@/lib/business-sales";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { SaleRow } from "@/components/business/sales/types";
 import type { BusinessSaleOrderStatus } from "@/types/database";
@@ -19,6 +20,8 @@ type SalesListProps = {
 };
 
 export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }: SalesListProps) {
+  const [selectedSale, setSelectedSale] = useState<SaleRow | null>(null);
+
   if (sales.length === 0) {
     return (
       <EmptyState
@@ -41,6 +44,7 @@ export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }
             onPayment={onPayment}
             onAdvance={onAdvance}
             onCancel={onCancel}
+            onDetails={setSelectedSale}
           />
         ))}
       </div>
@@ -54,6 +58,7 @@ export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }
               <th className="px-4 py-3 font-semibold">Total</th>
               <th className="px-4 py-3 font-semibold">Pago</th>
               <th className="px-4 py-3 font-semibold">Data</th>
+              <th className="px-4 py-3 font-semibold">Canal</th>
               <th className="px-4 py-3 font-semibold">Pedido</th>
               <th className="px-4 py-3 font-semibold">Pagamento</th>
               <th className="px-4 py-3 font-semibold">Lucro</th>
@@ -68,16 +73,25 @@ export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }
                 onPayment={onPayment}
                 onAdvance={onAdvance}
                 onCancel={onCancel}
+                onDetails={setSelectedSale}
               />
             ))}
           </tbody>
         </table>
       </div>
+
+      <SaleDetailsDialog
+        sale={selectedSale}
+        open={Boolean(selectedSale)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSale(null);
+        }}
+      />
     </>
   );
 }
 
-function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow }) {
+function SaleMobileCard({ sale, onPayment, onAdvance, onCancel, onDetails }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow; onDetails: (sale: SaleRow) => void }) {
   const financials = getSaleFinancials(sale);
   const total = financials.netRevenue;
   const netProfit = financials.netProfit;
@@ -99,6 +113,7 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesList
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <Info label="Pedido" value={<SaleOrderStatusBadge status={sale.order_status} />} />
         <Info label="Pagamento" value={<SalePaymentStatusBadge status={sale.payment_status} />} />
+        <Info label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
         <Info label="Pago" value={formatCurrency(payment.netPaidAmount)} />
         <Info label="Restante" value={formatCurrency(payment.remainingAmount)} strong={payment.remainingAmount > 0} />
         <Info label="Lucro liquido" value={formatCurrency(netProfit)} strong />
@@ -124,18 +139,16 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel }: Omit<SalesList
             Cancelar
           </Button>
         )}
-        <Button asChild size="sm" variant="ghost" className="ml-auto">
-          <Link href={`/business/sales/${sale.id}`}>
-            Detalhes
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+        <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => onDetails(sale)}>
+          Detalhes
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </article>
   );
 }
 
-function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow }) {
+function SaleTableRow({ sale, onPayment, onAdvance, onCancel, onDetails }: Omit<SalesListProps, "sales" | "emptyAction"> & { sale: SaleRow; onDetails: (sale: SaleRow) => void }) {
   const financials = getSaleFinancials(sale);
   const total = financials.netRevenue;
   const netProfit = financials.netProfit;
@@ -159,6 +172,7 @@ function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListPr
         </p>
       </td>
       <td className="px-4 py-3 text-text-secondary">{formatDate(sale.sale_date.slice(0, 10))}</td>
+      <td className="px-4 py-3 text-text-secondary">{getSaleChannelLabel(sale.sales_channel)}</td>
       <td className="px-4 py-3"><SaleOrderStatusBadge status={sale.order_status} /></td>
       <td className="px-4 py-3"><SalePaymentStatusBadge status={sale.payment_status} /></td>
       <td className={cn("px-4 py-3 font-semibold tabular-nums", netProfit < 0 ? "text-expense" : "text-profit")}>
@@ -181,10 +195,8 @@ function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListPr
               <XCircle className="h-4 w-4 text-expense" />
             </Button>
           )}
-          <Button asChild size="icon-sm" variant="ghost" aria-label="Ver detalhes">
-            <Link href={`/business/sales/${sale.id}`}>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
+          <Button type="button" size="icon-sm" variant="ghost" aria-label="Ver detalhes" onClick={() => onDetails(sale)}>
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </td>
@@ -192,6 +204,149 @@ function SaleTableRow({ sale, onPayment, onAdvance, onCancel }: Omit<SalesListPr
   );
 }
 
+function SaleDetailsDialog({
+  sale,
+  open,
+  onOpenChange,
+}: {
+  sale: SaleRow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!sale) return null;
+
+  const financials = getSaleFinancials(sale);
+  const payment = calculatePaymentSummary({
+    totalAmount: financials.netRevenue,
+    payments: sale.payments,
+  });
+  const productRevenue = sale.items.reduce(
+    (sum, item) => sum + Number(item.final_amount || 0),
+    0
+  );
+  const cogs = sale.items.reduce(
+    (sum, item) => sum + Number(item.cogs_amount || 0),
+    0
+  );
+  const platformFees = sale.items.reduce(
+    (sum, item) => sum + Number(item.platform_fee || 0),
+    0
+  );
+  const additionalCosts = sale.items.reduce(
+    (sum, item) => sum + Number(item.additional_costs || 0),
+    0
+  );
+  const legacyShippingCost = sale.items.reduce(
+    (sum, item) => sum + Number(item.shipping_cost || 0),
+    0
+  );
+  const deliveryCost =
+    Number(sale.delivery_cost || 0) + legacyShippingCost;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{`Venda #${sale.sale_number}`}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Info label="Cliente" value={sale.customer?.name ?? "Cliente não informado"} />
+          <Info label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
+          <Info label="Pedido" value={<SaleOrderStatusBadge status={sale.order_status} />} />
+          <Info label="Pagamento" value={<SalePaymentStatusBadge status={sale.payment_status} />} />
+        </div>
+
+        <div className="rounded-xl border border-border/60 bg-background/35 p-4">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+            Resumo financeiro
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Info label="Produtos vendidos" value={formatCurrency(productRevenue)} strong />
+            <Info label="Taxa de entrega recebida" value={formatCurrency(sale.delivery_fee)} />
+            <Info label="Total da venda" value={formatCurrency(financials.grossRevenue)} strong />
+            <Info label="CMV dos produtos" value={formatCurrency(cogs)} />
+            <Info label="Taxas da plataforma" value={formatCurrency(platformFees)} />
+            <Info label="Custo real da entrega" value={formatCurrency(deliveryCost)} />
+            <Info label="Outros custos" value={formatCurrency(additionalCosts)} />
+            <Info label="Reembolsos" value={formatCurrency(financials.refunds)} />
+          </div>
+
+          <div className="mt-4 grid gap-3 border-t border-border/50 pt-4 sm:grid-cols-3">
+            <div className="rounded-lg bg-surface px-4 py-3">
+              <p className="text-xs text-text-muted">Pago</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-text-primary">
+                {formatCurrency(payment.netPaidAmount)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-surface px-4 py-3">
+              <p className="text-xs text-text-muted">Restante</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-warning">
+                {formatCurrency(payment.remainingAmount)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-surface px-4 py-3">
+              <p className="text-xs text-text-muted">Lucro líquido real</p>
+              <p className={cn(
+                "mt-1 text-lg font-bold tabular-nums",
+                financials.netProfit < 0 ? "text-expense" : "text-profit"
+              )}>
+                {formatCurrency(financials.netProfit)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border/60 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+            Produtos
+          </p>
+          <div className="space-y-3">
+            {sale.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start justify-between gap-4 border-b border-border/40 pb-3 last:border-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-text-primary">
+                    {item.quantity}x {item.product?.name ?? "Produto"}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    Custo {formatCurrency(item.cogs_amount)} · lucro {formatCurrency(item.net_profit)}
+                  </p>
+                </div>
+                <p className="shrink-0 font-semibold tabular-nums text-text-primary">
+                  {formatCurrency(item.final_amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 text-sm sm:grid-cols-2">
+          <Info
+            label="Data da venda"
+            value={`${formatDate(sale.sale_date.slice(0, 10))} às ${formatTime(sale.sale_date)}`}
+          />
+          <Info
+            label="Entrega concluída"
+            value={sale.delivered_at ? `${formatDate(sale.delivered_at.slice(0, 10))} às ${formatTime(sale.delivered_at)}` : "Ainda não"}
+          />
+        </div>
+
+        {sale.notes && (
+          <div className="rounded-xl border border-border/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+              Observação
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-text-primary">{sale.notes}</p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 function Info({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
   return (
     <div className="min-w-0">
@@ -208,6 +363,8 @@ function getSaleFinancials(sale: SaleRow) {
     items: sale.items,
     returns: sale.returns ?? [],
     returnItems: sale.returnItems ?? [],
+    deliveryFee: sale.delivery_fee,
+    deliveryCost: sale.delivery_cost,
   });
 }
 

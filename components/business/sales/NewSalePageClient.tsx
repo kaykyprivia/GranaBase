@@ -156,7 +156,7 @@ export function NewSalePageClient() {
           unit_sale_price: item.unitSalePrice,
           discount_amount: item.discountAmount ?? 0,
           platform_fee: item.platformFee ?? 0,
-          shipping_cost: item.shippingCost ?? 0,
+          shipping_cost: 0,
           additional_costs: item.additionalCosts ?? 0,
         })),
         p_idempotency_key: makeBusinessIdempotencyKey("sale-create"),
@@ -179,6 +179,9 @@ export function NewSalePageClient() {
         })(),
         p_notes: draft.notes?.trim() || null,
         p_reserve: true,
+        p_sales_channel: draft.salesChannel,
+        p_delivery_fee: draft.deliveryFee,
+        p_delivery_cost: draft.deliveryCost,
       } satisfies CreateSaleArgs;
 
       const { data, error } = await supabase.rpc("create_business_sale", coerceMutation(args));

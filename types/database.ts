@@ -29,6 +29,7 @@ export type BusinessSaleOrderStatus =
   | "CANCELLED"
   | "RETURNED";
 export type BusinessSalePaymentStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "REFUNDED";
+export type BusinessSalesChannel = "UNSPECIFIED" | "IN_PERSON" | "WHATSAPP" | "INSTAGRAM" | "FACEBOOK_MARKETPLACE" | "SHOPEE" | "MERCADO_LIVRE" | "WEBSITE" | "OTHER";
 export type BusinessAllocationStatus = "RESERVED" | "RELEASED" | "CONSUMED" | "RETURNED";
 export type BusinessInventoryMovementType =
   | "PURCHASE_RECEIPT"
@@ -1031,6 +1032,9 @@ export interface Database {
           customer_id: string | null;
           order_status: BusinessSaleOrderStatus;
           payment_status: BusinessSalePaymentStatus;
+          sales_channel: BusinessSalesChannel;
+          delivery_fee: number;
+          delivery_cost: number;
           sale_date: string;
           delivered_at: string | null;
           notes: string | null;
@@ -1045,6 +1049,9 @@ export interface Database {
           customer_id?: string | null;
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
+          sales_channel?: BusinessSalesChannel;
+          delivery_fee?: number;
+          delivery_cost?: number;
           sale_date?: string;
           delivered_at?: string | null;
           notes?: string | null;
@@ -1059,6 +1066,9 @@ export interface Database {
           customer_id?: string | null;
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
+          sales_channel?: BusinessSalesChannel;
+          delivery_fee?: number;
+          delivery_cost?: number;
           sale_date?: string;
           delivered_at?: string | null;
           notes?: string | null;
@@ -1621,6 +1631,9 @@ export interface Database {
           p_sale_date?: string;
           p_notes?: string | null;
           p_reserve?: boolean;
+          p_sales_channel?: BusinessSalesChannel;
+          p_delivery_fee?: number;
+          p_delivery_cost?: number;
         };
         Returns: Json;
       };
@@ -1713,7 +1726,8 @@ export interface Database {
           p_today?: string;
         };
         Returns: Json;
-      };      get_business_sales_page: {
+      };
+      get_business_sales_page: {
         Args: {
           p_workspace_id: string;
           p_page?: number;
@@ -1723,6 +1737,7 @@ export interface Database {
           p_start_date?: string | null;
           p_end_date?: string | null;
           p_search?: string | null;
+          p_sales_channel?: "all" | BusinessSalesChannel;
         };
         Returns: Json;
       };
@@ -1734,6 +1749,7 @@ export interface Database {
           p_start_date?: string | null;
           p_end_date?: string | null;
           p_search?: string | null;
+          p_sales_channel?: "all" | BusinessSalesChannel;
         };
         Returns: Json;
       };

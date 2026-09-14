@@ -4,6 +4,7 @@ import type {
   BusinessSaleItem,
   BusinessSaleOrderStatus,
   BusinessSalePaymentStatus,
+  BusinessSalesChannel,
   BusinessSaleReturn,
   BusinessSaleReturnItem,
 } from "@/types/database";
@@ -12,6 +13,7 @@ import { roundCurrency } from "@/lib/business";
 export type SaleStatusTone = "default" | "profit" | "warning" | "expense" | "secondary";
 export type SaleListFilter = "all" | "open" | BusinessSaleOrderStatus;
 export type SalePaymentFilter = "all" | BusinessSalePaymentStatus;
+export type SaleChannelFilter = "all" | BusinessSalesChannel;
 export type SalesDateRangePreset = "today" | "month" | "30d" | "year" | "custom";
 
 export type SaleStatusMeta = {
@@ -31,7 +33,6 @@ export type SaleFormItem = {
   unitSalePrice: number;
   discountAmount?: number;
   platformFee?: number;
-  shippingCost?: number;
   additionalCosts?: number;
 };
 
@@ -40,6 +41,9 @@ export type SaleFormDraft = {
   quickCustomerName?: string;
   quickCustomerWhatsapp?: string;
   saleDate: string;
+  salesChannel: BusinessSalesChannel;
+  deliveryFee: number;
+  deliveryCost: number;
   notes?: string;
   items: SaleFormItem[];
 };
@@ -47,6 +51,8 @@ export type SaleFormDraft = {
 export type SaleFormErrors = {
   customer?: string;
   saleDate?: string;
+  deliveryFee?: string;
+  deliveryCost?: string;
   items?: string;
   itemErrors: Array<Partial<Record<keyof SaleFormItem, string>>>;
 };
@@ -59,7 +65,6 @@ export type SaleItemPreview = {
   discountAmount: number;
   finalAmount: number;
   platformFee: number;
-  shippingCost: number;
   additionalCosts: number;
   estimatedCogs: number;
   estimatedGrossProfit: number;
@@ -72,7 +77,8 @@ export type SalePreview = {
   subtotal: number;
   discountAmount: number;
   feesAmount: number;
-  shippingCost: number;
+  deliveryFee: number;
+  deliveryCost: number;
   additionalCosts: number;
   totalAmount: number;
   estimatedCogs: number;
@@ -178,6 +184,22 @@ export const SALE_PAYMENT_FILTER_OPTIONS: Array<{ value: SalePaymentFilter; labe
   { value: "REFUNDED", label: "Reembolsado" },
 ];
 
+export const SALE_CHANNEL_OPTIONS: Array<{ value: BusinessSalesChannel; label: string }> = [
+  { value: "UNSPECIFIED", label: "Não informado" },
+  { value: "IN_PERSON", label: "Presencial" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "FACEBOOK_MARKETPLACE", label: "Facebook Marketplace" },
+  { value: "SHOPEE", label: "Shopee" },
+  { value: "MERCADO_LIVRE", label: "Mercado Livre" },
+  { value: "WEBSITE", label: "Site próprio" },
+  { value: "OTHER", label: "Outro" },
+];
+
+export function getSaleChannelLabel(channel: BusinessSalesChannel): string {
+  return SALE_CHANNEL_OPTIONS.find((option) => option.value === channel)?.label ?? "Não informado";
+}
+
 export const SALE_PERIOD_OPTIONS: Array<{ value: SalesDateRangePreset; label: string }> = [
   { value: "today", label: "Hoje" },
   { value: "month", label: "Este mes" },
@@ -186,30 +208,33 @@ export const SALE_PERIOD_OPTIONS: Array<{ value: SalesDateRangePreset; label: st
   { value: "custom", label: "Personalizado" },
 ];
 
-export function calculateSalePreview(items: SaleFormItem[]): SalePreview {
+export function calculateSalePreview(items: SaleFormItem[], deliveryFee = 0, deliveryCost = 0): SalePreview {
   const itemPreviews = items.map(calculateSaleItemPreview);
+  const normalizedDeliveryFee = normalizeMoney(deliveryFee);
+  const normalizedDeliveryCost = normalizeMoney(deliveryCost);
   const subtotal = sumMoney(itemPreviews.map((item) => item.grossAmount));
   const discountAmount = sumMoney(itemPreviews.map((item) => item.discountAmount));
   const feesAmount = sumMoney(itemPreviews.map((item) => item.platformFee));
-  const shippingCost = sumMoney(itemPreviews.map((item) => item.shippingCost));
   const additionalCosts = sumMoney(itemPreviews.map((item) => item.additionalCosts));
-  const totalAmount = sumMoney(itemPreviews.map((item) => item.finalAmount));
+  const productRevenue = sumMoney(itemPreviews.map((item) => item.finalAmount));
+  const totalAmount = roundCurrency(productRevenue + normalizedDeliveryFee);
   const estimatedCogs = sumMoney(itemPreviews.map((item) => item.estimatedCogs));
   const estimatedGrossProfit = roundCurrency(totalAmount - estimatedCogs);
-  const estimatedNetProfit = roundCurrency(estimatedGrossProfit - feesAmount - shippingCost - additionalCosts);
+  const estimatedNetProfit = roundCurrency(estimatedGrossProfit - feesAmount - additionalCosts - normalizedDeliveryCost);
 
   return {
     subtotal,
     discountAmount,
     feesAmount,
-    shippingCost,
+    deliveryFee: normalizedDeliveryFee,
+    deliveryCost: normalizedDeliveryCost,
     additionalCosts,
     totalAmount,
     estimatedCogs,
     estimatedGrossProfit,
     estimatedNetProfit,
     estimatedMarginPct: totalAmount > 0 ? roundCurrency((estimatedNetProfit / totalAmount) * 100) : null,
-    belowCost: itemPreviews.some((item) => item.belowCost),
+    belowCost: estimatedNetProfit < 0,
     items: itemPreviews,
   };
 }
@@ -219,6 +244,14 @@ export function validateSaleForm(draft: SaleFormDraft): SaleFormErrors {
 
   if (!draft.saleDate) {
     errors.saleDate = "Informe a data da venda.";
+  }
+
+  if (!Number.isFinite(draft.deliveryFee) || draft.deliveryFee < 0) {
+    errors.deliveryFee = "Taxa de entrega não pode ser negativa.";
+  }
+
+  if (!Number.isFinite(draft.deliveryCost) || draft.deliveryCost < 0) {
+    errors.deliveryCost = "Custo de entrega não pode ser negativo.";
   }
 
   if (draft.customerId && draft.quickCustomerName?.trim()) {
@@ -252,9 +285,6 @@ export function validateSaleForm(draft: SaleFormDraft): SaleFormErrors {
     if ((item.platformFee ?? 0) < 0) {
       itemErrors.platformFee = "Taxa nao pode ser negativa.";
     }
-    if ((item.shippingCost ?? 0) < 0) {
-      itemErrors.shippingCost = "Entrega nao pode ser negativa.";
-    }
     if ((item.additionalCosts ?? 0) < 0) {
       itemErrors.additionalCosts = "Outros custos nao podem ser negativos.";
     }
@@ -279,6 +309,8 @@ export function hasSaleFormErrors(errors: SaleFormErrors): boolean {
   return Boolean(
     errors.customer ||
     errors.saleDate ||
+    errors.deliveryFee ||
+    errors.deliveryCost ||
     errors.items ||
     errors.itemErrors.some((item) => Object.keys(item).length > 0)
   );
@@ -312,17 +344,23 @@ export function calculateSaleFinancials(input: {
   items: SaleFinancialItem[];
   returns?: SaleFinancialReturn[];
   returnItems?: SaleFinancialReturnItem[];
+  deliveryFee?: number;
+  deliveryCost?: number;
 }): SaleFinancialSummary {
   const returns = input.returns ?? [];
   const returnItems = input.returnItems ?? [];
+  const deliveryFee = normalizeMoney(input.deliveryFee ?? 0);
+  const deliveryCost = normalizeMoney(input.deliveryCost ?? 0);
 
-  const grossRevenue = sumMoney(
+  const productRevenue = sumMoney(
     input.items.map((item) => Number(item.final_amount || 0))
   );
+  const grossRevenue = roundCurrency(productRevenue + deliveryFee);
 
-  const baseProfit = sumMoney(
+  const productBaseProfit = sumMoney(
     input.items.map((item) => Number(item.net_profit || 0))
   );
+  const baseProfit = roundCurrency(productBaseProfit + deliveryFee - deliveryCost);
 
   const refunds = sumMoney(
     returns.map((row) => Number(row.refund_amount || 0))
@@ -474,7 +512,6 @@ export function mapInventoryToSaleItem(product: BusinessInventorySummary): SaleF
     unitSalePrice: product.default_sale_price ?? 0,
     discountAmount: 0,
     platformFee: 0,
-    shippingCost: 0,
     additionalCosts: 0,
   };
 }
@@ -512,13 +549,12 @@ function calculateSaleItemPreview(item: SaleFormItem): SaleItemPreview {
   const unitSalePrice = normalizeMoney(item.unitSalePrice);
   const discountAmount = normalizeMoney(item.discountAmount ?? 0);
   const platformFee = normalizeMoney(item.platformFee ?? 0);
-  const shippingCost = normalizeMoney(item.shippingCost ?? 0);
   const additionalCosts = normalizeMoney(item.additionalCosts ?? 0);
   const grossAmount = roundCurrency(Math.max(quantity, 0) * unitSalePrice);
   const finalAmount = roundCurrency(Math.max(grossAmount - discountAmount, 0));
   const estimatedCogs = roundCurrency(Math.max(quantity, 0) * normalizeMoney(item.averageUnitCost));
   const estimatedGrossProfit = roundCurrency(finalAmount - estimatedCogs);
-  const estimatedNetProfit = roundCurrency(estimatedGrossProfit - platformFee - shippingCost - additionalCosts);
+  const estimatedNetProfit = roundCurrency(estimatedGrossProfit - platformFee - additionalCosts);
 
   return {
     productId: item.productId,
@@ -528,7 +564,6 @@ function calculateSaleItemPreview(item: SaleFormItem): SaleItemPreview {
     discountAmount,
     finalAmount,
     platformFee,
-    shippingCost,
     additionalCosts,
     estimatedCogs,
     estimatedGrossProfit,

@@ -14,6 +14,7 @@ import {
   hasSaleFormErrors,
   mapInventoryToSaleItem,
   validateSaleForm,
+  SALE_CHANNEL_OPTIONS,
   type SaleFormDraft,
   type SaleFormErrors,
   type SaleFormItem,
@@ -47,12 +48,18 @@ export function SaleForm({
     quickCustomerName: "",
     quickCustomerWhatsapp: "",
     saleDate: toLocalDateString(),
+    salesChannel: "IN_PERSON",
+    deliveryFee: 0,
+    deliveryCost: 0,
     notes: "",
     items: availableProducts[0] ? [mapInventoryToSaleItem(availableProducts[0])] : [],
   });
   const [errors, setErrors] = useState<SaleFormErrors>(emptyErrors);
 
-  const preview = useMemo(() => calculateSalePreview(draft.items), [draft.items]);
+  const preview = useMemo(
+    () => calculateSalePreview(draft.items, draft.deliveryFee, draft.deliveryCost),
+    [draft.items, draft.deliveryFee, draft.deliveryCost]
+  );
 
   function updateDraft<K extends keyof SaleFormDraft>(key: K, value: SaleFormDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -155,6 +162,24 @@ export function SaleForm({
             onChange={(event) => updateDraft("saleDate", event.target.value)}
           />
         </FormField>
+
+        <FormField label="Canal de venda">
+          <Select
+            value={draft.salesChannel}
+            onValueChange={(value) => updateDraft("salesChannel", value as SaleFormDraft["salesChannel"])}
+          >
+            <SelectTrigger aria-label="Canal de venda">
+              <SelectValue placeholder="Selecione o canal" />
+            </SelectTrigger>
+            <SelectContent>
+              {SALE_CHANNEL_OPTIONS.filter((option) => option.value !== "UNSPECIFIED").map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
       </div>
 
       <div className="rounded-xl border border-border/60 bg-background/35 p-4">
@@ -216,6 +241,26 @@ export function SaleForm({
         </div>
       </div>
 
+      <div className="rounded-xl border border-border/60 bg-surface p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Entrega</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Taxa de entrega cobrada do cliente" error={errors.deliveryFee} hint="Valor que o cliente paga pela entrega">
+            <CurrencyInput
+              value={draft.deliveryFee}
+              error={errors.deliveryFee}
+              onChange={(value) => updateDraft("deliveryFee", value)}
+            />
+          </FormField>
+          <FormField label="Custo real da entrega" error={errors.deliveryCost} hint="Quanto você realmente gastou para entregar">
+            <CurrencyInput
+              value={draft.deliveryCost}
+              error={errors.deliveryCost}
+              onChange={(value) => updateDraft("deliveryCost", value)}
+            />
+          </FormField>
+        </div>
+      </div>
+
       {preview.belowCost && (
         <div className="flex gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -234,11 +279,12 @@ export function SaleForm({
 
       <div className="sticky bottom-3 rounded-xl border border-border/60 bg-surface p-4 shadow-card">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Preview financeiro</p>
-        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-8">
           <PreviewValue label="Subtotal" value={formatCurrency(preview.subtotal)} />
           <PreviewValue label="Desconto" value={formatCurrency(preview.discountAmount)} />
           <PreviewValue label="Taxas" value={formatCurrency(preview.feesAmount)} />
-          <PreviewValue label="Entrega" value={formatCurrency(preview.shippingCost)} />
+          <PreviewValue label="Taxa entrega" value={formatCurrency(preview.deliveryFee)} />
+          <PreviewValue label="Custo entrega" value={formatCurrency(preview.deliveryCost)} />
           <PreviewValue label="Total" value={formatCurrency(preview.totalAmount)} strong />
           <PreviewValue label="CMV est." value={formatCurrency(preview.estimatedCogs)} />
           <PreviewValue label="Lucro est." value={formatCurrency(preview.estimatedNetProfit)} strong={preview.estimatedNetProfit >= 0} danger={preview.estimatedNetProfit < 0} />
@@ -280,7 +326,7 @@ function SaleItemEditor({
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <FormField label="Qtd." error={errors.quantity}>
           <Input
             type="number"
@@ -312,13 +358,6 @@ function SaleItemEditor({
             value={item.platformFee}
             error={errors.platformFee}
             onChange={(value) => onUpdate(index, { platformFee: value })}
-          />
-        </FormField>
-        <FormField label="Entrega" error={errors.shippingCost}>
-          <CurrencyInput
-            value={item.shippingCost}
-            error={errors.shippingCost}
-            onChange={(value) => onUpdate(index, { shippingCost: value })}
           />
         </FormField>
         <div className="rounded-lg bg-surface px-3 py-2">

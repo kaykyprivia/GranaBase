@@ -22,15 +22,17 @@ const saleItem: SaleFormItem = {
   unitSalePrice: 25,
   discountAmount: 0,
   platformFee: 0,
-  shippingCost: 0,
   additionalCosts: 0,
 };
 
 function draft(overrides: Partial<SaleFormDraft> = {}): SaleFormDraft {
   return {
     saleDate: "2026-09-09",
+    deliveryFee: 0,
+    deliveryCost: 0,
     items: [saleItem],
     ...overrides,
+    salesChannel: overrides.salesChannel ?? "IN_PERSON",
   };
 }
 
@@ -46,17 +48,18 @@ describe("business sales UI helpers", () => {
         quantity: 1,
         unitSalePrice: 40,
         platformFee: 3,
-        shippingCost: 5,
       },
-    ]);
+    ], 10, 5);
 
     expect(preview).toMatchObject({
       subtotal: 90,
-      totalAmount: 90,
+      deliveryFee: 10,
+      deliveryCost: 5,
+      totalAmount: 100,
       estimatedCogs: 42,
-      estimatedGrossProfit: 48,
-      estimatedNetProfit: 40,
-      estimatedMarginPct: 44.44,
+      estimatedGrossProfit: 58,
+      estimatedNetProfit: 50,
+      estimatedMarginPct: 50,
       belowCost: false,
     });
   });
