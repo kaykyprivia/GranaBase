@@ -21,6 +21,7 @@ import {
   getNextSaleAdvanceAction,
   getSaleErrorMessage,
   getSaleChannelLabel,
+  getSaleDeliveryMethodLabel,
 } from "@/lib/business-sales";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
@@ -408,6 +409,7 @@ export function SaleDetailsClient({ saleId }: { saleId: string }) {
               <InfoRow label="Total vendido" value={formatCurrency(totals.grossRevenue)} strong />
               <InfoRow label="Reembolsos" value={formatCurrency(totals.refunds)} />
               <InfoRow label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
+              <InfoRow label="Modalidade de entrega" value={getSaleDeliveryMethodLabel(sale.delivery_method)} />
               <InfoRow label="CMV" value={formatCurrency(totals.cogsAmount)} />
               <InfoRow label="Taxas" value={formatCurrency(totals.platformFee)} />
               <InfoRow label="Custo real da entrega" value={formatCurrency(totals.deliveryCost)} />

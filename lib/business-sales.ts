@@ -5,6 +5,7 @@ import type {
   BusinessSaleOrderStatus,
   BusinessSalePaymentStatus,
   BusinessSalesChannel,
+  BusinessDeliveryMethod,
   BusinessSaleReturn,
   BusinessSaleReturnItem,
 } from "@/types/database";
@@ -14,6 +15,7 @@ export type SaleStatusTone = "default" | "profit" | "warning" | "expense" | "sec
 export type SaleListFilter = "all" | "open" | BusinessSaleOrderStatus;
 export type SalePaymentFilter = "all" | BusinessSalePaymentStatus;
 export type SaleChannelFilter = "all" | BusinessSalesChannel;
+export type SaleDeliveryMethodFilter = "all" | BusinessDeliveryMethod;
 export type SalesDateRangePreset = "today" | "month" | "30d" | "year" | "custom";
 
 export type SaleStatusMeta = {
@@ -42,6 +44,7 @@ export type SaleFormDraft = {
   quickCustomerWhatsapp?: string;
   saleDate: string;
   salesChannel: BusinessSalesChannel;
+  deliveryMethod: BusinessDeliveryMethod;
   deliveryFee: number;
   deliveryCost: number;
   notes?: string;
@@ -200,6 +203,19 @@ export function getSaleChannelLabel(channel: BusinessSalesChannel): string {
   return SALE_CHANNEL_OPTIONS.find((option) => option.value === channel)?.label ?? "Não informado";
 }
 
+export const SALE_DELIVERY_METHOD_OPTIONS: Array<{ value: BusinessDeliveryMethod; label: string }> = [
+  { value: "OWN_DELIVERY", label: "Entrega própria" },
+  { value: "COURIER_APP", label: "Motoboy/App" },
+  { value: "CUSTOMER_PICKUP", label: "Retirada pelo cliente" },
+  { value: "SHIPPING_CARRIER", label: "Transportadora/Correios" },
+  { value: "OTHER", label: "Outro" },
+  { value: "UNSPECIFIED", label: "Não informado" },
+];
+
+export function getSaleDeliveryMethodLabel(method: BusinessDeliveryMethod): string {
+  return SALE_DELIVERY_METHOD_OPTIONS.find((option) => option.value === method)?.label ?? "Não informado";
+}
+
 export const SALE_PERIOD_OPTIONS: Array<{ value: SalesDateRangePreset; label: string }> = [
   { value: "today", label: "Hoje" },
   { value: "month", label: "Este mes" },
@@ -252,6 +268,11 @@ export function validateSaleForm(draft: SaleFormDraft): SaleFormErrors {
 
   if (!Number.isFinite(draft.deliveryCost) || draft.deliveryCost < 0) {
     errors.deliveryCost = "Custo de entrega não pode ser negativo.";
+  }
+
+  if (draft.deliveryMethod === "CUSTOMER_PICKUP" && (draft.deliveryFee !== 0 || draft.deliveryCost !== 0)) {
+    errors.deliveryFee = "Retirada pelo cliente não pode ter taxa de entrega.";
+    errors.deliveryCost = "Retirada pelo cliente não pode ter custo de entrega.";
   }
 
   if (draft.customerId && draft.quickCustomerName?.trim()) {

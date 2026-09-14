@@ -15,6 +15,7 @@ import {
   mapInventoryToSaleItem,
   validateSaleForm,
   SALE_CHANNEL_OPTIONS,
+  SALE_DELIVERY_METHOD_OPTIONS,
   type SaleFormDraft,
   type SaleFormErrors,
   type SaleFormItem,
@@ -49,6 +50,7 @@ export function SaleForm({
     quickCustomerWhatsapp: "",
     saleDate: toLocalDateString(),
     salesChannel: "IN_PERSON",
+    deliveryMethod: "UNSPECIFIED",
     deliveryFee: 0,
     deliveryCost: 0,
     notes: "",
@@ -243,11 +245,45 @@ export function SaleForm({
 
       <div className="rounded-xl border border-border/60 bg-surface p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">Entrega</p>
+        <div className="mb-4">
+          <FormField label="Modalidade de entrega">
+            <Select
+              value={draft.deliveryMethod}
+              onValueChange={(value) => {
+                const deliveryMethod = value as SaleFormDraft["deliveryMethod"];
+                setDraft((current) => ({
+                  ...current,
+                  deliveryMethod,
+                  ...(deliveryMethod === "CUSTOMER_PICKUP"
+                    ? { deliveryFee: 0, deliveryCost: 0 }
+                    : {}),
+                }));
+                setErrors((current) => ({
+                  ...current,
+                  deliveryFee: undefined,
+                  deliveryCost: undefined,
+                }));
+              }}
+            >
+              <SelectTrigger aria-label="Modalidade de entrega">
+                <SelectValue placeholder="Selecione como o pedido sera entregue" />
+              </SelectTrigger>
+              <SelectContent>
+                {SALE_DELIVERY_METHOD_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Taxa de entrega cobrada do cliente" error={errors.deliveryFee} hint="Valor que o cliente paga pela entrega">
             <CurrencyInput
               value={draft.deliveryFee}
               error={errors.deliveryFee}
+              disabled={draft.deliveryMethod === "CUSTOMER_PICKUP"}
               onChange={(value) => updateDraft("deliveryFee", value)}
             />
           </FormField>
@@ -255,6 +291,7 @@ export function SaleForm({
             <CurrencyInput
               value={draft.deliveryCost}
               error={errors.deliveryCost}
+              disabled={draft.deliveryMethod === "CUSTOMER_PICKUP"}
               onChange={(value) => updateDraft("deliveryCost", value)}
             />
           </FormField>

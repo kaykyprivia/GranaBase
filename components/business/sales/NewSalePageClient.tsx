@@ -182,6 +182,7 @@ export function NewSalePageClient() {
         p_sales_channel: draft.salesChannel,
         p_delivery_fee: draft.deliveryFee,
         p_delivery_cost: draft.deliveryCost,
+        p_delivery_method: draft.deliveryMethod,
       } satisfies CreateSaleArgs;
 
       const { data, error } = await supabase.rpc("create_business_sale", coerceMutation(args));

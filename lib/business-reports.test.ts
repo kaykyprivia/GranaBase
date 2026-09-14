@@ -28,6 +28,7 @@ function makeSale(
     order_status: "DELIVERED",
     payment_status: "PAID",
     sales_channel: "UNSPECIFIED",
+    delivery_method: "UNSPECIFIED",
     delivery_fee: 0,
     delivery_cost: 0,
     sale_date: "2026-09-10T12:00:00.000Z",

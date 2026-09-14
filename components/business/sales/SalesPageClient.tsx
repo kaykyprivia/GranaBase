@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   SALE_FILTER_OPTIONS,
   SALE_CHANNEL_OPTIONS,
+  SALE_DELIVERY_METHOD_OPTIONS,
   SALE_PAYMENT_FILTER_OPTIONS,
   SALE_PERIOD_OPTIONS,
   getSaleErrorMessage,
@@ -26,6 +27,7 @@ import {
   type SaleListFilter,
   type SalePaymentFilter,
   type SaleChannelFilter,
+  type SaleDeliveryMethodFilter,
   type SalesDateRangePreset,
 } from "@/lib/business-sales";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
@@ -61,6 +63,7 @@ export function SalesPageClient() {
   const [statusFilter, setStatusFilter] = useState<SaleListFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<SalePaymentFilter>("all");
   const [channelFilter, setChannelFilter] = useState<SaleChannelFilter>("all");
+  const [deliveryMethodFilter, setDeliveryMethodFilter] = useState<SaleDeliveryMethodFilter>("all");
   const [periodFilter, setPeriodFilter] = useState<SalesDateRangePreset>("month");
   const [customStart, setCustomStart] = useState(toLocalDateString(new Date()));
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
@@ -105,7 +108,7 @@ export function SalesPageClient() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, paymentFilter, channelFilter, periodFilter, customStart, customEnd]);
+  }, [statusFilter, paymentFilter, channelFilter, deliveryMethodFilter, periodFilter, customStart, customEnd]);
 
   const loadSales = useCallback(async () => {
     setLoading(true);
@@ -138,6 +141,7 @@ export function SalesPageClient() {
         p_status: statusFilter,
         p_payment_status: paymentFilter,
         p_sales_channel: channelFilter,
+        p_delivery_method: deliveryMethodFilter,
         p_start_date: dateRange?.start ?? null,
         p_end_date: dateRange?.end ?? null,
         p_search: debouncedSearch || null,
@@ -148,6 +152,7 @@ export function SalesPageClient() {
         p_status: statusFilter,
         p_payment_status: paymentFilter,
         p_sales_channel: channelFilter,
+        p_delivery_method: deliveryMethodFilter,
         p_start_date: dateRange?.start ?? null,
         p_end_date: dateRange?.end ?? null,
         p_search: debouncedSearch || null,
@@ -333,6 +338,7 @@ export function SalesPageClient() {
     statusFilter,
     paymentFilter,
     channelFilter,
+    deliveryMethodFilter,
     dateRange,
     debouncedSearch,
   ]);
@@ -552,12 +558,14 @@ export function SalesPageClient() {
               statusFilter={statusFilter}
               paymentFilter={paymentFilter}
               channelFilter={channelFilter}
+              deliveryMethodFilter={deliveryMethodFilter}
               periodFilter={periodFilter}
               customStart={customStart}
               customEnd={customEnd}
               onStatusChange={setStatusFilter}
               onPaymentChange={setPaymentFilter}
               onChannelChange={setChannelFilter}
+              onDeliveryMethodChange={setDeliveryMethodFilter}
               onPeriodChange={setPeriodFilter}
               onCustomStartChange={setCustomStart}
               onCustomEndChange={setCustomEnd}
@@ -594,12 +602,14 @@ function Filters({
   statusFilter,
   paymentFilter,
   channelFilter,
+  deliveryMethodFilter,
   periodFilter,
   customStart,
   customEnd,
   onStatusChange,
   onPaymentChange,
   onChannelChange,
+  onDeliveryMethodChange,
   onPeriodChange,
   onCustomStartChange,
   onCustomEndChange,
@@ -607,12 +617,14 @@ function Filters({
   statusFilter: SaleListFilter;
   paymentFilter: SalePaymentFilter;
   channelFilter: SaleChannelFilter;
+  deliveryMethodFilter: SaleDeliveryMethodFilter;
   periodFilter: SalesDateRangePreset;
   customStart: string;
   customEnd: string;
   onStatusChange: (value: SaleListFilter) => void;
   onPaymentChange: (value: SalePaymentFilter) => void;
   onChannelChange: (value: SaleChannelFilter) => void;
+  onDeliveryMethodChange: (value: SaleDeliveryMethodFilter) => void;
   onPeriodChange: (value: SalesDateRangePreset) => void;
   onCustomStartChange: (value: string) => void;
   onCustomEndChange: (value: string) => void;
@@ -653,6 +665,17 @@ function Filters({
         </SelectContent>
       </Select>
 
+      <Select value={deliveryMethodFilter} onValueChange={(value) => onDeliveryMethodChange(value as SaleDeliveryMethodFilter)}>
+        <SelectTrigger className="w-full" aria-label="Filtrar modalidade de entrega">
+          <SelectValue placeholder="Modalidade de entrega" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as modalidades</SelectItem>
+          {SALE_DELIVERY_METHOD_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Select value={periodFilter} onValueChange={(value) => onPeriodChange(value as SalesDateRangePreset)}>
         <SelectTrigger className="w-full" aria-label="Filtrar periodo">
           <SelectValue placeholder="Periodo" />

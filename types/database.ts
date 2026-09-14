@@ -30,6 +30,7 @@ export type BusinessSaleOrderStatus =
   | "RETURNED";
 export type BusinessSalePaymentStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "REFUNDED";
 export type BusinessSalesChannel = "UNSPECIFIED" | "IN_PERSON" | "WHATSAPP" | "INSTAGRAM" | "FACEBOOK_MARKETPLACE" | "SHOPEE" | "MERCADO_LIVRE" | "WEBSITE" | "OTHER";
+export type BusinessDeliveryMethod = "UNSPECIFIED" | "OWN_DELIVERY" | "COURIER_APP" | "CUSTOMER_PICKUP" | "SHIPPING_CARRIER" | "OTHER";
 export type BusinessAllocationStatus = "RESERVED" | "RELEASED" | "CONSUMED" | "RETURNED";
 export type BusinessInventoryMovementType =
   | "PURCHASE_RECEIPT"
@@ -1060,6 +1061,7 @@ export interface Database {
           order_status: BusinessSaleOrderStatus;
           payment_status: BusinessSalePaymentStatus;
           sales_channel: BusinessSalesChannel;
+          delivery_method: BusinessDeliveryMethod;
           delivery_fee: number;
           delivery_cost: number;
           sale_date: string;
@@ -1077,6 +1079,7 @@ export interface Database {
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
           sales_channel?: BusinessSalesChannel;
+          delivery_method?: BusinessDeliveryMethod;
           delivery_fee?: number;
           delivery_cost?: number;
           sale_date?: string;
@@ -1094,6 +1097,7 @@ export interface Database {
           order_status?: BusinessSaleOrderStatus;
           payment_status?: BusinessSalePaymentStatus;
           sales_channel?: BusinessSalesChannel;
+          delivery_method?: BusinessDeliveryMethod;
           delivery_fee?: number;
           delivery_cost?: number;
           sale_date?: string;
@@ -1665,6 +1669,7 @@ export interface Database {
           p_sales_channel?: BusinessSalesChannel;
           p_delivery_fee?: number;
           p_delivery_cost?: number;
+          p_delivery_method?: BusinessDeliveryMethod;
         };
         Returns: Json;
       };
@@ -1820,6 +1825,7 @@ export interface Database {
           p_end_date?: string | null;
           p_search?: string | null;
           p_sales_channel?: "all" | BusinessSalesChannel;
+          p_delivery_method?: "all" | BusinessDeliveryMethod;
         };
         Returns: Json;
       };
@@ -1832,6 +1838,7 @@ export interface Database {
           p_end_date?: string | null;
           p_search?: string | null;
           p_sales_channel?: "all" | BusinessSalesChannel;
+          p_delivery_method?: "all" | BusinessDeliveryMethod;
         };
         Returns: Json;
       };

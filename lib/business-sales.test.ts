@@ -33,6 +33,7 @@ function draft(overrides: Partial<SaleFormDraft> = {}): SaleFormDraft {
     items: [saleItem],
     ...overrides,
     salesChannel: overrides.salesChannel ?? "IN_PERSON",
+    deliveryMethod: overrides.deliveryMethod ?? "UNSPECIFIED",
   };
 }
 
@@ -102,6 +103,30 @@ describe("business sales UI helpers", () => {
 
     expect(errors.customer).toBe("Selecione um cliente existente ou cadastre um novo, nao os dois.");
     expect(errors.itemErrors[0].discountAmount).toBe("Desconto deve ficar entre zero e o subtotal.");
+  });
+
+  it("blocks delivery fee and cost for customer pickup", () => {
+    const errors = validateSaleForm(draft({
+      deliveryMethod: "CUSTOMER_PICKUP",
+      deliveryFee: 20,
+      deliveryCost: 10,
+    }));
+
+    expect(errors.deliveryFee).toBe("Retirada pelo cliente não pode ter taxa de entrega.");
+    expect(errors.deliveryCost).toBe("Retirada pelo cliente não pode ter custo de entrega.");
+    expect(hasSaleFormErrors(errors)).toBe(true);
+  });
+
+  it("allows delivery financials for own delivery", () => {
+    const errors = validateSaleForm(draft({
+      deliveryMethod: "OWN_DELIVERY",
+      deliveryFee: 20,
+      deliveryCost: 0,
+    }));
+
+    expect(errors.deliveryFee).toBeUndefined();
+    expect(errors.deliveryCost).toBeUndefined();
+    expect(hasSaleFormErrors(errors)).toBe(false);
   });
 
   it("calculates canonical sale financials for normal sales and returns", () => {

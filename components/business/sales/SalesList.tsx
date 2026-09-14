@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SaleOrderStatusBadge, SalePaymentStatusBadge } from "@/components/business/sales/SaleStatusBadges";
-import { calculatePaymentSummary, calculateSaleFinancials, canCancelSale, getNextSaleAdvanceAction, getSaleChannelLabel } from "@/lib/business-sales";
+import { calculatePaymentSummary, calculateSaleFinancials, canCancelSale, getNextSaleAdvanceAction, getSaleChannelLabel, getSaleDeliveryMethodLabel } from "@/lib/business-sales";
 import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type { SaleRow } from "@/components/business/sales/types";
 import type { BusinessSaleOrderStatus } from "@/types/database";
@@ -59,6 +59,7 @@ export function SalesList({ sales, emptyAction, onPayment, onAdvance, onCancel }
               <th className="px-4 py-3 font-semibold">Pago</th>
               <th className="px-4 py-3 font-semibold">Data</th>
               <th className="px-4 py-3 font-semibold">Canal</th>
+              <th className="px-4 py-3 font-semibold">Entrega</th>
               <th className="px-4 py-3 font-semibold">Pedido</th>
               <th className="px-4 py-3 font-semibold">Pagamento</th>
               <th className="px-4 py-3 font-semibold">Lucro</th>
@@ -114,6 +115,7 @@ function SaleMobileCard({ sale, onPayment, onAdvance, onCancel, onDetails }: Omi
         <Info label="Pedido" value={<SaleOrderStatusBadge status={sale.order_status} />} />
         <Info label="Pagamento" value={<SalePaymentStatusBadge status={sale.payment_status} />} />
         <Info label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
+        <Info label="Entrega" value={getSaleDeliveryMethodLabel(sale.delivery_method)} />
         <Info label="Pago" value={formatCurrency(payment.netPaidAmount)} />
         <Info label="Restante" value={formatCurrency(payment.remainingAmount)} strong={payment.remainingAmount > 0} />
         <Info label="Lucro liquido" value={formatCurrency(netProfit)} strong />
@@ -173,6 +175,7 @@ function SaleTableRow({ sale, onPayment, onAdvance, onCancel, onDetails }: Omit<
       </td>
       <td className="px-4 py-3 text-text-secondary">{formatDate(sale.sale_date.slice(0, 10))}</td>
       <td className="px-4 py-3 text-text-secondary">{getSaleChannelLabel(sale.sales_channel)}</td>
+      <td className="px-4 py-3 text-text-secondary">{getSaleDeliveryMethodLabel(sale.delivery_method)}</td>
       <td className="px-4 py-3"><SaleOrderStatusBadge status={sale.order_status} /></td>
       <td className="px-4 py-3"><SalePaymentStatusBadge status={sale.payment_status} /></td>
       <td className={cn("px-4 py-3 font-semibold tabular-nums", netProfit < 0 ? "text-expense" : "text-profit")}>
@@ -253,6 +256,7 @@ function SaleDetailsDialog({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Info label="Cliente" value={sale.customer?.name ?? "Cliente não informado"} />
           <Info label="Canal" value={getSaleChannelLabel(sale.sales_channel)} />
+          <Info label="Entrega" value={getSaleDeliveryMethodLabel(sale.delivery_method)} />
           <Info label="Pedido" value={<SaleOrderStatusBadge status={sale.order_status} />} />
           <Info label="Pagamento" value={<SalePaymentStatusBadge status={sale.payment_status} />} />
         </div>
