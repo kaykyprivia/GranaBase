@@ -11,7 +11,9 @@ import {
   BarChart3,
   CalendarDays,
   CircleDollarSign,
+  Pencil,
   Plus,
+  Trash2,
   ReceiptText,
   TrendingDown,
 } from "lucide-react";
@@ -19,6 +21,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
@@ -89,6 +92,10 @@ type WorkspaceRpcResult = {
 
 type RecordExpenseArgs =
   Database["public"]["Functions"]["record_business_expense"]["Args"];
+type UpdateExpenseArgs =
+  Database["public"]["Functions"]["update_business_expense"]["Args"];
+type DeleteExpenseArgs =
+  Database["public"]["Functions"]["delete_business_expense"]["Args"];
 type ExpensesPageArgs =
   Database["public"]["Functions"]["get_business_expenses_page"]["Args"];
 
@@ -156,6 +163,11 @@ export function BusinessExpensesPageClient() {
     useState<BusinessExpensePeriod>("month");
 
   const [formOpen, setFormOpen] = useState(false);
+  const [editingExpense, setEditingExpense] =
+    useState<BusinessExpense | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<BusinessExpense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [draft, setDraft] =
     useState<BusinessExpenseDraft>(createEmptyDraft);
@@ -298,7 +310,21 @@ export function BusinessExpensesPageClient() {
 
 
   function openCreateExpense() {
+    setEditingExpense(null);
     setDraft(createEmptyDraft());
+    setErrors({});
+    setFormOpen(true);
+  }
+
+  function openEditExpense(expense: BusinessExpense) {
+    setEditingExpense(expense);
+    setDraft({
+      description: expense.description,
+      category: expense.category,
+      amount: Number(expense.amount),
+      spentAt: expense.spent_at,
+      notes: expense.notes ?? "",
+    });
     setErrors({});
     setFormOpen(true);
   }
@@ -340,21 +366,100 @@ export function BusinessExpensesPageClient() {
     setSaving(true);
 
     try {
+      if (editingExpense) {
+        const args = {
+          p_workspace_id: workspaceId,
+          p_expense_id: editingExpense.id,
+          p_description: draft.description.trim(),
+          p_category: draft.category,
+          p_amount: draft.amount,
+          p_idempotency_key:
+            makeBusinessIdempotencyKey(
+              "business-expense-update"
+            ),
+          p_spent_at: draft.spentAt,
+          p_notes: draft.notes.trim() || null,
+        } satisfies UpdateExpenseArgs;
+
+        const { error } = await supabase.rpc(
+          "update_business_expense",
+          coerceMutation(args)
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success("Despesa atualizada.");
+      } else {
+        const args = {
+          p_workspace_id: workspaceId,
+          p_description: draft.description.trim(),
+          p_category: draft.category,
+          p_amount: draft.amount,
+          p_idempotency_key:
+            makeBusinessIdempotencyKey(
+              "business-expense"
+            ),
+          p_spent_at: draft.spentAt,
+          p_notes: draft.notes.trim() || null,
+        } satisfies RecordExpenseArgs;
+
+        const { error } = await supabase.rpc(
+          "record_business_expense",
+          coerceMutation(args)
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success("Despesa registrada.");
+      }
+
+      setFormOpen(false);
+      setEditingExpense(null);
+      setDraft(createEmptyDraft());
+      setErrors({});
+
+      await loadExpenses();
+    } catch (error) {
+      console.error(
+        editingExpense
+          ? "Erro ao atualizar despesa"
+          : "Erro ao registrar despesa",
+        error
+      );
+
+      toast.error(
+        editingExpense
+          ? "Não foi possível atualizar a despesa."
+          : "Não foi possível registrar a despesa."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteExpense() {
+    if (!deleteTarget || !workspaceId) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
       const args = {
         p_workspace_id: workspaceId,
-        p_description: draft.description.trim(),
-        p_category: draft.category,
-        p_amount: draft.amount,
+        p_expense_id: deleteTarget.id,
         p_idempotency_key:
           makeBusinessIdempotencyKey(
-            "business-expense"
+            "business-expense-delete"
           ),
-        p_spent_at: draft.spentAt,
-        p_notes: draft.notes.trim() || null,
-      } satisfies RecordExpenseArgs;
+      } satisfies DeleteExpenseArgs;
 
       const { error } = await supabase.rpc(
-        "record_business_expense",
+        "delete_business_expense",
         coerceMutation(args)
       );
 
@@ -362,24 +467,21 @@ export function BusinessExpensesPageClient() {
         throw error;
       }
 
-      toast.success("Despesa registrada.");
-
-      setFormOpen(false);
-      setDraft(createEmptyDraft());
-      setErrors({});
+      toast.success("Despesa excluída.");
+      setDeleteTarget(null);
 
       await loadExpenses();
     } catch (error) {
       console.error(
-        "Erro ao registrar despesa",
+        "Erro ao excluir despesa",
         error
       );
 
       toast.error(
-        "Não foi possível registrar a despesa."
+        "Não foi possível excluir a despesa."
       );
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
   }
 
@@ -556,25 +658,23 @@ export function BusinessExpensesPageClient() {
           <EmptyState
             icon={ReceiptText}
             title={
-              expenses.length === 0
-                ? "Nenhuma despesa registrada"
-                : "Nenhuma despesa encontrada"
+              debouncedSearch ||
+              categoryFilter !== "all"
+                ? "Nenhuma despesa encontrada"
+                : periodFilter !== "all"
+                  ? "Nenhuma despesa no período"
+                  : "Nenhuma despesa registrada"
             }
             description={
-              expenses.length === 0
-                ? "Registre custos como combustível, embalagens, anúncios, entregas, manutenção e taxas."
-                : "Altere os filtros ou a busca para encontrar outros lançamentos."
+              debouncedSearch ||
+              categoryFilter !== "all"
+                ? "Altere os filtros ou a busca para encontrar outros lançamentos."
+                : periodFilter !== "all"
+                  ? "Não há despesas registradas no período selecionado."
+                  : "Registre custos como combustível, embalagens, anúncios, entregas, manutenção e taxas."
             }
-            actionLabel={
-              expenses.length === 0
-                ? "Registrar despesa"
-                : undefined
-            }
-            onAction={
-              expenses.length === 0
-                ? openCreateExpense
-                : undefined
-            }
+            actionLabel="Registrar despesa"
+            onAction={openCreateExpense}
           />
         </div>
       ) : (
@@ -618,13 +718,43 @@ export function BusinessExpensesPageClient() {
                   </div>
                 </div>
 
-                <div className="shrink-0 sm:text-right">
+                <div className="flex shrink-0 items-center gap-2 sm:justify-end">
                   <p className="text-lg font-bold text-expense">
                     -{" "}
                     {formatCurrency(
                       Number(expense.amount)
                     )}
                   </p>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-text-secondary hover:text-text-primary"
+                      title="Editar despesa"
+                      aria-label={`Editar ${expense.description}`}
+                      onClick={() =>
+                        openEditExpense(expense)
+                      }
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-text-secondary hover:bg-expense/10 hover:text-expense"
+                      title="Excluir despesa"
+                      aria-label={`Excluir ${expense.description}`}
+                      onClick={() =>
+                        setDeleteTarget(expense)
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -695,13 +825,16 @@ export function BusinessExpensesPageClient() {
       <Dialog
         open={formOpen}
         onOpenChange={(open) => {
-          if (!saving) {
-            setFormOpen(open);
+          if (saving) {
+            return;
+          }
 
-            if (!open) {
-              setDraft(createEmptyDraft());
-              setErrors({});
-            }
+          setFormOpen(open);
+
+          if (!open) {
+            setEditingExpense(null);
+            setDraft(createEmptyDraft());
+            setErrors({});
           }
         }}
       >
@@ -711,7 +844,9 @@ export function BusinessExpensesPageClient() {
       <DialogHeader>
 
       <DialogTitle>
-              Nova despesa
+              {editingExpense
+                ? "Editar despesa"
+                : "Nova despesa"}
             </DialogTitle>
           </DialogHeader>
 
@@ -809,6 +944,7 @@ export function BusinessExpensesPageClient() {
             <FormField
               label="Observações"
               hint="Opcional"
+              error={errors.notes}
             >
               <Textarea
                 rows={4}
@@ -830,9 +966,12 @@ export function BusinessExpensesPageClient() {
               type="button"
               variant="outline"
               disabled={saving}
-              onClick={() =>
-                setFormOpen(false)
-              }
+              onClick={() => {
+                setFormOpen(false);
+                setEditingExpense(null);
+                setDraft(createEmptyDraft());
+                setErrors({});
+              }}
             >
               Cancelar
             </Button>
@@ -842,11 +981,32 @@ export function BusinessExpensesPageClient() {
               loading={saving}
               onClick={saveExpense}
             >
-              Registrar despesa
+              {editingExpense
+                ? "Salvar alterações"
+                : "Registrar despesa"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Excluir despesa?"
+        description={
+          deleteTarget
+            ? `A despesa "${deleteTarget.description}" será excluída definitivamente. Os totais e relatórios do negócio serão atualizados automaticamente.`
+            : "Esta despesa será excluída definitivamente."
+        }
+        confirmLabel="Excluir despesa"
+        loading={deleting}
+        variant="destructive"
+        onConfirm={deleteExpense}
+      />
     </div>
   );
 }

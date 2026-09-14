@@ -1656,6 +1656,27 @@ export interface Database {
         };
         Returns: Json;
       };
+      update_business_expense: {
+        Args: {
+          p_workspace_id: string;
+          p_expense_id: string;
+          p_description: string;
+          p_category: BusinessExpenseCategory;
+          p_amount: number;
+          p_idempotency_key: string;
+          p_spent_at: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      delete_business_expense: {
+        Args: {
+          p_workspace_id: string;
+          p_expense_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       record_business_payment: {
         Args: {
           p_sale_id: string;

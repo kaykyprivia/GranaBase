@@ -63,12 +63,17 @@ export type BusinessExpenseSummary = {
 };
 
 export function validateBusinessExpenseDraft(
-  input: BusinessExpenseDraft
+  input: BusinessExpenseDraft,
+  today = new Date()
 ): BusinessExpenseErrors {
   const errors: BusinessExpenseErrors = {};
+  const description = input.description.trim();
 
-  if (!input.description.trim()) {
+  if (!description) {
     errors.description = "Informe a descrição da despesa.";
+  } else if (description.length > 200) {
+    errors.description =
+      "A descrição pode ter no máximo 200 caracteres.";
   }
 
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
@@ -77,6 +82,14 @@ export function validateBusinessExpenseDraft(
 
   if (!input.spentAt) {
     errors.spentAt = "Informe a data da despesa.";
+  } else if (input.spentAt > toDateValue(today)) {
+    errors.spentAt =
+      "A data da despesa não pode ser futura.";
+  }
+
+  if (input.notes.length > 2000) {
+    errors.notes =
+      "As observações podem ter no máximo 2000 caracteres.";
   }
 
   return errors;

@@ -158,4 +158,48 @@ describe("business expenses", () => {
     expect(errors.amount).toBeTruthy();
     expect(errors.spentAt).toBeTruthy();
   });
+  it("rejeita data futura", () => {
+    const errors = validateBusinessExpenseDraft(
+      {
+        description: "Gasolina",
+        category: "gasolina",
+        amount: 50,
+        spentAt: "2026-09-12",
+        notes: "",
+      },
+      today
+    );
+
+    expect(errors.spentAt).toBeTruthy();
+  });
+
+  it("rejeita descricao acima de 200 caracteres", () => {
+    const errors = validateBusinessExpenseDraft(
+      {
+        description: "a".repeat(201),
+        category: "outras",
+        amount: 50,
+        spentAt: "2026-09-11",
+        notes: "",
+      },
+      today
+    );
+
+    expect(errors.description).toBeTruthy();
+  });
+
+  it("rejeita observacoes acima de 2000 caracteres", () => {
+    const errors = validateBusinessExpenseDraft(
+      {
+        description: "Despesa válida",
+        category: "outras",
+        amount: 50,
+        spentAt: "2026-09-11",
+        notes: "a".repeat(2001),
+      },
+      today
+    );
+
+    expect(errors.notes).toBeTruthy();
+  });
 });
