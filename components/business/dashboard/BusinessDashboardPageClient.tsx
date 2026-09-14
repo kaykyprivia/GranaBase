@@ -529,6 +529,27 @@ export function BusinessDashboardPageClient() {
                           Number(value ?? 0)
                         )
                       }
+                      cursor={{
+                        stroke: chartColors.cursor,
+                        strokeWidth: 1,
+                      }}
+                      contentStyle={{
+                        backgroundColor: chartColors.tooltipBg,
+                        border: `1px solid ${chartColors.tooltipBorder}`,
+                        borderRadius: "12px",
+                        color: chartColors.tooltipText,
+                        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.28)",
+                        padding: "10px 12px",
+                      }}
+                      labelStyle={{
+                        color: chartColors.tooltipText,
+                        fontWeight: 600,
+                        marginBottom: "4px",
+                      }}
+                      itemStyle={{
+                        color: chartColors.tooltipText,
+                        fontSize: "12px",
+                      }}
                     />
 
                     <Area

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Minus, Plus, Trash2 } from "lucide-react";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
 import { Button } from "@/components/ui/button";
@@ -299,6 +299,87 @@ export function SaleForm({
   );
 }
 
+function QuantityStepper({
+  value,
+  max,
+  productName,
+  error,
+  onChange,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+}: {
+  value: number;
+  max: number;
+  productName: string;
+  error?: string;
+  onChange: (value: number) => void;
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  suppressErrorMessage?: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <div
+        className={cn(
+          "flex h-10 w-full items-center overflow-hidden rounded-lg border border-border bg-background/60 shadow-input transition-all duration-150",
+          "hover:border-border/80 hover:bg-background/80",
+          "focus-within:border-accent/60 focus-within:bg-background focus-within:shadow-input-focus",
+          error && "border-expense/70 focus-within:border-expense"
+        )}
+      >
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="h-full w-10 shrink-0 rounded-none border-r border-border/60"
+          aria-label={`Diminuir quantidade de ${productName}`}
+          disabled={value <= 1}
+          onClick={() => onChange(Math.max(1, value - 1))}
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+
+        <input
+          id={id}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          type="number"
+          min={1}
+          max={max}
+          step={1}
+          inputMode="numeric"
+          value={value || ""}
+          onChange={(event) => {
+            const nextValue = Number(event.target.value || 0);
+            onChange(Math.min(Math.max(nextValue, 0), max));
+          }}
+          onBlur={() => {
+            if (value < 1) onChange(1);
+          }}
+          className="h-full min-w-0 flex-1 bg-transparent px-2 text-center text-sm font-medium text-text-primary outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="h-full w-10 shrink-0 rounded-none border-l border-border/60"
+          aria-label={`Aumentar quantidade de ${productName}. Máximo ${max}`}
+          disabled={value >= max}
+          onClick={() => onChange(Math.min(max, Math.max(value + 1, 1)))}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <p className="text-[11px] text-text-secondary">
+        Máx. {max} em estoque
+      </p>
+    </div>
+  );
+}
 function SaleItemEditor({
   item,
   index,
@@ -328,15 +409,12 @@ function SaleItemEditor({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <FormField label="Qtd." error={errors.quantity}>
-          <Input
-            type="number"
-            min={1}
+          <QuantityStepper
+            value={item.quantity}
             max={item.available}
-            step={1}
-            inputMode="numeric"
-            value={item.quantity || ""}
+            productName={item.productName}
             error={errors.quantity}
-            onChange={(event) => onUpdate(index, { quantity: Number(event.target.value || 0) })}
+            onChange={(quantity) => onUpdate(index, { quantity })}
           />
         </FormField>
         <FormField label="Preco" error={errors.unitSalePrice}>
