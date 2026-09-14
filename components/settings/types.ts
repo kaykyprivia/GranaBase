@@ -14,6 +14,7 @@ export interface PreferenceFormState {
   themePreference: ThemePreference;
   currencyFormat: CurrencyCode;
   weekStart: WeekStart;
+  notificationsEnabled: boolean;
 }
 
 export interface FinancialFormState {
@@ -34,6 +35,7 @@ export const DEFAULT_PREFERENCE_FORM: PreferenceFormState = {
   themePreference: "dark",
   currencyFormat: "BRL",
   weekStart: "monday",
+  notificationsEnabled: true,
 };
 
 export const DEFAULT_FINANCIAL_FORM: FinancialFormState = {

@@ -104,6 +104,26 @@ export function PreferenceSettings({
               </Select>
             </FormField>
 
+            <FormField
+              label="Notificacoes do negocio"
+              hint="Receba alertas de estoque baixo, estoque zerado e compras proximas ou atrasadas."
+            >
+              <Select
+                value={value.notificationsEnabled ? "enabled" : "disabled"}
+                onValueChange={(nextValue) =>
+                  onFieldChange("notificationsEnabled", nextValue === "enabled")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="enabled">Ativadas</SelectItem>
+                  <SelectItem value="disabled">Desativadas</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
             <div className="flex flex-wrap gap-3">
               <Button type="button" onClick={onSave} loading={saving} className="gap-2">
                 <Save className="h-4 w-4" />

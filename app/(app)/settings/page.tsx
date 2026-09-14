@@ -157,6 +157,7 @@ export default function SettingsPage() {
         themePreference: settingsRow?.theme_preference ?? "dark",
         currencyFormat: settingsRow?.currency_format ?? "BRL",
         weekStart: settingsRow?.week_start ?? "monday",
+        notificationsEnabled: settingsRow?.notifications_enabled ?? true,
       };
 
       setUserId(user.id);
@@ -251,6 +252,7 @@ export default function SettingsPage() {
         theme_preference: preferenceForm.themePreference,
         currency_format: preferenceForm.currencyFormat,
         week_start: preferenceForm.weekStart,
+        notifications_enabled: preferenceForm.notificationsEnabled,
       });
       setInitialPreferenceForm(preferenceForm);
       toast.success("Preferencias salvas.");

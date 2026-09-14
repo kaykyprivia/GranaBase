@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, Gift, LogOut, Menu, Settings, Sparkles, X } from "lucide-react";
+import { Bell, Check, Gift, LogOut, Menu, Package, Settings, ShoppingCart, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,9 @@ interface AppNotification {
   title: string;
   message: string;
   notification_type: string;
+  severity: string;
+  action_url: string | null;
+  resolved_at: string | null;
   read_at: string | null;
   created_at: string;
 }
@@ -37,17 +40,15 @@ export function Header({ pageTitle }: HeaderProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
-  useEffect(() => {
-    let active = true;
-
-    const loadUserAndNotifications = async () => {
+  const loadUserAndNotifications = useCallback(
+    async (isActive: () => boolean = () => true) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!active) return;
+      if (!isActive()) return;
 
       setIsMaeUser(user?.id === MAE_USER_ID);
 
@@ -57,14 +58,25 @@ export function Header({ pageTitle }: HeaderProps) {
         return;
       }
 
+      const { error: syncError } = await supabase.rpc(
+        "sync_business_notifications"
+      );
+
+      if (syncError) {
+        console.error("Erro ao sincronizar alertas do negocio:", syncError);
+      }
+
       const { data, error } = await supabase
         .from("notifications")
-        .select("id,title,message,notification_type,read_at,created_at")
+        .select(
+          "id,title,message,notification_type,severity,action_url,resolved_at,read_at,created_at"
+        )
         .eq("user_id", user.id)
+        .is("resolved_at", null)
         .order("created_at", { ascending: false })
         .limit(30);
 
-      if (!active) return;
+      if (!isActive()) return;
 
       if (error) {
         console.error("Erro ao carregar notificacoes:", error);
@@ -74,14 +86,19 @@ export function Header({ pageTitle }: HeaderProps) {
       }
 
       setNotificationsLoading(false);
-    };
+    },
+    [supabase]
+  );
 
-    void loadUserAndNotifications();
+  useEffect(() => {
+    let active = true;
+
+    void loadUserAndNotifications(() => active);
 
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, [loadUserAndNotifications]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -127,6 +144,24 @@ export function Header({ pageTitle }: HeaderProps) {
         item.id === id ? { ...item, read_at: readAt } : item
       )
     );
+  };
+
+  const handleNotificationsToggle = () => {
+    const nextOpen = !notificationsOpen;
+    setNotificationsOpen(nextOpen);
+
+    if (nextOpen) {
+      void loadUserAndNotifications();
+    }
+  };
+
+  const handleNotificationClick = async (notification: AppNotification) => {
+    await markNotificationAsRead(notification.id);
+    setNotificationsOpen(false);
+
+    if (notification.action_url) {
+      router.push(notification.action_url);
+    }
   };
 
   const markAllNotificationsAsRead = async () => {
@@ -230,7 +265,7 @@ export function Header({ pageTitle }: HeaderProps) {
                 type="button"
                 aria-label="Notificações"
                 aria-expanded={notificationsOpen}
-                onClick={() => setNotificationsOpen((current) => !current)}
+                onClick={handleNotificationsToggle}
                 className="relative flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <Bell className="h-[18px] w-[18px]" />
@@ -285,20 +320,33 @@ export function Header({ pageTitle }: HeaderProps) {
                     ) : (
                       notifications.map((notification) => {
                         const NotificationIcon =
-                          notification.notification_type === "trial"
-                            ? Gift
-                            : notification.notification_type === "welcome"
-                              ? Sparkles
-                              : Bell;
+                          notification.notification_type.startsWith("business_stock")
+                            ? Package
+                            : notification.notification_type.startsWith("business_purchase")
+                              ? ShoppingCart
+                              : notification.notification_type === "trial"
+                                ? Gift
+                                : notification.notification_type === "welcome"
+                                  ? Sparkles
+                                  : Bell;
+
+                        const notificationTone =
+                          notification.severity === "critical"
+                            ? "bg-expense/10 text-expense"
+                            : notification.severity === "warning"
+                              ? "bg-warning/10 text-warning"
+                              : "bg-accent/10 text-accent";
 
                         return (
                           <button
                             key={notification.id}
                             type="button"
-                            onClick={() => void markNotificationAsRead(notification.id)}
+                            onClick={() => void handleNotificationClick(notification)}
                             className="flex w-full gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-border/25"
                           >
-                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                            <div
+                              className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${notificationTone}`}
+                            >
                               <NotificationIcon className="h-4 w-4" />
                             </div>
 

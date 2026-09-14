@@ -90,29 +90,56 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          workspace_id: string | null;
           title: string;
           message: string;
           notification_type: string;
+          severity: string;
+          source_type: string | null;
+          source_id: string | null;
+          dedupe_key: string | null;
+          action_url: string | null;
+          metadata: Json;
           read_at: string | null;
+          resolved_at: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
+          workspace_id?: string | null;
           title: string;
           message: string;
           notification_type?: string;
+          severity?: string;
+          source_type?: string | null;
+          source_id?: string | null;
+          dedupe_key?: string | null;
+          action_url?: string | null;
+          metadata?: Json;
           read_at?: string | null;
+          resolved_at?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
+          workspace_id?: string | null;
           title?: string;
           message?: string;
           notification_type?: string;
+          severity?: string;
+          source_type?: string | null;
+          source_id?: string | null;
+          dedupe_key?: string | null;
+          action_url?: string | null;
+          metadata?: Json;
           read_at?: string | null;
+          resolved_at?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1535,6 +1562,10 @@ export interface Database {
       mark_all_notifications_read: {
         Args: Record<PropertyKey, never>;
         Returns: void;
+      };
+      sync_business_notifications: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
       };
       delete_my_account: {
         Args: Record<PropertyKey, never>;
