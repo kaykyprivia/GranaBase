@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { BusinessDashboardPageClient } from "@/components/business/dashboard/BusinessDashboardPageClient";
 
 export default function BusinessPage() {
-  redirect("/business/purchases");
+  return <BusinessDashboardPageClient />;
 }

@@ -1719,7 +1719,16 @@ export interface Database {
           p_limit?: number;
         };
         Returns: Json;
-      };      get_business_reports_analytics: {
+      };
+      get_business_dashboard_operations: {
+        Args: {
+          p_workspace_id: string;
+          p_period?: "month" | "3m" | "6m" | "12m" | "all";
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      get_business_reports_analytics: {
         Args: {
           p_workspace_id: string;
           p_period?: "month" | "3m" | "6m" | "12m" | "all";

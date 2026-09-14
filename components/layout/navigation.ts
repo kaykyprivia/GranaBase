@@ -57,6 +57,7 @@ export const financeNavItems: NavigationItem[] = [
 export const maeNavItem: NavigationItem = { href: "/mae", label: "Mãe", icon: Heart };
 
 export const businessNavItems: NavigationItem[] = [
+  { href: "/business", label: "Painel", icon: LayoutDashboard },
   { href: "/business/purchases", label: "Compras", icon: ShoppingCart },
   { href: "/business/inventory", label: "Estoque", icon: Boxes },
   { href: "/business/sales", label: "Vendas", icon: PackageCheck },

@@ -241,5 +241,7 @@ function isItemActive(href: string, pathname: string, searchParams: URLSearchPar
     return pathname === itemPathname && Array.from(expected.entries()).every(([key, value]) => searchParams.get(key) === value);
   }
 
+  if (href === "/business") return pathname === "/business";
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
