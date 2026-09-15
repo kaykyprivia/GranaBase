@@ -20,6 +20,14 @@ export type BusinessPurchaseOrderStatus =
   | "PARTIALLY_RECEIVED"
   | "RECEIVED"
   | "CANCELLED";
+export type BusinessPurchaseOrderPaymentStatus =
+  | "PENDING"
+  | "PARTIALLY_PAID"
+  | "PAID"
+  | "REFUNDED";
+export type BusinessPurchasePaymentStatus =
+  | "PAID"
+  | "REFUNDED";
 export type BusinessSaleOrderStatus =
   | "DRAFT"
   | "RESERVED"
@@ -897,6 +905,7 @@ export interface Database {
           additional_costs: number;
           total_cost: number;
           status: BusinessPurchaseOrderStatus;
+          payment_status: BusinessPurchaseOrderPaymentStatus;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -913,6 +922,7 @@ export interface Database {
           additional_costs?: number;
           total_cost?: number;
           status?: BusinessPurchaseOrderStatus;
+          payment_status?: BusinessPurchaseOrderPaymentStatus;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -929,6 +939,7 @@ export interface Database {
           additional_costs?: number;
           total_cost?: number;
           status?: BusinessPurchaseOrderStatus;
+          payment_status?: BusinessPurchaseOrderPaymentStatus;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1260,6 +1271,47 @@ export interface Database {
           created_at?: string;
         }
       >;
+      business_purchase_payments: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_order_id: string;
+          amount: number;
+          payment_method: string | null;
+          status: BusinessPurchasePaymentStatus;
+          paid_at: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          purchase_order_id: string;
+          amount: number;
+          payment_method?: string | null;
+          status: BusinessPurchasePaymentStatus;
+          paid_at?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          purchase_order_id?: string;
+          amount?: number;
+          payment_method?: string | null;
+          status?: BusinessPurchasePaymentStatus;
+          paid_at?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
       business_payments: TableDefinition<
         {
           id: string;
@@ -1486,6 +1538,25 @@ export interface Database {
       };
     };
     Views: {
+      business_cash_flow_events: {
+        Row: {
+          user_id: string | null;
+          workspace_id: string | null;
+          event_id: string | null;
+          occurred_at: string | null;
+          event_date: string | null;
+          direction: string | null;
+          category: string | null;
+          amount: number | null;
+          signed_amount: number | null;
+          title: string | null;
+          source_type: string | null;
+          source_id: string | null;
+          reference_id: string | null;
+          payment_method: string | null;
+        };
+        Relationships: [];
+      };
       business_inventory_summary: {
         Row: {
           product_id: string;
@@ -1713,6 +1784,18 @@ export interface Database {
         };
         Returns: Json;
       };
+      record_business_purchase_payment: {
+        Args: {
+          p_purchase_order_id: string;
+          p_amount: number;
+          p_idempotency_key: string;
+          p_payment_method?: string | null;
+          p_status?: BusinessPurchasePaymentStatus;
+          p_paid_at?: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
       record_business_payment: {
         Args: {
           p_sale_id: string;
@@ -1736,6 +1819,15 @@ export interface Database {
       get_or_create_business_workspace: {
         Args: {
           p_name?: string;
+        };
+        Returns: Json;
+      };
+      get_business_cash_flow: {
+        Args: {
+          p_workspace_id: string;
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+          p_limit?: number;
         };
         Returns: Json;
       };
@@ -1962,11 +2054,13 @@ export type BusinessSale = Tables<"business_sales">;
 export type BusinessSaleItem = Tables<"business_sale_items">;
 export type BusinessSaleItemAllocation = Tables<"business_sale_item_allocations">;
 export type BusinessInventoryMovement = Tables<"business_inventory_movements">;
+export type BusinessPurchasePayment = Tables<"business_purchase_payments">;
 export type BusinessPayment = Tables<"business_payments">;
 export type BusinessSaleReturn = Tables<"business_sale_returns">;
 export type BusinessSaleReturnItem = Tables<"business_sale_return_items">;
 export type BusinessExpense = Tables<"business_expenses">;
 export type BusinessAuditLog = Tables<"business_audit_logs">;
+export type BusinessCashFlowEvent = Database["public"]["Views"]["business_cash_flow_events"]["Row"];
 export type BusinessInventorySummary = Database["public"]["Views"]["business_inventory_summary"]["Row"];
 export type FinancialGoal = Tables<"financial_goals">;
 
@@ -1987,6 +2081,7 @@ export type InsertBusinessPurchaseItem = Inserts<"business_purchase_items">;
 export type InsertBusinessCustomer = Inserts<"business_customers">;
 export type InsertBusinessSale = Inserts<"business_sales">;
 export type InsertBusinessSaleItem = Inserts<"business_sale_items">;
+export type InsertBusinessPurchasePayment = Inserts<"business_purchase_payments">;
 export type InsertBusinessPayment = Inserts<"business_payments">;
 export type InsertBusinessSaleReturn = Inserts<"business_sale_returns">;
 export type InsertBusinessSaleReturnItem = Inserts<"business_sale_return_items">;
@@ -2001,6 +2096,7 @@ export type UpdateBusinessPurchaseItem = Updates<"business_purchase_items">;
 export type UpdateBusinessCustomer = Updates<"business_customers">;
 export type UpdateBusinessSale = Updates<"business_sales">;
 export type UpdateBusinessSaleItem = Updates<"business_sale_items">;
+export type UpdateBusinessPurchasePayment = Updates<"business_purchase_payments">;
 export type UpdateBusinessPayment = Updates<"business_payments">;
 export type UpdateBusinessSaleReturn = Updates<"business_sale_returns">;
 export type UpdateBusinessExpense = Updates<"business_expenses">;

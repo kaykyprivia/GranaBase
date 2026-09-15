@@ -1,4 +1,4 @@
-import type { BusinessPurchaseOrderStatus } from "@/types/database";
+import type { BusinessPurchaseOrderPaymentStatus, BusinessPurchaseOrderStatus, BusinessPurchasePaymentStatus } from "@/types/database";
 import { roundCurrency } from "@/lib/business";
 
 export type PurchaseStatusTone = "default" | "profit" | "warning" | "expense" | "secondary";
@@ -388,6 +388,57 @@ export type DateRangePreset = "month" | "30d" | "year" | "custom";
 
 export function getPurchaseStatusMeta(status: BusinessPurchaseOrderStatus): PurchaseStatusMeta {
   return PURCHASE_STATUS_META[status];
+}
+
+export type PurchasePaymentSummary = {
+  totalAmount: number;
+  paidAmount: number;
+  refundedAmount: number;
+  netPaidAmount: number;
+  remainingAmount: number;
+  refundableAmount: number;
+  status: BusinessPurchaseOrderPaymentStatus;
+};
+
+export function calculatePurchasePaymentSummary(input: {
+  totalAmount: number;
+  payments: Array<{ amount: number; status: BusinessPurchasePaymentStatus }>;
+}): PurchasePaymentSummary {
+  const totalAmount = roundCurrency(Math.max(0, input.totalAmount));
+  const paidAmount = roundCurrency(
+    input.payments
+      .filter((payment) => payment.status === "PAID")
+      .reduce((sum, payment) => sum + payment.amount, 0)
+  );
+  const refundedAmount = roundCurrency(
+    input.payments
+      .filter((payment) => payment.status === "REFUNDED")
+      .reduce((sum, payment) => sum + payment.amount, 0)
+  );
+  const netPaidAmount = roundCurrency(paidAmount - refundedAmount);
+  const remainingAmount = Math.max(roundCurrency(totalAmount - netPaidAmount), 0);
+  const refundableAmount = Math.max(netPaidAmount, 0);
+
+  let status: BusinessPurchaseOrderPaymentStatus = "PENDING";
+  if (refundedAmount > 0 && netPaidAmount <= 0) {
+    status = "REFUNDED";
+  } else if (netPaidAmount <= 0) {
+    status = "PENDING";
+  } else if (netPaidAmount < totalAmount) {
+    status = "PARTIALLY_PAID";
+  } else {
+    status = "PAID";
+  }
+
+  return {
+    totalAmount,
+    paidAmount,
+    refundedAmount,
+    netPaidAmount,
+    remainingAmount,
+    refundableAmount,
+    status,
+  };
 }
 
 export function getPurchaseReceiptState(input: {

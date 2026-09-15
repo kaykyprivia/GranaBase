@@ -15,6 +15,7 @@ import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import {
   buildPurchaseMultiRpcItems,
+  calculatePurchasePaymentSummary,
   canCancelPurchase,
   canEditPurchase,
   canReceivePurchase,
@@ -29,11 +30,17 @@ import type {
   BusinessProduct,
   BusinessPurchaseItem,
   BusinessPurchaseOrder,
+  BusinessPurchasePayment,
+  BusinessPurchasePaymentStatus,
+  Database,
 } from "@/types/database";
 import { PurchaseStatusBadge } from "@/components/business/purchases/PurchaseStatusBadge";
 import { ReceivePurchaseDialog } from "@/components/business/purchases/ReceivePurchaseDialog";
 import { EditPurchaseDialog } from "@/components/business/purchases/EditPurchaseDialog";
+import { RecordPurchasePaymentDialog } from "@/components/business/purchases/RecordPurchasePaymentDialog";
 import type { PurchaseDetail, PurchaseReceiptInput, WorkspaceRpcResult } from "@/components/business/purchases/types";
+
+type PurchasePaymentArgs = Database["public"]["Functions"]["record_business_purchase_payment"]["Args"];
 
 export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
   const router = useRouter();
@@ -47,6 +54,8 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
   const [editing, setEditing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [recordingPayment, setRecordingPayment] = useState(false);
 
   const loadPurchase = useCallback(async () => {
     setLoading(true);
@@ -76,7 +85,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       }
 
       const order = coerceData<BusinessPurchaseOrder>(orderRes.data);
-      const [itemsRes, movementsRes, auditRes] = await Promise.all([
+      const [itemsRes, movementsRes, paymentsRes, auditRes] = await Promise.all([
         supabase
           .from("business_purchase_items")
           .select("*")
@@ -90,6 +99,11 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
           .eq("reference_id", order.id)
           .order("created_at", { ascending: true }),
         supabase
+          .from("business_purchase_payments")
+          .select("*")
+          .eq("purchase_order_id", order.id)
+          .order("paid_at", { ascending: true }),
+        supabase
           .from("business_audit_logs")
           .select("*")
           .eq("workspace_id", workspace.workspace_id)
@@ -100,6 +114,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
 
       if (itemsRes.error) throw itemsRes.error;
       if (movementsRes.error) throw movementsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
       if (auditRes.error) throw auditRes.error;
 
       const items = coerceData<BusinessPurchaseItem[]>(
@@ -148,6 +163,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         product: primaryLine?.product ?? null,
         movements: coerceData<BusinessInventoryMovement[]>(movementsRes.data ?? []),
         auditLogs: coerceData<BusinessAuditLog[]>(auditRes.data ?? []),
+        payments: coerceData<BusinessPurchasePayment[]>(paymentsRes.data ?? []),
       });
     } catch (error) {
       console.error("Erro ao carregar detalhe da compra", error);
@@ -175,6 +191,13 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     ? getPurchaseReceiptState({
         quantityOrdered: totalOrdered,
         quantityReceived: totalReceived,
+      })
+    : null;
+
+  const paymentSummary = purchase
+    ? calculatePurchasePaymentSummary({
+        totalAmount: purchase.total_cost,
+        payments: purchase.payments,
       })
     : null;
 
@@ -226,6 +249,64 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     () => (purchase ? buildTimeline(purchase) : []),
     [purchase]
   );
+
+  const handlePurchasePayment = async (payload: {
+    amount: number;
+    method: string;
+    paidAt: string;
+    notes?: string;
+    status: BusinessPurchasePaymentStatus;
+  }) => {
+    if (!purchase) return;
+
+    setRecordingPayment(true);
+    try {
+      const args = {
+        p_purchase_order_id: purchase.id,
+        p_amount: payload.amount,
+        p_idempotency_key: makeBusinessStableIdempotencyKey(
+          "purchase-payment",
+          [
+            purchase.id,
+            purchase.payments.length,
+            payload.status,
+            payload.amount,
+            payload.method,
+            payload.paidAt,
+            payload.notes?.trim() ?? "",
+          ]
+        ),
+        p_payment_method: payload.method,
+        p_status: payload.status,
+        p_paid_at: new Date(`${payload.paidAt}T12:00:00`).toISOString(),
+        p_notes: payload.notes?.trim() || null,
+      } satisfies PurchasePaymentArgs;
+
+      const { error } = await supabase.rpc(
+        "record_business_purchase_payment",
+        coerceMutation(args)
+      );
+
+      if (error) throw error;
+
+      toast.success(
+        payload.status === "PAID"
+          ? "Pagamento registrado."
+          : "Estorno registrado."
+      );
+      setPaymentOpen(false);
+      await loadPurchase();
+    } catch (error) {
+      console.error("Erro ao registrar movimentação financeira da compra", error);
+      toast.error(
+        payload.status === "PAID"
+          ? "Não foi possível registrar o pagamento."
+          : "Não foi possível registrar o estorno."
+      );
+    } finally {
+      setRecordingPayment(false);
+    }
+  };
 
   const handleReceive = async (items: PurchaseReceiptInput[]) => {
     if (!purchase) return;
@@ -396,7 +477,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     );
   }
 
-  if (!purchase || purchase.items.length === 0 || !receipt || !statusMeta) {
+  if (!purchase || purchase.items.length === 0 || !receipt || !statusMeta || !paymentSummary) {
     return (
       <div className="page-container animate-fade-in">
         <div className="rounded-xl border border-border/60 bg-surface p-6 text-center">
@@ -422,6 +503,12 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </Button>
+            {((purchase.status !== "CANCELLED" && paymentSummary.remainingAmount > 0) || paymentSummary.refundableAmount > 0) && (
+              <Button type="button" size="sm" variant="outline" onClick={() => setPaymentOpen(true)} className="min-h-10">
+                <ReceiptText className="h-4 w-4" />
+                Pagamento / Estorno
+              </Button>
+            )}
             {canReceive && (
               <Button type="button" size="sm" variant="profit" onClick={() => setReceiveOpen(true)} className="min-h-10">
                 <PackageCheck className="h-4 w-4" />
@@ -474,6 +561,30 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         </section>
 
         <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-text-primary">Financeiro</h2>
+              <p className="mt-1 text-sm text-text-secondary">Pagamento da compra separado do recebimento físico.</p>
+            </div>
+            <span className="rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-xs font-medium text-text-secondary">
+              {paymentSummary.status === "PENDING"
+                ? "Pendente"
+                : paymentSummary.status === "PARTIALLY_PAID"
+                  ? "Pago parcialmente"
+                  : paymentSummary.status === "PAID"
+                    ? "Pago"
+                    : "Estornado"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <DetailFinanceStat label="Total" value={formatCurrency(paymentSummary.totalAmount)} />
+            <DetailFinanceStat label="Pago líquido" value={formatCurrency(paymentSummary.netPaidAmount)} />
+            <DetailFinanceStat label="Restante" value={formatCurrency(paymentSummary.remainingAmount)} />
+            <DetailFinanceStat label="Estornado" value={formatCurrency(paymentSummary.refundedAmount)} />
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
           <h2 className="mb-4 text-base font-semibold text-text-primary">Logística</h2>
           <div className="space-y-3 text-sm">
             <InfoRow label="Data da compra" value={formatDate(purchase.purchase_date)} />
@@ -587,6 +698,14 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         onConfirm={handleReceive}
       />
 
+      <RecordPurchasePaymentDialog
+        open={paymentOpen}
+        purchase={purchase}
+        loading={recordingPayment}
+        onOpenChange={setPaymentOpen}
+        onConfirm={handlePurchasePayment}
+      />
+
       <EditPurchaseDialog
         open={editOpen}
         purchase={purchase}
@@ -618,6 +737,15 @@ function DetailMiniStat({ label, value }: { label: string; value: number }) {
   );
 }
 
+function DetailFinanceStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-background/50 px-3 py-3">
+      <p className="text-[11px] text-text-muted">{label}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums text-text-primary">{value}</p>
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border/40 pb-2 last:border-0 last:pb-0">
@@ -637,7 +765,14 @@ function buildTimeline(purchase: PurchaseDetail): Array<{ createdAt: string; lab
     label: `${movement.quantity_delta} unidade${Math.abs(movement.quantity_delta) === 1 ? "" : "s"} recebida${Math.abs(movement.quantity_delta) === 1 ? "" : "s"}`,
   }));
 
-  return [...auditEvents, ...movementEvents]
+  const paymentEvents = purchase.payments.map((payment) => ({
+    createdAt: payment.paid_at,
+    label: payment.status === "PAID"
+      ? `Pagamento registrado · ${formatCurrency(payment.amount)}`
+      : `Estorno registrado · ${formatCurrency(payment.amount)}`,
+  }));
+
+  return [...auditEvents, ...movementEvents, ...paymentEvents]
     .filter((event) => event.label !== null)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

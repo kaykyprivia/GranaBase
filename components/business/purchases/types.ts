@@ -4,6 +4,7 @@ import type {
   BusinessProduct,
   BusinessPurchaseItem,
   BusinessPurchaseOrder,
+  BusinessPurchasePayment,
 } from "@/types/database";
 
 export type BusinessWorkspaceContext = {
@@ -30,6 +31,7 @@ export type PurchaseReceiptInput = {
 export type PurchaseDetail = PurchaseRow & {
   movements: BusinessInventoryMovement[];
   auditLogs: BusinessAuditLog[];
+  payments: BusinessPurchasePayment[];
 };
 
 export type PurchaseCreateResult = {
