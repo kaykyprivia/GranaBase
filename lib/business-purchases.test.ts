@@ -197,6 +197,7 @@ describe("business purchase UI helpers", () => {
           mode: "new" as const,
           productName: "Produto novo",
           productSku: "NOVO-001",
+          productCategoryId: "category-1",
           suggestedSalePrice: 79.9,
           minimumStock: 4,
           quantity: 2,
@@ -230,10 +231,41 @@ describe("business purchase UI helpers", () => {
       product_id: null,
       product_name: "Produto novo",
       product_sku: "NOVO-001",
+      product_category_id: "category-1",
+      product_category_name: null,
       default_sale_price: 79.9,
       minimum_stock: 4,
       quantity: 2,
       unit_purchase_cost: 25,
+    });
+  });
+
+  it("builds inline product category by name when no category id is selected", () => {
+    const payload = buildPurchaseMultiRpcItems({
+      items: [
+        {
+          key: "new",
+          mode: "new",
+          productName: "Jogo de facas",
+          productSku: "",
+          productCategoryId: null,
+          productCategoryName: "Cozinha",
+          suggestedSalePrice: 120,
+          minimumStock: 2,
+          quantity: 1,
+          productSubtotal: 45,
+        },
+      ],
+      shippingCost: 0,
+      additionalCosts: 0,
+      purchaseDate: "2026-09-13",
+    });
+
+    expect(payload[0]).toMatchObject({
+      product_id: null,
+      product_name: "Jogo de facas",
+      product_category_id: null,
+      product_category_name: "Cozinha",
     });
   });
   it("blocks the same existing product from being added twice", () => {

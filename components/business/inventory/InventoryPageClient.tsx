@@ -28,6 +28,7 @@ import { createClient } from "@/lib/supabase/client";
 import { coerceData, coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 import type { Database } from "@/types/database";
+import type { ProductCategoryOption } from "@/lib/business-inventory";
 import type { WorkspaceRpcResult } from "@/components/business/inventory/types";
 
 type AdjustArgs = Database["public"]["Functions"]["adjust_business_inventory"]["Args"];
@@ -36,6 +37,8 @@ type InventoryPageArgs = Database["public"]["Functions"]["get_business_inventory
 const INVENTORY_PAGE_SIZE = 25;
 const INVENTORY_WINDOW_DAYS = 30;
 const INVENTORY_TARGET_DAYS = 30;
+const ALL_CATEGORIES = "all";
+const UNCATEGORIZED = "uncategorized";
 
 const EMPTY_SUMMARY: InventoryIntelligenceSummary = {
   inventory_value: 0,
@@ -56,11 +59,13 @@ export function InventoryPageClient() {
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<InventoryIntelligenceItem[]>([]);
+  const [categories, setCategories] = useState<ProductCategoryOption[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<InventoryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [sort, setSort] = useState<InventorySort>("name");
   const [page, setPage] = useState(1);
 
@@ -103,6 +108,17 @@ export function InventoryPageClient() {
         coerceData<WorkspaceRpcResult>(workspaceRes.data);
 
       setWorkspaceId(workspace.workspace_id);
+
+      const categoriesRes = await supabase
+        .from("business_product_categories")
+        .select("id, name")
+        .eq("workspace_id", workspace.workspace_id)
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      if (categoriesRes.error) throw categoriesRes.error;
+
+      setCategories(coerceData<ProductCategoryOption[]>(categoriesRes.data ?? []));
     } catch (error) {
       console.error("Erro ao preparar estoque", error);
       toast.error("Não foi possível carregar o estoque agora.");
@@ -136,6 +152,10 @@ export function InventoryPageClient() {
         p_filter: filter,
         p_sort: sort,
         p_search: debouncedSearch || null,
+        p_category_id:
+          categoryFilter === ALL_CATEGORIES
+            ? null
+            : categoryFilter,
         p_window_days: INVENTORY_WINDOW_DAYS,
         p_target_days: INVENTORY_TARGET_DAYS,
       } satisfies InventoryPageArgs;
@@ -220,6 +240,8 @@ export function InventoryPageClient() {
           total_purchased: Number(item.total_purchased ?? 0),
           total_received: Number(item.total_received ?? 0),
           total_sold: Number(item.total_sold ?? 0),
+          category_id: item.category_id,
+          category_name: item.category_name,
           gross_sold_window: Number(item.gross_sold_window ?? 0),
           customer_returns_window: Number(
             item.customer_returns_window ?? 0
@@ -257,6 +279,7 @@ export function InventoryPageClient() {
     }
   }, [
     debouncedSearch,
+    categoryFilter,
     filter,
     page,
     sort,
@@ -270,6 +293,11 @@ export function InventoryPageClient() {
 
   function handleFilterChange(value: InventoryFilter) {
     setFilter(value);
+    setPage(1);
+  }
+
+  function handleCategoryFilterChange(value: string) {
+    setCategoryFilter(value);
     setPage(1);
   }
 
@@ -530,8 +558,11 @@ export function InventoryPageClient() {
           <div className="space-y-4">
             <Filters
               filter={filter}
+              categoryFilter={categoryFilter}
+              categories={categories}
               sort={sort}
               onFilterChange={handleFilterChange}
+              onCategoryFilterChange={handleCategoryFilterChange}
               onSortChange={handleSortChange}
             />
           </div>
@@ -561,13 +592,19 @@ export function InventoryPageClient() {
 
 function Filters({
   filter,
+  categoryFilter,
+  categories,
   sort,
   onFilterChange,
+  onCategoryFilterChange,
   onSortChange,
 }: {
   filter: InventoryFilter;
+  categoryFilter: string;
+  categories: ProductCategoryOption[];
   sort: InventorySort;
   onFilterChange: (value: InventoryFilter) => void;
+  onCategoryFilterChange: (value: string) => void;
   onSortChange: (value: InventorySort) => void;
 }) {
   return (
@@ -592,6 +629,28 @@ function Filters({
               value={option.value}
             >
               {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={categoryFilter}
+        onValueChange={onCategoryFilterChange}
+      >
+        <SelectTrigger
+          className="w-full"
+          aria-label="Filtrar por categoria"
+        >
+          <SelectValue placeholder="Categoria" />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value={ALL_CATEGORIES}>Todas as categorias</SelectItem>
+          <SelectItem value={UNCATEGORIZED}>Sem categoria</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={category.id}>
+              {category.name}
             </SelectItem>
           ))}
         </SelectContent>

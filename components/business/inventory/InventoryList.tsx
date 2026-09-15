@@ -67,6 +67,7 @@ function InventoryMobileCard({ item }: { item: InventoryIntelligenceItem }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="break-words text-base font-semibold text-text-primary">{item.name}</h2>
+          <p className="mt-0.5 text-xs text-text-muted">{item.category_name ?? "Sem categoria"}</p>
           <p className="mt-0.5 text-xs text-text-secondary">{item.sku || item.barcode || "Sem código"}</p>
         </div>
         <p className="shrink-0 text-right text-lg font-bold tabular-nums text-accent">{item.available}</p>
@@ -109,6 +110,9 @@ function InventoryTableRow({ item }: { item: InventoryIntelligenceItem }) {
         <p className="max-w-52 truncate font-medium text-text-primary">{item.name}</p>
         <p className={cn("text-xs text-text-secondary", !item.active && "text-text-muted")}>
           {item.sku || item.barcode || item.product_id.slice(0, 8)}
+        </p>
+        <p className="max-w-52 truncate text-xs text-text-muted">
+          {item.category_name ?? "Sem categoria"}
         </p>
       </td>
       <td className="px-4 py-3 font-semibold tabular-nums text-accent">{item.available}</td>

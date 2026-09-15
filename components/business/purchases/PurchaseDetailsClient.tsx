@@ -23,11 +23,12 @@ import {
   getPurchaseStatusMeta,
   makeBusinessStableIdempotencyKey,
 } from "@/lib/business-purchases";
-import type { MultiPurchaseDraft } from "@/lib/business-purchases";
+import type { MultiPurchaseDraft, PurchaseItemDraft } from "@/lib/business-purchases";
 import type {
   BusinessAuditLog,
   BusinessInventoryMovement,
   BusinessProduct,
+  BusinessProductCategory,
   BusinessPurchaseItem,
   BusinessPurchaseOrder,
   BusinessPurchasePayment,
@@ -41,6 +42,9 @@ import { RecordPurchasePaymentDialog } from "@/components/business/purchases/Rec
 import type { PurchaseDetail, PurchaseReceiptInput, WorkspaceRpcResult } from "@/components/business/purchases/types";
 
 type PurchasePaymentArgs = Database["public"]["Functions"]["record_business_purchase_payment"]["Args"];
+type PurchaseMultiResultItem = {
+  product_id: string;
+};
 
 export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
   const router = useRouter();
@@ -48,6 +52,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
   const [loading, setLoading] = useState(true);
   const [purchase, setPurchase] = useState<PurchaseDetail | null>(null);
   const [products, setProducts] = useState<BusinessProduct[]>([]);
+  const [categories, setCategories] = useState<BusinessProductCategory[]>([]);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiving, setReceiving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -121,14 +126,25 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         itemsRes.data ?? []
       );
 
-      const productsRes = await supabase
-        .from("business_products")
-        .select("*")
-        .eq("workspace_id", workspace.workspace_id)
-        .order("name", { ascending: true });
+      const [productsRes, categoriesRes] = await Promise.all([
+        supabase
+          .from("business_products")
+          .select("*")
+          .eq("workspace_id", workspace.workspace_id)
+          .order("name", { ascending: true }),
+        supabase
+          .from("business_product_categories")
+          .select("*")
+          .eq("workspace_id", workspace.workspace_id)
+          .eq("active", true)
+          .order("name", { ascending: true }),
+      ]);
 
       if (productsRes.error) {
         throw productsRes.error;
+      }
+      if (categoriesRes.error) {
+        throw categoriesRes.error;
       }
 
       const allProducts =
@@ -146,6 +162,11 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       setProducts(
         allProducts.filter(
           (product) => product.active
+        )
+      );
+      setCategories(
+        coerceData<BusinessProductCategory[]>(
+          categoriesRes.data ?? []
         )
       );
 
@@ -380,7 +401,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       const clearNotes =
         !draft.notes?.trim();
 
-      const { error } = await supabase.rpc(
+      const updateRes = await supabase.rpc(
         "update_business_purchase_multi",
         coerceMutation({
           p_purchase_order_id: purchase.id,
@@ -426,7 +447,12 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         })
       );
 
-      if (error) throw error;
+      if (updateRes.error) throw updateRes.error;
+
+      const result = coerceData<{ items?: PurchaseMultiResultItem[] }>(
+        updateRes.data
+      );
+      await applyInlineProductCategories(draft, result.items ?? []);
 
       toast.success("Compra atualizada.");
       setEditOpen(false);
@@ -443,6 +469,64 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
       setEditing(false);
     }
   };
+
+  async function applyInlineProductCategories(
+    draft: MultiPurchaseDraft,
+    resultItems: PurchaseMultiResultItem[]
+  ) {
+    const pairs = draft.items
+      .map((item, index) => ({
+        item,
+        productId: resultItems[index]?.product_id,
+      }))
+      .filter(
+        (pair): pair is { item: PurchaseItemDraft; productId: string } =>
+          pair.item.mode === "new" &&
+          Boolean(pair.productId) &&
+          Boolean(pair.item.productCategoryId || pair.item.productCategoryName?.trim())
+      );
+
+    for (const { item, productId } of pairs) {
+      const categoryId = await resolveCategoryId(item);
+      if (!categoryId) continue;
+
+      const updateRes = await supabase
+        .from("business_products")
+        .update(coerceMutation({ category_id: categoryId }))
+        .eq("id", productId);
+
+      if (updateRes.error) throw updateRes.error;
+    }
+  }
+
+  async function resolveCategoryId(item: PurchaseItemDraft): Promise<string | null> {
+    if (item.productCategoryId) return item.productCategoryId;
+
+    const name = item.productCategoryName?.trim();
+    if (!name || !purchase) return null;
+
+    const existing = categories.find(
+      (category) => category.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existing) return existing.id;
+
+    const insertRes = await supabase
+      .from("business_product_categories")
+      .insert(coerceMutation({
+        user_id: purchase.user_id,
+        workspace_id: purchase.workspace_id,
+        name,
+      }))
+      .select("*")
+      .single();
+
+    if (insertRes.error) throw insertRes.error;
+
+    const created = coerceData<BusinessProductCategory>(insertRes.data);
+    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+    return created.id;
+  }
+
   const handleCancel = async () => {
     if (!purchase) return;
     setCancelling(true);
@@ -710,6 +794,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         open={editOpen}
         purchase={purchase}
         products={products}
+        categories={categories}
         loading={editing}
         onOpenChange={setEditOpen}
         onConfirm={handleEdit}

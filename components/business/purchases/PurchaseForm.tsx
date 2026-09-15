@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
+import { ProductCategorySelect } from "@/components/business/inventory/ProductCategorySelect";
 import { cn, formatCurrency, toLocalDateString } from "@/lib/utils";
 import {
   calculateMultiPurchasePreview,
@@ -20,10 +21,12 @@ import {
   type PurchaseItemMode,
   validateMultiPurchaseForm,
 } from "@/lib/business-purchases";
+import type { ProductCategoryOption } from "@/lib/business-inventory";
 import type { BusinessProduct } from "@/types/database";
 
 interface PurchaseFormProps {
   products: BusinessProduct[];
+  categories?: ProductCategoryOption[];
   submitting: boolean;
   onSubmit: (draft: MultiPurchaseDraft) => Promise<void>;
   initialDraft?: MultiPurchaseDraft;
@@ -33,6 +36,7 @@ interface PurchaseFormProps {
 
 export function PurchaseForm({
   products,
+  categories = [],
   submitting,
   onSubmit,
   initialDraft,
@@ -120,6 +124,8 @@ export function PurchaseForm({
       productId: "",
       productName: "",
       productSku: "",
+      productCategoryId: null,
+      productCategoryName: undefined,
       suggestedSalePrice: 0,
       minimumStock: 0,
     });
@@ -424,6 +430,26 @@ export function PurchaseForm({
                           updateItem(item.key, {
                             productSku:
                               event.target.value,
+                          })
+                        }
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="Categoria"
+                      error={itemErrors.productCategoryName}
+                      hint="Opcional"
+                    >
+                      <ProductCategorySelect
+                        categories={categories}
+                        categoryId={item.productCategoryId ?? null}
+                        newCategoryName={item.productCategoryName}
+                        error={itemErrors.productCategoryName}
+                        disabled={submitting}
+                        onChange={(value) =>
+                          updateItem(item.key, {
+                            productCategoryId: value.categoryId,
+                            productCategoryName: value.newCategoryName,
                           })
                         }
                       />

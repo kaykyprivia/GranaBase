@@ -848,6 +848,36 @@ export interface Database {
           completed_at?: string | null;
         }
       >;
+      business_product_categories: TableDefinition<
+        {
+          id: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          normalized_name: string;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          workspace_id: string;
+          name: string;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          user_id?: string;
+          workspace_id?: string;
+          name?: string;
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
       business_products: TableDefinition<
         {
           id: string;
@@ -855,6 +885,7 @@ export interface Database {
           workspace_id: string;
           name: string;
           sku: string | null;
+          category_id: string | null;
           barcode: string | null;
           image_url: string | null;
           default_sale_price: number | null;
@@ -869,6 +900,7 @@ export interface Database {
           workspace_id: string;
           name: string;
           sku?: string | null;
+          category_id?: string | null;
           barcode?: string | null;
           image_url?: string | null;
           default_sale_price?: number | null;
@@ -883,6 +915,7 @@ export interface Database {
           workspace_id?: string;
           name?: string;
           sku?: string | null;
+          category_id?: string | null;
           barcode?: string | null;
           image_url?: string | null;
           default_sale_price?: number | null;
@@ -1564,6 +1597,8 @@ export interface Database {
           workspace_id: string;
           name: string;
           sku: string | null;
+          category_id: string | null;
+          category_name: string | null;
           default_sale_price: number | null;
           minimum_stock: number;
           on_hand: number;
@@ -1869,6 +1904,7 @@ export interface Database {
           p_filter?: "all" | "available" | "low" | "empty" | "reserved" | "in_transit" | "reorder" | "no_recent_turnover";
           p_sort?: "name" | "stock_desc" | "stock_asc" | "capital_desc" | "cost_desc" | "recent" | "coverage_asc" | "velocity_desc" | "reorder_desc";
           p_search?: string | null;
+          p_category_id?: string | null;
           p_window_days?: number;
           p_target_days?: number;
         };
@@ -2016,6 +2052,7 @@ export interface Database {
           p_default_sale_price?: number | null;
           p_minimum_stock?: number;
           p_active?: boolean;
+          p_category_id?: string | null;
         };
         Returns: Json;
       };
@@ -2045,6 +2082,7 @@ export type InvestmentDividend = Tables<"investment_dividends">;
 export type InvestmentWallet = Tables<"investment_wallets">;
 export type InvestmentContribution = Tables<"investment_contributions">;
 export type BusinessWorkspace = Tables<"business_workspaces">;
+export type BusinessProductCategory = Tables<"business_product_categories">;
 export type BusinessProduct = Tables<"business_products">;
 export type BusinessPurchaseOrder = Tables<"business_purchase_orders">;
 export type BusinessPurchaseItem = Tables<"business_purchase_items">;
@@ -2075,6 +2113,7 @@ export type InsertInvestmentDividend = Inserts<"investment_dividends">;
 export type InsertInvestmentWallet = Inserts<"investment_wallets">;
 export type InsertInvestmentContribution = Inserts<"investment_contributions">;
 export type InsertBusinessWorkspace = Inserts<"business_workspaces">;
+export type InsertBusinessProductCategory = Inserts<"business_product_categories">;
 export type InsertBusinessProduct = Inserts<"business_products">;
 export type InsertBusinessPurchaseOrder = Inserts<"business_purchase_orders">;
 export type InsertBusinessPurchaseItem = Inserts<"business_purchase_items">;
@@ -2090,6 +2129,7 @@ export type InsertFinancialGoal = Inserts<"financial_goals">;
 export type InsertUserSettings = Inserts<"user_settings">;
 export type UpdateProfile = Updates<"profiles">;
 export type UpdateUserSettings = Updates<"user_settings">;
+export type UpdateBusinessProductCategory = Updates<"business_product_categories">;
 export type UpdateBusinessProduct = Updates<"business_products">;
 export type UpdateBusinessPurchaseOrder = Updates<"business_purchase_orders">;
 export type UpdateBusinessPurchaseItem = Updates<"business_purchase_items">;

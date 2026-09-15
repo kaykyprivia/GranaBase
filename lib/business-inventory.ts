@@ -1,10 +1,11 @@
-import type { BusinessInventoryMovementType, BusinessInventorySummary } from "@/types/database";
+import type { BusinessInventoryMovementType, BusinessInventorySummary, BusinessProductCategory } from "@/types/database";
 import { roundCurrency } from "@/lib/business";
 
 export type InventoryFilter = "all" | "available" | "low" | "empty" | "reserved" | "in_transit" | "reorder" | "no_recent_turnover";
 export type InventorySort = "name" | "stock_desc" | "stock_asc" | "capital_desc" | "cost_desc" | "recent" | "coverage_asc" | "velocity_desc" | "reorder_desc";
 export type InventoryStatusTone = "default" | "profit" | "warning" | "expense" | "secondary";
 export type InventoryItem = BusinessInventorySummary;
+export type ProductCategoryOption = Pick<BusinessProductCategory, "id" | "name">;
 export type InventoryIntelligenceStatus =
   | "out_of_stock"
   | "reorder_now"
@@ -88,9 +89,11 @@ export type ProductMetadataForm = {
   defaultSalePrice?: number | null;
   minimumStock: number;
   active: boolean;
+  categoryId?: string | null;
+  newCategoryName?: string | null;
 };
 
-export type ProductMetadataErrors = Partial<Record<"name" | "defaultSalePrice" | "minimumStock", string>>;
+export type ProductMetadataErrors = Partial<Record<"name" | "defaultSalePrice" | "minimumStock" | "newCategoryName", string>>;
 
 export const INVENTORY_FILTER_OPTIONS: Array<{ value: InventoryFilter; label: string }> = [
   { value: "all", label: "Todos" },
@@ -200,11 +203,20 @@ function hasInventoryIntelligence(
 export function filterInventoryItems<T extends InventoryItem>(
   items: T[],
   filter: InventoryFilter,
-  search: string
+  search: string,
+  categoryId?: string | null
 ): T[] {
   const normalizedSearch = normalizeSearch(search);
 
   return items.filter((item) => {
+    const matchesCategory =
+      !categoryId ||
+      categoryId === "all" ||
+      (categoryId === "uncategorized" && item.category_id === null) ||
+      item.category_id === categoryId;
+
+    if (!matchesCategory) return false;
+
     const matchesFilter =
       filter === "all" ||
       (filter === "available" && item.available > 0) ||
@@ -223,7 +235,7 @@ export function filterInventoryItems<T extends InventoryItem>(
     if (!normalizedSearch) return true;
 
     return normalizeSearch(
-      [item.name, item.sku, item.barcode, item.product_id.slice(0, 8)]
+      [item.name, item.sku, item.barcode, item.category_name, item.product_id.slice(0, 8)]
         .filter(Boolean)
         .join(" ")
     ).includes(normalizedSearch);
@@ -350,8 +362,23 @@ export function validateProductMetadata(input: ProductMetadataForm): ProductMeta
   if (!Number.isInteger(input.minimumStock) || input.minimumStock < 0) {
     errors.minimumStock = "Estoque mínimo deve ser inteiro e não negativo.";
   }
+  if (input.newCategoryName !== undefined && input.newCategoryName !== null && !input.newCategoryName.trim()) {
+    errors.newCategoryName = "Informe o nome da categoria.";
+  }
 
   return errors;
+}
+
+export function normalizeProductCategoryName(name: string): string {
+  return normalizeSearch(name).replace(/\s+/g, " ");
+}
+
+export function isDuplicateProductCategory(
+  categories: ProductCategoryOption[],
+  name: string
+): boolean {
+  const normalized = normalizeProductCategoryName(name);
+  return normalized.length > 0 && categories.some((category) => normalizeProductCategoryName(category.name) === normalized);
 }
 
 export function getMovementMeta(type: BusinessInventoryMovementType): MovementMeta {

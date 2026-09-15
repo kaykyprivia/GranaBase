@@ -58,6 +58,8 @@ export type PurchaseItemDraft = {
   productId?: string;
   productName?: string;
   productSku?: string;
+  productCategoryId?: string | null;
+  productCategoryName?: string;
   suggestedSalePrice?: number;
   minimumStock?: number;
   quantity: number;
@@ -78,6 +80,7 @@ export type PurchaseItemDraftErrors = {
   product?: string;
   productName?: string;
   productSku?: string;
+  productCategoryName?: string;
   suggestedSalePrice?: string;
   minimumStock?: string;
   quantity?: string;
@@ -124,6 +127,8 @@ export function createPurchaseItemDraft(
     productId: "",
     productName: "",
     productSku: "",
+    productCategoryId: null,
+    productCategoryName: "",
     suggestedSalePrice: 0,
     minimumStock: 0,
     quantity: 1,
@@ -365,6 +370,8 @@ export function buildPurchaseMultiRpcItems(
         product_sku: null,
         default_sale_price: null,
         minimum_stock: null,
+        product_category_id: null,
+        product_category_name: null,
         quantity: item.quantity,
         unit_purchase_cost:
           itemPreview.unitPurchaseCost,
@@ -375,6 +382,11 @@ export function buildPurchaseMultiRpcItems(
       product_id: null,
       product_name: item.productName?.trim() ?? "",
       product_sku: item.productSku?.trim() || null,
+      product_category_id: item.productCategoryId ?? null,
+      product_category_name:
+        item.productCategoryId
+          ? null
+          : item.productCategoryName?.trim() || null,
       default_sale_price:
         item.suggestedSalePrice || null,
       minimum_stock: item.minimumStock ?? 0,

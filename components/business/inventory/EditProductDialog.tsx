@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
+import { ProductCategorySelect } from "@/components/business/inventory/ProductCategorySelect";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { validateProductMetadata, type InventoryItem, type ProductMetadataErrors } from "@/lib/business-inventory";
+import { validateProductMetadata, type InventoryItem, type ProductCategoryOption, type ProductMetadataErrors } from "@/lib/business-inventory";
 
 type EditProductDialogProps = {
   open: boolean;
   product: InventoryItem | null;
+  categories: ProductCategoryOption[];
   loading: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (payload: {
@@ -20,15 +22,19 @@ type EditProductDialogProps = {
     defaultSalePrice: number | null;
     minimumStock: number;
     active: boolean;
+    categoryId: string | null;
+    newCategoryName?: string;
   }) => Promise<void>;
 };
 
-export function EditProductDialog({ open, product, loading, onOpenChange, onConfirm }: EditProductDialogProps) {
+export function EditProductDialog({ open, product, categories, loading, onOpenChange, onConfirm }: EditProductDialogProps) {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [defaultSalePrice, setDefaultSalePrice] = useState(0);
   const [minimumStock, setMinimumStock] = useState(0);
   const [active, setActive] = useState(true);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState<string | undefined>();
   const [errors, setErrors] = useState<ProductMetadataErrors>({});
 
   useEffect(() => {
@@ -38,6 +44,8 @@ export function EditProductDialog({ open, product, loading, onOpenChange, onConf
       setDefaultSalePrice(product.default_sale_price ?? 0);
       setMinimumStock(product.minimum_stock);
       setActive(product.active);
+      setCategoryId(product.category_id);
+      setNewCategoryName(undefined);
       setErrors({});
     }
   }, [open, product]);
@@ -50,6 +58,8 @@ export function EditProductDialog({ open, product, loading, onOpenChange, onConf
       defaultSalePrice,
       minimumStock,
       active,
+      categoryId,
+      newCategoryName,
     });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -60,6 +70,8 @@ export function EditProductDialog({ open, product, loading, onOpenChange, onConf
       defaultSalePrice: defaultSalePrice > 0 ? defaultSalePrice : null,
       minimumStock,
       active,
+      categoryId,
+      newCategoryName: newCategoryName?.trim() || undefined,
     });
   }
 
@@ -80,6 +92,20 @@ export function EditProductDialog({ open, product, loading, onOpenChange, onConf
 
           <FormField label="SKU">
             <Input value={sku} onChange={(event) => setSku(event.target.value)} className="min-h-11" disabled={loading} />
+          </FormField>
+
+          <FormField label="Categoria" error={errors.newCategoryName} hint="Opcional">
+            <ProductCategorySelect
+              categories={categories}
+              categoryId={categoryId}
+              newCategoryName={newCategoryName}
+              error={errors.newCategoryName}
+              disabled={loading}
+              onChange={(value) => {
+                setCategoryId(value.categoryId);
+                setNewCategoryName(value.newCategoryName);
+              }}
+            />
           </FormField>
 
           <div className="grid gap-3 sm:grid-cols-2">

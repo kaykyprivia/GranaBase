@@ -26,6 +26,7 @@ import type {
   BusinessInventoryMovementType,
   BusinessInventorySummary,
   BusinessProduct,
+  BusinessProductCategory,
   BusinessPurchaseItem,
   BusinessPurchaseOrder,
   Database,
@@ -41,6 +42,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<InventoryProductDetail | null>(null);
+  const [categories, setCategories] = useState<BusinessProductCategory[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
@@ -95,7 +97,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
       setWorkspaceId(workspace.workspace_id);
 
-      const [summaryRes, productRes, lotsRes, movementsRes] = await Promise.all([
+      const [summaryRes, productRes, lotsRes, movementsRes, categoriesRes] = await Promise.all([
         supabase
           .from("business_inventory_summary")
           .select("*")
@@ -124,12 +126,19 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
           .order("created_at", { ascending: false })
           .order("id", { ascending: false })
           .range(0, INVENTORY_HISTORY_PAGE_SIZE - 1),
+        supabase
+          .from("business_product_categories")
+          .select("*")
+          .eq("workspace_id", workspace.workspace_id)
+          .eq("active", true)
+          .order("name", { ascending: true }),
       ]);
 
       if (summaryRes.error) throw summaryRes.error;
       if (productRes.error) throw productRes.error;
       if (lotsRes.error) throw lotsRes.error;
       if (movementsRes.error) throw movementsRes.error;
+      if (categoriesRes.error) throw categoriesRes.error;
       if (!productRes.data) {
         setDetail(null);
         return;
@@ -137,6 +146,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
 
       const lots = coerceData<BusinessInventoryLot[]>(lotsRes.data ?? []);
       const lotsWithOrigin = await loadLotOrigins(lots);
+      setCategories(coerceData<BusinessProductCategory[]>(categoriesRes.data ?? []));
 
       setDetail({
         product: coerceData<BusinessProduct>(productRes.data),
@@ -158,7 +168,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
     void loadDetail();
   }, [loadDetail]);
 
-  const inventoryItem = useMemo(() => buildInventoryItem(detail), [detail]);
+  const inventoryItem = useMemo(() => buildInventoryItem(detail, categories), [categories, detail]);
   const potential = inventoryItem
     ? getPotentialProfit({
         defaultSalePrice: inventoryItem.default_sale_price,
@@ -212,10 +222,14 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
     defaultSalePrice: number | null;
     minimumStock: number;
     active: boolean;
+    categoryId: string | null;
+    newCategoryName?: string;
   }) {
     if (!detail) return;
     setEditing(true);
     try {
+      const resolvedCategoryId = await resolveCategoryId(payload);
+
       const args = {
         p_workspace_id: workspaceId,
         p_product_id: detail.product.id,
@@ -226,6 +240,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
           payload.defaultSalePrice,
           payload.minimumStock,
           payload.active,
+          resolvedCategoryId,
           Date.now(),
         ]),
         p_name: payload.name,
@@ -233,6 +248,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         p_default_sale_price: payload.defaultSalePrice,
         p_minimum_stock: payload.minimumStock,
         p_active: payload.active,
+        p_category_id: resolvedCategoryId,
       } satisfies ProductUpdateArgs;
 
       const { error } = await supabase.rpc("update_business_product_metadata", coerceMutation(args));
@@ -346,6 +362,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
             <InfoRow label="Total comprado" value={String(inventoryItem.total_purchased)} />
             <InfoRow label="Total recebido" value={String(inventoryItem.total_received)} />
             <InfoRow label="Atualmente em estoque" value={String(inventoryItem.on_hand)} />
+            <InfoRow label="Categoria" value={inventoryItem.category_name ?? "Sem categoria"} />
             <InfoRow label="Reservado" value={String(inventoryItem.reserved)} />
             <InfoRow label="Total vendido" value={String(inventoryItem.total_sold)} />
             <InfoRow label="Última movimentação" value={inventoryItem.last_movement_at ? `${formatDate(inventoryItem.last_movement_at.slice(0, 10))} às ${formatTime(inventoryItem.last_movement_at)}` : "Sem movimento"} />
@@ -385,17 +402,61 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
       <EditProductDialog
         open={editOpen}
         product={inventoryItem}
+        categories={categories}
         loading={editing}
         onOpenChange={setEditOpen}
         onConfirm={handleEdit}
       />
     </div>
   );
+  async function resolveCategoryId(payload: {
+    categoryId: string | null;
+    newCategoryName?: string;
+  }): Promise<string | null> {
+    const name = payload.newCategoryName?.trim();
+
+    if (!name) {
+      return payload.categoryId;
+    }
+
+    const existing = categories.find(
+      (category) => category.name.trim().toLowerCase() === name.toLowerCase()
+    );
+
+    if (existing) {
+      return existing.id;
+    }
+
+    if (!detail) {
+      throw new Error("Produto nao encontrado");
+    }
+
+    const insertRes = await supabase
+      .from("business_product_categories")
+      .insert(coerceMutation({
+        user_id: detail.product.user_id,
+        workspace_id: workspaceId,
+        name,
+      }))
+      .select("*")
+      .single();
+
+    if (insertRes.error) {
+      throw insertRes.error;
+    }
+
+    const created = coerceData<BusinessProductCategory>(insertRes.data);
+    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+    return created.id;
+  }
 }
 
-function buildInventoryItem(detail: InventoryProductDetail | null): InventoryItem | null {
+function buildInventoryItem(detail: InventoryProductDetail | null, categories: BusinessProductCategory[]): InventoryItem | null {
   if (!detail) return null;
   if (detail.summary) return detail.summary;
+  const category = detail.product.category_id
+    ? categories.find((item) => item.id === detail.product.category_id)
+    : null;
 
   return {
     product_id: detail.product.id,
@@ -403,6 +464,8 @@ function buildInventoryItem(detail: InventoryProductDetail | null): InventoryIte
     workspace_id: detail.product.workspace_id,
     name: detail.product.name,
     sku: detail.product.sku,
+    category_id: detail.product.category_id,
+    category_name: category?.name ?? null,
     barcode: detail.product.barcode,
     image_url: detail.product.image_url,
     default_sale_price: detail.product.default_sale_price,

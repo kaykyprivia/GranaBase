@@ -146,6 +146,7 @@ function makeProduct(
     workspace_id: "workspace-1",
     name: "Produto teste",
     sku: null,
+    category_id: null,
     barcode: null,
     image_url: null,
     default_sale_price: 100,

@@ -7,6 +7,8 @@ import {
   getMovementSign,
   getPotentialProfit,
   getSignedAdjustmentQuantity,
+  isDuplicateProductCategory,
+  normalizeProductCategoryName,
   sortInventoryItems,
   summarizeInventory,
   validateInventoryAdjustment,
@@ -21,6 +23,8 @@ const baseItem: InventoryItem = {
   workspace_id: "workspace-1",
   name: "Suporte Celular",
   sku: "SUP-001",
+  category_id: null,
+  category_name: null,
   barcode: null,
   image_url: null,
   default_sale_price: 25,
@@ -107,6 +111,31 @@ describe("business inventory summary", () => {
     expect(filterInventoryItems([reserved, incoming, low], "reserved", "")).toEqual([reserved]);
     expect(filterInventoryItems([reserved, incoming, low], "in_transit", "")).toEqual([incoming]);
     expect(filterInventoryItems([reserved, incoming, low], "low", "")).toEqual([low]);
+  });
+
+  it("keeps uncategorized products valid and filters by category", () => {
+    const electronics = item({
+      product_id: "phone",
+      name: "Celular",
+      category_id: "category-electronics",
+      category_name: "Eletronicos",
+    });
+    const home = item({
+      product_id: "pan",
+      name: "Panela",
+      category_id: "category-home",
+      category_name: "Casa",
+    });
+    const uncategorized = item({
+      product_id: "misc",
+      name: "Produto solto",
+      category_id: null,
+      category_name: null,
+    });
+
+    expect(filterInventoryItems([electronics, home, uncategorized], "all", "", "category-electronics")).toEqual([electronics]);
+    expect(filterInventoryItems([electronics, home, uncategorized], "all", "", "uncategorized")).toEqual([uncategorized]);
+    expect(filterInventoryItems([electronics], "all", "eletronicos")).toEqual([electronics]);
   });
 
   it("sorts by stock, capital, cost and recent movement", () => {
@@ -289,5 +318,21 @@ describe("business inventory adjustments", () => {
       defaultSalePrice: "Preço de venda não pode ser negativo.",
       minimumStock: "Estoque mínimo deve ser inteiro e não negativo.",
     });
+  });
+
+  it("normalizes category names for duplicate checks in the same workspace", () => {
+    expect(normalizeProductCategoryName("  Eletronicos   e Acessorios ")).toBe("eletronicos e acessorios");
+    expect(
+      isDuplicateProductCategory(
+        [{ id: "category-1", name: "Eletronicos" }],
+        "  ELETRONICOS "
+      )
+    ).toBe(true);
+    expect(
+      isDuplicateProductCategory(
+        [{ id: "category-1", name: "Casa" }],
+        "Cozinha"
+      )
+    ).toBe(false);
   });
 });

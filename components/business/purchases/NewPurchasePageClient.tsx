@@ -27,13 +27,19 @@ import {
   makeBusinessIdempotencyKey,
   makeBusinessStableIdempotencyKey,
   type MultiPurchaseDraft,
+  type PurchaseItemDraft,
 } from "@/lib/business-purchases";
 import type {
+  BusinessProductCategory,
   BusinessProduct,
 } from "@/types/database";
 import type {
   WorkspaceRpcResult,
 } from "@/components/business/purchases/types";
+
+type PurchaseMultiResultItem = {
+  product_id: string;
+};
 
 interface NewPurchaseFormClientProps {
   onCreated?: (purchaseOrderId: string) => void | Promise<void>;
@@ -65,9 +71,13 @@ export function NewPurchaseFormClient({
 
   const [workspaceId, setWorkspaceId] =
     useState("");
+  const [userId, setUserId] =
+    useState("");
 
   const [products, setProducts] =
     useState<BusinessProduct[]>([]);
+  const [categories, setCategories] =
+    useState<BusinessProductCategory[]>([]);
 
   const loadContext = useCallback(
     async () => {
@@ -104,8 +114,9 @@ export function NewPurchaseFormClient({
             workspaceRes.data
           );
 
-        const productsRes =
-          await supabase
+        const [productsRes, categoriesRes] =
+          await Promise.all([
+            supabase
             .from("business_products")
             .select("*")
             .eq(
@@ -115,19 +126,40 @@ export function NewPurchaseFormClient({
             .eq("active", true)
             .order("name", {
               ascending: true,
-            });
+            }),
+            supabase
+              .from("business_product_categories")
+              .select("*")
+              .eq(
+                "workspace_id",
+                workspace.workspace_id
+              )
+              .eq("active", true)
+              .order("name", {
+                ascending: true,
+              }),
+          ]);
 
         if (productsRes.error) {
           throw productsRes.error;
+        }
+        if (categoriesRes.error) {
+          throw categoriesRes.error;
         }
 
         setWorkspaceId(
           workspace.workspace_id
         );
+        setUserId(user.id);
 
         setProducts(
           coerceData<BusinessProduct[]>(
             productsRes.data ?? []
+          )
+        );
+        setCategories(
+          coerceData<BusinessProductCategory[]>(
+            categoriesRes.data ?? []
           )
         );
       } catch (error) {
@@ -215,7 +247,10 @@ export function NewPurchaseFormClient({
 
       const result = coerceData<{
         purchase_order_id: string;
+        items?: PurchaseMultiResultItem[];
       }>(purchaseRes.data);
+
+      await applyInlineProductCategories(draft, result.items ?? []);
 
       toast.success(
         draft.items.length > 1
@@ -244,6 +279,64 @@ export function NewPurchaseFormClient({
     }
   };
 
+  async function applyInlineProductCategories(
+    draft: MultiPurchaseDraft,
+    resultItems: PurchaseMultiResultItem[]
+  ) {
+    const pairs = draft.items
+      .map((item, index) => ({
+        item,
+        productId: resultItems[index]?.product_id,
+      }))
+      .filter(
+        (pair): pair is { item: PurchaseItemDraft; productId: string } =>
+          pair.item.mode === "new" &&
+          Boolean(pair.productId) &&
+          Boolean(pair.item.productCategoryId || pair.item.productCategoryName?.trim())
+      );
+
+    for (const { item, productId } of pairs) {
+      const categoryId = await resolveCategoryId(item);
+      if (!categoryId) continue;
+
+      const updateRes = await supabase
+        .from("business_products")
+        .update(coerceMutation({ category_id: categoryId }))
+        .eq("workspace_id", workspaceId)
+        .eq("id", productId);
+
+      if (updateRes.error) throw updateRes.error;
+    }
+  }
+
+  async function resolveCategoryId(item: PurchaseItemDraft): Promise<string | null> {
+    if (item.productCategoryId) return item.productCategoryId;
+
+    const name = item.productCategoryName?.trim();
+    if (!name) return null;
+
+    const existing = categories.find(
+      (category) => category.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existing) return existing.id;
+
+    const insertRes = await supabase
+      .from("business_product_categories")
+      .insert(coerceMutation({
+        user_id: userId,
+        workspace_id: workspaceId,
+        name,
+      }))
+      .select("*")
+      .single();
+
+    if (insertRes.error) throw insertRes.error;
+
+    const created = coerceData<BusinessProductCategory>(insertRes.data);
+    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+    return created.id;
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -257,6 +350,7 @@ export function NewPurchaseFormClient({
   return (
     <PurchaseForm
       products={products}
+      categories={categories}
       submitting={submitting}
       onSubmit={handleSubmit}
       onCancel={onCancel}

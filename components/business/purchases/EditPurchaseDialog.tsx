@@ -17,12 +17,14 @@ import type {
   MultiPurchaseDraft,
   PurchaseItemDraft,
 } from "@/lib/business-purchases";
+import type { ProductCategoryOption } from "@/lib/business-inventory";
 import type { BusinessProduct } from "@/types/database";
 
 interface EditPurchaseDialogProps {
   open: boolean;
   purchase: PurchaseDetail | PurchaseRow | null;
   products?: BusinessProduct[];
+  categories?: ProductCategoryOption[];
   loading?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (draft: MultiPurchaseDraft) => Promise<void> | void;
@@ -32,6 +34,7 @@ export function EditPurchaseDialog({
   open,
   purchase,
   products = [],
+  categories = [],
   loading = false,
   onOpenChange,
   onConfirm,
@@ -81,6 +84,7 @@ export function EditPurchaseDialog({
         {purchase && initialDraft ? (
           <PurchaseForm
             products={availableProducts}
+            categories={categories}
             submitting={loading}
             initialDraft={initialDraft}
             submitLabel="Salvar alterações"
