@@ -465,6 +465,37 @@ export function calculatePaymentSummary(input: {
   };
 }
 
+export function calculateReturnRefundLimit(input: {
+  items: Array<{
+    id: string;
+    quantity: number;
+    final_amount: number;
+    returnedQuantity: number;
+  }>;
+  selectedItems: Array<{
+    saleItemId: string;
+    quantity: number;
+  }>;
+  refundableAmount: number;
+  deliveryFee?: number;
+}): number {
+  const selectedValue = input.selectedItems.reduce((sum, draft) => {
+    const item = input.items.find((entry) => entry.id === draft.saleItemId);
+    if (!item || item.quantity <= 0) return sum;
+
+    return sum + (Number(item.final_amount || 0) * draft.quantity) / item.quantity;
+  }, 0);
+
+  const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
+  const alreadyReturnedQuantity = input.items.reduce((sum, item) => sum + item.returnedQuantity, 0);
+  const selectedQuantity = input.selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const completesReturn = totalQuantity > 0 && alreadyReturnedQuantity + selectedQuantity >= totalQuantity;
+  const deliveryFee = completesReturn ? normalizeMoney(input.deliveryFee ?? 0) : 0;
+  const selectedLimit = roundCurrency(selectedValue + deliveryFee);
+
+  return Math.min(normalizeMoney(input.refundableAmount), selectedLimit);
+}
+
 export function getSalesDateRange(
   preset: SalesDateRangePreset,
   today = new Date(),

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { calculatePaymentSummary } from "@/lib/business-sales";
+import { calculatePaymentSummary, calculateSaleFinancials } from "@/lib/business-sales";
 import { formatCurrency, toLocalDateString } from "@/lib/utils";
 import type { SaleRow } from "@/components/business/sales/types";
 
@@ -30,7 +30,17 @@ export function RecordPaymentDialog({ open, sale, loading, onOpenChange, onConfi
   const [method, setMethod] = useState<PaymentMethod>("PIX");
   const [paidAt, setPaidAt] = useState(toLocalDateString());
   const [notes, setNotes] = useState("");
-  const total = useMemo(() => sale?.items.reduce((sum, item) => sum + item.final_amount, 0) ?? 0, [sale]);
+  const total = useMemo(() => {
+    if (!sale) return 0;
+
+    return calculateSaleFinancials({
+      items: sale.items,
+      returns: sale.returns,
+      returnItems: sale.returnItems,
+      deliveryFee: sale.delivery_fee,
+      deliveryCost: sale.delivery_cost,
+    }).netRevenue;
+  }, [sale]);
   const payment = useMemo(
     () => calculatePaymentSummary({ totalAmount: total, payments: sale?.payments ?? [] }),
     [sale?.payments, total]
@@ -44,7 +54,13 @@ export function RecordPaymentDialog({ open, sale, loading, onOpenChange, onConfi
   useEffect(() => {
     if (open && sale) {
       const nextPayment = calculatePaymentSummary({
-        totalAmount: sale.items.reduce((sum, item) => sum + item.final_amount, 0),
+        totalAmount: calculateSaleFinancials({
+          items: sale.items,
+          returns: sale.returns,
+          returnItems: sale.returnItems,
+          deliveryFee: sale.delivery_fee,
+          deliveryCost: sale.delivery_cost,
+        }).netRevenue,
         payments: sale.payments,
       });
       setAmount(nextPayment.remainingAmount);

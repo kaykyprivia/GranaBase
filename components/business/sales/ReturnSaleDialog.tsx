@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { calculatePaymentSummary } from "@/lib/business-sales";
+import { calculatePaymentSummary, calculateReturnRefundLimit, calculateSaleFinancials } from "@/lib/business-sales";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { SaleDetail, SaleItemRow } from "@/components/business/sales/types";
 
@@ -34,13 +34,34 @@ export function ReturnSaleDialog({ open, sale, loading, onOpenChange, onConfirm 
   const [items, setItems] = useState<ReturnDraft[]>([]);
   const [refundAmount, setRefundAmount] = useState(0);
   const [notes, setNotes] = useState("");
-  const total = useMemo(() => sale?.items.reduce((sum, item) => sum + item.final_amount, 0) ?? 0, [sale?.items]);
+  const total = useMemo(() => {
+    if (!sale) return 0;
+
+    return calculateSaleFinancials({
+      items: sale.items,
+      returns: sale.returns,
+      returnItems: sale.returnItems,
+      deliveryFee: sale.delivery_fee,
+      deliveryCost: sale.delivery_cost,
+    }).netRevenue;
+  }, [sale]);
   const payment = useMemo(
     () => calculatePaymentSummary({ totalAmount: total, payments: sale?.payments ?? [] }),
     [sale?.payments, total]
   );
   const selectedQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const refundError = refundAmount > payment.refundableAmount ? "Reembolso acima do valor pago disponivel." : null;
+  const refundLimit = useMemo(
+    () => sale
+      ? calculateReturnRefundLimit({
+          items: sale.items,
+          selectedItems: items,
+          refundableAmount: payment.refundableAmount,
+          deliveryFee: sale.delivery_fee,
+        })
+      : 0,
+    [items, payment.refundableAmount, sale]
+  );
+  const refundError = refundAmount > refundLimit ? "Reembolso acima do valor devolvido disponivel." : null;
 
   useEffect(() => {
     if (open) {
@@ -136,7 +157,7 @@ export function ReturnSaleDialog({ open, sale, loading, onOpenChange, onConfirm 
             <div className="space-y-1.5">
               <Label htmlFor="sale-refund-amount">Reembolso</Label>
               <CurrencyInput id="sale-refund-amount" value={refundAmount} onChange={setRefundAmount} error={refundError ?? undefined} />
-              <p className="text-xs text-text-secondary">Maximo: {formatCurrency(payment.refundableAmount)}</p>
+              <p className="text-xs text-text-secondary">Maximo: {formatCurrency(refundLimit)}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sale-return-notes">Observação</Label>

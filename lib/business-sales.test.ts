@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculatePaymentSummary,
+  calculateReturnRefundLimit,
   calculateSaleFinancials,
   calculateSalePreview,
   canCancelSale,
@@ -218,6 +219,56 @@ describe("business sales UI helpers", () => {
         { amount: 100, status: "REFUNDED" },
       ],
     }).status).toBe("REFUNDED");
+  });
+
+  it("includes delivery fee in the payable sale total", () => {
+    const financials = calculateSaleFinancials({
+      items: [
+        {
+          id: "item-1",
+          quantity: 1,
+          final_amount: 100,
+          cogs_amount: 40,
+          net_profit: 60,
+        },
+      ],
+      deliveryFee: 15,
+      deliveryCost: 5,
+    });
+
+    expect(financials.netRevenue).toBe(115);
+    expect(calculatePaymentSummary({
+      totalAmount: financials.netRevenue,
+      payments: [{ amount: 100, status: "PAID" }],
+    })).toMatchObject({
+      status: "PARTIALLY_PAID",
+      remainingAmount: 15,
+    });
+  });
+
+  it("limits return refunds to the selected returned value", () => {
+    const items = [
+      {
+        id: "item-1",
+        quantity: 2,
+        final_amount: 100,
+        returnedQuantity: 0,
+      },
+    ];
+
+    expect(calculateReturnRefundLimit({
+      items,
+      selectedItems: [{ saleItemId: "item-1", quantity: 1 }],
+      refundableAmount: 100,
+      deliveryFee: 20,
+    })).toBe(50);
+
+    expect(calculateReturnRefundLimit({
+      items,
+      selectedItems: [{ saleItemId: "item-1", quantity: 2 }],
+      refundableAmount: 120,
+      deliveryFee: 20,
+    })).toBe(120);
   });
 
   it("keeps operational actions sequential and independent from payment", () => {
