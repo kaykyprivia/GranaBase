@@ -318,6 +318,16 @@ describe("business inventory adjustments", () => {
       defaultSalePrice: "Preço de venda não pode ser negativo.",
       minimumStock: "Estoque mínimo deve ser inteiro e não negativo.",
     });
+    expect(validateProductMetadata({
+      name: "Produto",
+      defaultSalePrice: 30,
+      minimumStock: 3,
+      active: true,
+      categoryId: null,
+      newCategoryName: "   ",
+    })).toEqual({
+      newCategoryName: "Informe o nome da categoria.",
+    });
   });
 
   it("normalizes category names for duplicate checks in the same workspace", () => {

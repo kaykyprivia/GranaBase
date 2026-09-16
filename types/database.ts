@@ -2053,6 +2053,7 @@ export interface Database {
           p_minimum_stock?: number;
           p_active?: boolean;
           p_category_id?: string | null;
+          p_category_name?: string | null;
         };
         Returns: Json;
       };

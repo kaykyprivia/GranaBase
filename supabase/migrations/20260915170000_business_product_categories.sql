@@ -218,6 +218,18 @@ drop function if exists public.update_business_product_metadata(
   boolean
 );
 
+drop function if exists public.update_business_product_metadata(
+  uuid,
+  uuid,
+  text,
+  text,
+  text,
+  numeric,
+  integer,
+  boolean,
+  uuid
+);
+
 create or replace function public.update_business_product_metadata(
   p_workspace_id uuid,
   p_product_id uuid,
@@ -227,7 +239,8 @@ create or replace function public.update_business_product_metadata(
   p_default_sale_price numeric default null,
   p_minimum_stock integer default 0,
   p_active boolean default true,
-  p_category_id uuid default null
+  p_category_id uuid default null,
+  p_category_name text default null
 )
 returns jsonb
 language plpgsql
@@ -256,7 +269,8 @@ begin
     'default_sale_price', p_default_sale_price,
     'minimum_stock', p_minimum_stock,
     'active', p_active,
-    'category_id', p_category_id
+    'category_id', p_category_id,
+    'category_name', p_category_name
   )::text);
   existing_response := public.business_claim_idempotency(current_user_id, p_workspace_id, 'update_business_product_metadata', p_idempotency_key, request_hash);
   if existing_response is not null then
@@ -284,7 +298,12 @@ begin
     raise exception 'Preco de venda nao pode ser negativo';
   end if;
 
-  resolved_category_id := public.business_resolve_product_category(p_workspace_id, current_user_id, p_category_id, null);
+  resolved_category_id := public.business_resolve_product_category(
+    p_workspace_id,
+    current_user_id,
+    p_category_id,
+    p_category_name
+  );
 
   normalized_sku := nullif(trim(p_sku), '');
   if normalized_sku is not null then
@@ -333,8 +352,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.update_business_product_metadata(uuid, uuid, text, text, text, numeric, integer, boolean, uuid) from public, anon;
-grant execute on function public.update_business_product_metadata(uuid, uuid, text, text, text, numeric, integer, boolean, uuid) to authenticated;
+revoke execute on function public.update_business_product_metadata(uuid, uuid, text, text, text, numeric, integer, boolean, uuid, text) from public, anon;
+grant execute on function public.update_business_product_metadata(uuid, uuid, text, text, text, numeric, integer, boolean, uuid, text) to authenticated;
 
 drop function if exists public.get_business_inventory_page(
   uuid,

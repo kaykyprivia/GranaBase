@@ -228,7 +228,10 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
     if (!detail) return;
     setEditing(true);
     try {
-      const resolvedCategoryId = await resolveCategoryId(payload);
+      const newCategoryName =
+        payload.newCategoryName?.trim() || null;
+      const categoryId =
+        newCategoryName ? null : payload.categoryId;
 
       const args = {
         p_workspace_id: workspaceId,
@@ -240,7 +243,8 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
           payload.defaultSalePrice,
           payload.minimumStock,
           payload.active,
-          resolvedCategoryId,
+          categoryId,
+          newCategoryName,
           Date.now(),
         ]),
         p_name: payload.name,
@@ -248,7 +252,8 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         p_default_sale_price: payload.defaultSalePrice,
         p_minimum_stock: payload.minimumStock,
         p_active: payload.active,
-        p_category_id: resolvedCategoryId,
+        p_category_id: categoryId,
+        p_category_name: newCategoryName,
       } satisfies ProductUpdateArgs;
 
       const { error } = await supabase.rpc("update_business_product_metadata", coerceMutation(args));
@@ -409,46 +414,6 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
       />
     </div>
   );
-  async function resolveCategoryId(payload: {
-    categoryId: string | null;
-    newCategoryName?: string;
-  }): Promise<string | null> {
-    const name = payload.newCategoryName?.trim();
-
-    if (!name) {
-      return payload.categoryId;
-    }
-
-    const existing = categories.find(
-      (category) => category.name.trim().toLowerCase() === name.toLowerCase()
-    );
-
-    if (existing) {
-      return existing.id;
-    }
-
-    if (!detail) {
-      throw new Error("Produto nao encontrado");
-    }
-
-    const insertRes = await supabase
-      .from("business_product_categories")
-      .insert(coerceMutation({
-        user_id: detail.product.user_id,
-        workspace_id: workspaceId,
-        name,
-      }))
-      .select("*")
-      .single();
-
-    if (insertRes.error) {
-      throw insertRes.error;
-    }
-
-    const created = coerceData<BusinessProductCategory>(insertRes.data);
-    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
-    return created.id;
-  }
 }
 
 function buildInventoryItem(detail: InventoryProductDetail | null, categories: BusinessProductCategory[]): InventoryItem | null {
