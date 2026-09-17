@@ -394,7 +394,6 @@ export default function InvestmentsPage() {
   const [convertingCurrency, setConvertingCurrency] = useState(false);
   const [simulationAmount, setSimulationAmount] = useState(10000);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Investment | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -505,12 +504,12 @@ export default function InvestmentsPage() {
       return;
     }
 
-    setUserId(user.id);
     const [investmentsResponse, contributionsResponse] = await Promise.all([
       supabase
         .from("investments")
         .select("*")
         .eq("user_id", user.id)
+        .is("sold_at", null)
         .order("invested_at", { ascending: false }),
       supabase
         .from("investment_contributions")
@@ -687,18 +686,16 @@ export default function InvestmentsPage() {
   const onSubmit = async (data: InvestmentFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase
-          .from("investments")
-          .update(coerceMutation({
-            name: data.name,
-            amount: data.amount,
-            investment_type: data.investment_type,
-            invested_at: data.invested_at,
-            ticker: data.ticker?.trim().toUpperCase() || null,
-            quantity: data.quantity ?? null,
-            notes: data.notes || null,
-          }))
-          .eq("id", editingEntry.id);
+        const { error } = await supabase.rpc("update_investment", coerceMutation({
+          p_investment_id: editingEntry.id,
+          p_name: data.name,
+          p_amount: data.amount,
+          p_investment_type: data.investment_type,
+          p_invested_at: data.invested_at,
+          p_ticker: data.ticker?.trim().toUpperCase() || null,
+          p_quantity: data.quantity ?? null,
+          p_notes: data.notes || null,
+        }));
 
         if (error) throw error;
         toast.success("Investimento atualizado");
@@ -714,8 +711,6 @@ export default function InvestmentsPage() {
           : undefined;
 
         if (existingMatch) {
-          // Mesmo ativo de renda fixa ja cadastrado (ex: caixinha CDB) - soma o aporte
-          // ao ativo existente em vez de criar um registro duplicado.
           const rate = CDI_LIQUID_INVESTMENT_TYPES.includes(existingMatch.investment_type)
             ? marketOverview.cdi.annualizedValue
             : SELIC_LIQUID_INVESTMENT_TYPES.includes(existingMatch.investment_type)
@@ -729,27 +724,28 @@ export default function InvestmentsPage() {
 
           const newAmount = roundMarketMoney(accruedPrincipal + data.amount);
 
-          const { error } = await supabase
-            .from("investments")
-            .update(coerceMutation({
-              amount: newAmount,
-              invested_at: data.invested_at,
-              notes: data.notes || existingMatch.notes,
-            }))
-            .eq("id", existingMatch.id);
+          const { error } = await supabase.rpc("update_investment", coerceMutation({
+            p_investment_id: existingMatch.id,
+            p_name: existingMatch.name,
+            p_amount: newAmount,
+            p_investment_type: existingMatch.investment_type,
+            p_invested_at: data.invested_at,
+            p_ticker: existingMatch.ticker,
+            p_quantity: existingMatch.quantity,
+            p_notes: data.notes || existingMatch.notes,
+          }));
 
           if (error) throw error;
           toast.success(`Aporte somado a "${existingMatch.name}". Novo total: ${formatCurrency(newAmount)}`);
         } else {
-          const { error } = await supabase.from("investments").insert(coerceMutation({
-            user_id: userId,
-            name: data.name,
-            amount: data.amount,
-            investment_type: data.investment_type,
-            invested_at: data.invested_at,
-            ticker: data.ticker?.trim().toUpperCase() || null,
-            quantity: data.quantity ?? null,
-            notes: data.notes || null,
+          const { error } = await supabase.rpc("create_investment", coerceMutation({
+            p_name: data.name,
+            p_amount: data.amount,
+            p_investment_type: data.investment_type,
+            p_invested_at: data.invested_at,
+            p_ticker: data.ticker?.trim().toUpperCase() || null,
+            p_quantity: data.quantity ?? null,
+            p_notes: data.notes || null,
           }));
 
           if (error) throw error;
@@ -769,7 +765,9 @@ export default function InvestmentsPage() {
 
     setDeleting(true);
     try {
-      const { error } = await supabase.from("investments").delete().eq("id", deleteId);
+      const { error } = await supabase.rpc("delete_investment", coerceMutation({
+        p_investment_id: deleteId,
+      }));
       if (error) throw error;
 
       setEntries((current) => current.filter((entry) => entry.id !== deleteId));
@@ -787,7 +785,10 @@ export default function InvestmentsPage() {
 
     setSelling(true);
     try {
-      const { error } = await supabase.from("investments").delete().eq("id", sellingEntry.id);
+      const { error } = await supabase.rpc("sell_investment", coerceMutation({
+        p_investment_id: sellingEntry.id,
+        p_sold_amount: null,
+      }));
       if (error) throw error;
 
       setEntries((current) => current.filter((entry) => entry.id !== sellingEntry.id));
@@ -799,7 +800,6 @@ export default function InvestmentsPage() {
       setSellingEntry(null);
     }
   };
-
   const currentMonth = toLocalDateString().slice(0, 7);
   const monthlyTotal = useMemo(
     () => entries

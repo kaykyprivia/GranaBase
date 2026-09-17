@@ -1843,6 +1843,44 @@ export interface Database {
         };
         Returns: Json;
       };
+      create_investment: {
+        Args: {
+          p_name: string;
+          p_amount: number;
+          p_investment_type: string;
+          p_invested_at: string;
+          p_ticker?: string | null;
+          p_quantity?: number | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      update_investment: {
+        Args: {
+          p_investment_id: string;
+          p_name: string;
+          p_amount: number;
+          p_investment_type: string;
+          p_invested_at: string;
+          p_ticker?: string | null;
+          p_quantity?: number | null;
+          p_notes?: string | null;
+        };
+        Returns: void;
+      };
+      delete_investment: {
+        Args: {
+          p_investment_id: string;
+        };
+        Returns: void;
+      };
+      sell_investment: {
+        Args: {
+          p_investment_id: string;
+          p_sold_amount?: number | null;
+        };
+        Returns: void;
+      };
       record_investment_contribution: {
         Args: {
           p_amount: number;
