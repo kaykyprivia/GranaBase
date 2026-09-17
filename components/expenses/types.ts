@@ -12,4 +12,5 @@ export interface DisplayExpense {
   scheduledAmount?: number;
   actualDate?: string;
   dueDateRef?: string;
+  isProjected?: boolean;
 }

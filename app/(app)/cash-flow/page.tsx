@@ -92,7 +92,7 @@ export default function PersonalCashFlowPage() {
   const chartColors = useChartColors();
   const currency = useCurrency();
   const [events, setEvents] = useState<PersonalCashFlowEvent[]>([]);
-  const [period, setPeriod] = useState<PersonalCashFlowPeriod>("all");
+  const [period, setPeriod] = useState<PersonalCashFlowPeriod>("month");
   const [loading, setLoading] = useState(true);
 
   const loadCashFlow = useCallback(async () => {

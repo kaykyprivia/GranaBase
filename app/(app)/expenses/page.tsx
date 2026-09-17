@@ -453,6 +453,7 @@ export default function ExpensesPage() {
           dueAmount: payment.amount,
           scheduledAmount: payment.amount,
           dueDateRef: payment.due_date,
+          isProjected: payment.projected === true,
         };
       });
   }, [consortiumPaymentSchedule, consortiumsById]);
@@ -1019,6 +1020,17 @@ export default function ExpensesPage() {
         })).eq("id", markPaidItem.id);
         if (error) throw error;
         toast.success("Parcela paga!");
+      } else if (markPaidItem.source === "consortium") {
+        const { error } = await supabase.rpc(
+          "pay_consortium_payment",
+          coerceMutation({
+            p_payment_id: markPaidItem.id,
+            p_paid_amount: markPaidAmount,
+            p_notes: null,
+          })
+        );
+        if (error) throw error;
+        toast.success("Parcela do cons\u00f3rcio paga!");
       }
 
       setMarkPaidItem(null);
@@ -1048,6 +1060,15 @@ export default function ExpensesPage() {
       setEditPendingCategory(installment?.category ?? entry.category);
       setEditPendingPaymentMethod(installment?.payment_method ?? "");
       setEditPendingNotes(installment?.notes ?? "");
+    } else if (entry.source === "consortium") {
+      const payment = consortiumPayments.find((item) => item.id === entry.id);
+      const consortium = payment
+        ? consortiumsById.get(payment.consortium_id)
+        : undefined;
+      setEditPendingName(consortium?.name ?? entry.description);
+      setEditPendingCategory("Cons\u00f3rcio");
+      setEditPendingPaymentMethod("");
+      setEditPendingNotes(payment?.notes ?? "");
     }
   };
 
@@ -1075,6 +1096,34 @@ export default function ExpensesPage() {
           })).eq("id", payment.installment_id);
           if (installmentError) throw installmentError;
         }
+      } else if (editPendingItem.source === "consortium") {
+        const payment = consortiumPayments.find(
+          (item) => item.id === editPendingItem.id
+        );
+        if (!payment) throw new Error("Parcela do cons\u00f3rcio n\u00e3o encontrada");
+
+        const { error } = await supabase
+          .from("consortium_payments")
+          .update(
+            coerceMutation({
+              amount: editPendingAmount,
+              due_date: editPendingDueDate,
+              notes: editPendingNotes || null,
+            })
+          )
+          .eq("id", editPendingItem.id);
+        if (error) throw error;
+
+        const { error: consortiumError } = await supabase
+          .from("consortiums")
+          .update(
+            coerceMutation({
+              name: editPendingName,
+              current_installment_amount: editPendingAmount,
+            })
+          )
+          .eq("id", payment.consortium_id);
+        if (consortiumError) throw consortiumError;
       }
 
       toast.success("Lançamento atualizado");
@@ -1103,6 +1152,18 @@ export default function ExpensesPage() {
           if (error) throw error;
         }
         toast.success("Parcelamento excluído");
+      } else if (deletePendingItem.source === "consortium") {
+        const payment = consortiumPayments.find(
+          (item) => item.id === deletePendingItem.id
+        );
+        if (!payment) throw new Error("Parcela do consórcio não encontrada");
+
+        const { error } = await supabase
+          .from("consortiums")
+          .delete()
+          .eq("id", payment.consortium_id);
+        if (error) throw error;
+        toast.success("Consórcio excluído");
       }
 
       setDeletePendingItem(null);
@@ -1708,17 +1769,29 @@ export default function ExpensesPage() {
                 Valor original: <span className="font-semibold text-text-primary">{formatCurrency(markPaidItem.dueAmount, currency)}</span>
               </p>
             )}
-            <FormField label="Valor pago" required hint={markPaidItem?.source === "installment" ? "Altere o valor se pagou com desconto ou acréscimo." : undefined}>
+            <FormField
+              label="Valor pago"
+              required
+              hint={
+                markPaidItem?.source === "installment"
+                  ? "Altere o valor se pagou com desconto ou acréscimo."
+                  : markPaidItem?.source === "consortium"
+                    ? "Altere o valor se pagou com desconto."
+                    : undefined
+              }
+            >
               <CurrencyInput value={markPaidAmount} onChange={setMarkPaidAmount} />
             </FormField>
-            {markPaidItem?.source === "installment" && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
+            {(markPaidItem?.source === "installment" || markPaidItem?.source === "consortium") && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
               <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
                 Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
               </p>
             )}
-            <FormField label="Data do pagamento" required>
-              <Input type="date" value={markPaidDate} onChange={e => setMarkPaidDate(e.target.value)} />
-            </FormField>
+            {markPaidItem?.source !== "consortium" && (
+              <FormField label="Data do pagamento" required>
+                <Input type="date" value={markPaidDate} onChange={e => setMarkPaidDate(e.target.value)} />
+              </FormField>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMarkPaidItem(null)}>Cancelar</Button>
@@ -1766,7 +1839,13 @@ export default function ExpensesPage() {
       <Dialog open={editPendingItem !== null} onOpenChange={open => !open && setEditPendingItem(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editPendingItem?.source === "bill" ? "Editar conta" : "Editar parcelamento"}</DialogTitle>
+            <DialogTitle>
+              {editPendingItem?.source === "bill"
+                ? "Editar conta"
+                : editPendingItem?.source === "consortium"
+                  ? "Editar parcela do consórcio"
+                  : "Editar parcelamento"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <FormField label={editPendingItem?.source === "bill" ? "Nome da conta fixa" : "Descrição"} required>
@@ -1780,24 +1859,26 @@ export default function ExpensesPage() {
                 <Input type="date" value={editPendingDueDate} onChange={e => setEditPendingDueDate(e.target.value)} />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Categoria" required>
-                <Select value={editPendingCategory} onValueChange={setEditPendingCategory}>
-                  <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
-                  <SelectContent>
-                    {(editPendingItem?.source === "bill" ? BILL_CATEGORIES : expenseCategories).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </FormField>
-              {editPendingItem?.source === "installment" && (
-                <FormField label="Método de pagamento">
-                  <Select value={editPendingPaymentMethod} onValueChange={setEditPendingPaymentMethod}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            {editPendingItem?.source !== "consortium" && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Categoria" required>
+                  <Select value={editPendingCategory} onValueChange={setEditPendingCategory}>
+                    <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+                    <SelectContent>
+                      {(editPendingItem?.source === "bill" ? BILL_CATEGORIES : expenseCategories).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </FormField>
-              )}
-            </div>
+                {editPendingItem?.source === "installment" && (
+                  <FormField label="Método de pagamento">
+                    <Select value={editPendingPaymentMethod} onValueChange={setEditPendingPaymentMethod}>
+                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </FormField>
+                )}
+              </div>
+            )}
             <FormField label="Observações">
               <Textarea placeholder="Notas opcionais..." rows={2} value={editPendingNotes} onChange={e => setEditPendingNotes(e.target.value)} />
             </FormField>
@@ -1810,11 +1891,13 @@ export default function ExpensesPage() {
       </Dialog>
 
       <ConfirmDialog open={deletePendingItem !== null} onOpenChange={open => !open && setDeletePendingItem(null)}
-        title={deletePendingItem?.source === "installment" ? "Excluir parcelamento" : "Excluir conta"}
+        title={deletePendingItem?.source === "installment" ? "Excluir parcelamento" : deletePendingItem?.source === "consortium" ? "Excluir consórcio" : "Excluir conta"}
         description={
           deletePendingItem?.source === "installment"
             ? `Isso vai excluir TODAS as parcelas de "${deletePendingItem?.description}", não só esta. Esta ação não pode ser desfeita.`
-            : "Tem certeza? Esta ação não pode ser desfeita."
+            : deletePendingItem?.source === "consortium"
+              ? `Isso vai excluir o consórcio e todo o histórico de parcelas de "${deletePendingItem?.description}". Esta ação não pode ser desfeita.`
+              : "Tem certeza? Esta ação não pode ser desfeita."
         }
         confirmLabel="Excluir" onConfirm={handleDeletePending} loading={deletingPending} />
 

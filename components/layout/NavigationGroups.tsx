@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import type { NavigationGroup } from "@/components/layout/navigation";
 
@@ -13,6 +13,31 @@ interface NavigationGroupsProps {
 }
 
 type ExpandedState = Record<NavigationGroup["id"], boolean>;
+
+const collapsedGroups: ExpandedState = {
+  finance: false,
+  business: false,
+};
+
+let expandedGroups: ExpandedState = collapsedGroups;
+const expandedGroupListeners = new Set<() => void>();
+
+function subscribeToExpandedGroups(listener: () => void) {
+  expandedGroupListeners.add(listener);
+  return () => expandedGroupListeners.delete(listener);
+}
+
+function getExpandedGroups() {
+  return expandedGroups;
+}
+
+function toggleExpandedGroup(groupId: NavigationGroup["id"]) {
+  expandedGroups = {
+    ...expandedGroups,
+    [groupId]: !expandedGroups[groupId],
+  };
+  expandedGroupListeners.forEach((listener) => listener());
+}
 
 export function NavigationGroups({ groups, onNavigate }: NavigationGroupsProps) {
   const pathname = usePathname();
@@ -30,16 +55,14 @@ export function NavigationGroups({ groups, onNavigate }: NavigationGroupsProps) 
     "/investments": pathname === "/investments",
   }));
 
-  const [expanded, setExpanded] = useState<ExpandedState>({
-    finance: false,
-    business: false,
-  });
+  const expanded = useSyncExternalStore(
+    subscribeToExpandedGroups,
+    getExpandedGroups,
+    () => collapsedGroups
+  );
 
   const toggleGroup = (groupId: NavigationGroup["id"]) => {
-    setExpanded((current) => ({
-      ...current,
-      [groupId]: !current[groupId],
-    }));
+    toggleExpandedGroup(groupId);
   };
 
   const toggleItem = (href: string) => {

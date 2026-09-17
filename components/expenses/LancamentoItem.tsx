@@ -104,7 +104,7 @@ export function LancamentoItem({
         </div>
 
         <div className="flex shrink-0 items-center gap-1 ml-auto sm:ml-0">
-        {entry.source === "consortium" ? null : entry.status !== "paid" ? (
+        {entry.source === "consortium" && (entry.isProjected || entry.status === "paid") ? null : entry.status !== "paid" ? (
           <>
             <Button
               variant="outline"
@@ -130,7 +130,7 @@ export function LancamentoItem({
               size="icon-sm"
               onClick={onDelete}
               className="text-text-secondary hover:text-expense hover:bg-expense/10"
-              title={entry.source === "installment" ? "Excluir parcelamento" : "Excluir conta"}
+              title={entry.source === "installment" ? "Excluir parcelamento" : entry.source === "consortium" ? "Excluir cons\u00f3rcio" : "Excluir conta"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
