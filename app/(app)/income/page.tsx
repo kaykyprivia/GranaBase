@@ -126,6 +126,9 @@ export default function IncomePage() {
   const [trendMonths, setTrendMonths] = useState<3 | 6 | 12>(6);
   const [trendOffset, setTrendOffset] = useState(0);
   const trendTouchStartX = useRef<number | null>(null);
+  const monthCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pendingScrollMonthRef = useRef<string | null>(null);
+  const lastTrendClickRef = useRef<{ month: string; at: number } | null>(null);
 
   const monthOptions = getMonthOptions();
 
@@ -187,7 +190,7 @@ export default function IncomePage() {
         .filter((e) => e.received_at.startsWith(key))
         .reduce((sum, entry) => sum + entry.amount, 0);
 
-      return { month: label, value };
+      return { key, month: label, value };
     });
   }, [allEntries, trendMonths, trendOffset]);
 
@@ -277,6 +280,17 @@ export default function IncomePage() {
   const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
 
   useEffect(() => {
+    const month = pendingScrollMonthRef.current;
+    if (!month) return;
+
+    const target = monthCardRefs.current[month];
+    if (!target) return;
+
+    pendingScrollMonthRef.current = null;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [visibleOtherMonths, currentMonthGroup, openMonths]);
+
+  useEffect(() => {
     if (groupedByMonth.length === 0) return;
     const hasCurrentMonth = groupedByMonth.some((g) => g.month === currentMonth);
     setOpenMonths(new Set([hasCurrentMonth ? currentMonth : groupedByMonth[0].month]));
@@ -290,9 +304,57 @@ export default function IncomePage() {
     });
   };
 
+  const openMonthFromTrend = (month: string) => {
+    if (!groupedByMonth.some((group) => group.month === month)) return;
+
+    setOpenMonths((previous) => {
+      const next = new Set(previous);
+      next.add(month);
+      return next;
+    });
+
+    const otherMonthIndex = otherMonthGroups.findIndex((group) => group.month === month);
+    if (otherMonthIndex >= 0) {
+      const nextStart = Math.min(
+        otherMonthsMaxStart,
+        Math.max(0, otherMonthIndex - Math.floor(OTHER_MONTHS_WINDOW / 2))
+      );
+      setOtherMonthsWindowStart(nextStart);
+    }
+
+    pendingScrollMonthRef.current = month;
+  };
+
+  const getTrendMonthFromEvent = (event: unknown) => {
+    const candidate = event as {
+      activePayload?: Array<{ payload?: { key?: string } }>;
+      payload?: { key?: string };
+    };
+
+    return candidate.activePayload?.[0]?.payload?.key ?? candidate.payload?.key ?? null;
+  };
+
+  const handleTrendClick = (event: unknown) => {
+    const month = getTrendMonthFromEvent(event);
+    if (!month) return;
+
+    const now = Date.now();
+    const lastClick = lastTrendClickRef.current;
+    if (lastClick?.month === month && now - lastClick.at <= 450) {
+      lastTrendClickRef.current = null;
+      openMonthFromTrend(month);
+      return;
+    }
+
+    lastTrendClickRef.current = { month, at: now };
+  };
+
+  const handleTrendDoubleClick = (event: unknown) => {
+    const month = getTrendMonthFromEvent(event);
+    if (month) openMonthFromTrend(month);
+  };
 
   const monthTotal = allEntries.filter(e => e.received_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = allEntries.reduce((s, e) => s + e.amount, 0);
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -398,7 +460,11 @@ export default function IncomePage() {
     const { month, label, items, total } = group;
     const isOpen = openMonths.has(month);
     return (
-      <div key={month} className={cn("overflow-hidden rounded-2xl border", isCurrent ? "border-profit/40" : "border-border/50")}>
+      <div
+        key={month}
+        ref={(node) => { monthCardRefs.current[month] = node; }}
+        className={cn("overflow-hidden rounded-2xl border", isCurrent ? "border-profit/40" : "border-border/50")}
+      >
         <button type="button" onClick={onToggleCard}
           className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
           <div className="flex flex-1 flex-wrap items-center gap-2">
@@ -487,9 +553,8 @@ export default function IncomePage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="mb-6">
         <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingUp} variant="profit" loading={loading} />
-        <StatCard title="Total Geral" value={formatCurrency(totalAll, currency)} icon={TrendingUp} variant="profit" loading={loading} />
       </div>
 
       {/* Trend chart */}
@@ -535,7 +600,12 @@ export default function IncomePage() {
           </div>
 
           <ResponsiveContainer width="100%" height={80}>
-            <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+            <BarChart
+              data={trendData}
+              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+              onClick={handleTrendClick}
+              onDoubleClick={handleTrendDoubleClick}
+            >
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartColors.axis }} axisLine={false} tickLine={false} />
               <RechartTooltip content={<TrendTooltip />} cursor={{ fill: chartColors.cursor }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36} minPointSize={(value) => (!value ? 4 : 0)}>

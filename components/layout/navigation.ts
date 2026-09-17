@@ -36,6 +36,7 @@ export type NavigationGroup = {
 
 export const financeNavItems: NavigationItem[] = [
   { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  { href: "/cash-flow", label: "Fluxo de Caixa", icon: Wallet },
   { href: "/income", label: "Entradas", icon: TrendingUp },
   { href: "/expenses", label: "Gastos", icon: TrendingDown },
   { href: "/receivables", label: "A Receber", icon: HandCoins },

@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BarChart, Bar, Cell, XAxis, Tooltip as RechartTooltip, ResponsiveContainer } from "recharts";
-import { TrendingDown, Plus, Pencil, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Upload, Check, RotateCcw } from "lucide-react";
+import { TrendingDown, Plus, Pencil, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Upload, Check, RotateCcw, Landmark } from "lucide-react";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -45,6 +45,7 @@ type ExpenseType = "normal" | "parcelado" | "fixa";
 
 type Consortium = Database["public"]["Tables"]["consortiums"]["Row"];
 type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Row"];
+type ScheduledConsortiumPayment = ConsortiumPayment & { projected?: boolean };
 
 const installmentWithExtrasSchema = installmentSchema.extend({
   category: z.string().min(1, "Categoria é obrigatória"),
@@ -106,6 +107,24 @@ function withNewDate(originalIso: string, newDateStr: string) {
   const [year, month, day] = newDateStr.split("-").map(Number);
   original.setUTCFullYear(year, month - 1, day);
   return original.toISOString();
+}
+
+function getConsortiumInstallmentDueDate(
+  consortium: Consortium,
+  installmentNumber: number
+) {
+  const [year, month] = consortium.first_due_date.split("-").map(Number);
+  const targetMonth = new Date(Date.UTC(year, month - 1 + installmentNumber - 1, 1));
+  const lastDay = new Date(
+    Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+  const dueDay = Math.min(consortium.due_day, lastDay);
+
+  return new Date(
+    Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth(), dueDay)
+  )
+    .toISOString()
+    .slice(0, 10);
 }
 
 function dateTimeSortKey(entry: DisplayExpense) {
@@ -238,6 +257,60 @@ export default function ExpensesPage() {
     [consortiums]
   );
 
+  const consortiumPaymentSchedule = useMemo<ScheduledConsortiumPayment[]>(() => {
+    return consortiums.flatMap((consortium) => {
+      const ownPayments = consortiumPayments.filter(
+        (payment) => payment.consortium_id === consortium.id
+      );
+      const paymentsByNumber = new Map(
+        ownPayments.map((payment) => [payment.installment_number, payment])
+      );
+      const schedule: ScheduledConsortiumPayment[] = [];
+
+      for (
+        let installmentNumber = consortium.initial_paid_installments + 1;
+        installmentNumber <= consortium.total_installments;
+        installmentNumber += 1
+      ) {
+        const existingPayment = paymentsByNumber.get(installmentNumber);
+
+        if (existingPayment) {
+          const isPaid =
+            existingPayment.status === "paid" ||
+            existingPayment.status === "paid_with_discount";
+
+          if (consortium.status !== "cancelled" || isPaid) {
+            schedule.push(existingPayment);
+          }
+          continue;
+        }
+
+        if (consortium.status !== "active") continue;
+
+        const dueDate = getConsortiumInstallmentDueDate(
+          consortium,
+          installmentNumber
+        );
+        schedule.push({
+          id: `projected-${consortium.id}-${installmentNumber}`,
+          user_id: consortium.user_id,
+          consortium_id: consortium.id,
+          installment_number: installmentNumber,
+          due_date: dueDate,
+          amount: consortium.current_installment_amount,
+          status: "pending",
+          paid_amount: null,
+          paid_at: null,
+          notes: null,
+          created_at: dueDate,
+          projected: true,
+        });
+      }
+
+      return schedule;
+    });
+  }, [consortiumPayments, consortiums]);
+
   const installmentSummaries = useMemo(() => {
     return installments
       .filter((installment) => appliesMaeFilter(userId, "exclude-mae", installment.description))
@@ -249,6 +322,62 @@ export default function ExpensesPage() {
       .filter((s) => s.remainingCount > 0)
       .sort((a, b) => (a.nextPayment?.due_date ?? "").localeCompare(b.nextPayment?.due_date ?? ""));
   }, [installments, payments, userId]);
+
+  const consortiumSummaries = useMemo(() => {
+    return consortiums
+      .filter((consortium) => consortium.status === "active")
+      .map((consortium) => {
+        const scheduledPayments = consortiumPaymentSchedule.filter(
+          (payment) => payment.consortium_id === consortium.id
+        );
+        const paidPayments = scheduledPayments.filter(
+          (payment) =>
+            payment.status === "paid" ||
+            payment.status === "paid_with_discount"
+        );
+        const pendingPayments = scheduledPayments.filter(
+          (payment) =>
+            payment.status !== "paid" &&
+            payment.status !== "paid_with_discount"
+        );
+        const paidCount = Math.min(
+          consortium.total_installments,
+          consortium.initial_paid_installments + paidPayments.length
+        );
+        const paidAmount =
+          consortium.initial_paid_amount +
+          paidPayments.reduce(
+            (sum, payment) => sum + (payment.paid_amount ?? payment.amount),
+            0
+          );
+        const remainingAmount = pendingPayments.reduce(
+          (sum, payment) => sum + payment.amount,
+          0
+        );
+        const nextPayment = [...pendingPayments].sort((a, b) =>
+          a.due_date.localeCompare(b.due_date)
+        )[0] ?? null;
+
+        return {
+          consortium,
+          paidCount,
+          paidAmount,
+          remainingCount: consortium.total_installments - paidCount,
+          remainingAmount,
+          progress: Math.min(
+            100,
+            (paidCount / consortium.total_installments) * 100
+          ),
+          nextPayment,
+        };
+      })
+      .filter((summary) => summary.remainingCount > 0)
+      .sort((a, b) =>
+        (a.nextPayment?.due_date ?? "").localeCompare(
+          b.nextPayment?.due_date ?? ""
+        )
+      );
+  }, [consortiumPaymentSchedule, consortiums]);
 
   const billsAndInstallmentsDisplay = useMemo<DisplayExpense[]>(() => {
     const billItems: DisplayExpense[] = bills.map((bill) => {
@@ -299,33 +428,34 @@ export default function ExpensesPage() {
   }, [bills, payments, installmentsById, userId]);
 
   const consortiumPaymentsDisplay = useMemo<DisplayExpense[]>(() => {
-    return consortiumPayments
-      .filter((payment) =>
-        (payment.status === "paid" || payment.status === "paid_with_discount") &&
-        payment.paid_at
-      )
+    return consortiumPaymentSchedule
       .map((payment) => {
         const consortium = consortiumsById.get(payment.consortium_id);
-        const paidAmount = payment.paid_amount ?? payment.amount;
+        const paid = (payment.status === "paid" || payment.status === "paid_with_discount") && !!payment.paid_at;
+        const status: DisplayExpense["status"] = paid
+          ? "paid"
+          : isOverdue(payment.due_date)
+            ? "overdue"
+            : "pending";
 
         return {
           id: payment.id,
           description: consortium
             ? `${consortium.name} (${payment.installment_number}/${consortium.total_installments})`
             : `Cons\u00f3rcio - parcela ${payment.installment_number}`,
-          amount: paidAmount,
+          amount: paid ? payment.paid_amount ?? payment.amount : payment.amount,
           category: "Cons\u00f3rcio",
-          spent_at: payment.paid_at!.slice(0, 10),
+          spent_at: paid ? payment.paid_at!.slice(0, 10) : payment.due_date,
           payment_method: null,
-          created_at: payment.paid_at!,
+          created_at: paid ? payment.paid_at! : payment.due_date,
           source: "consortium" as const,
-          status: "paid" as const,
+          status,
           dueAmount: payment.amount,
           scheduledAmount: payment.amount,
           dueDateRef: payment.due_date,
         };
       });
-  }, [consortiumPayments, consortiumsById]);
+  }, [consortiumPaymentSchedule, consortiumsById]);
 
   const allEntries = useMemo<DisplayExpense[]>(() => [
     ...entries.map((e) => {
@@ -507,6 +637,50 @@ export default function ExpensesPage() {
     return map;
   }, [payments, billsAndInstallmentsDisplay]);
 
+  const consortiumPaymentsDisplayById = useMemo(() => {
+    const map = new Map<string, DisplayExpense[]>();
+
+    consortiumPaymentSchedule.forEach((payment) => {
+      const display = consortiumPaymentsDisplay.find(
+        (entry) => entry.id === payment.id
+      );
+      if (!display) return;
+
+      const list = map.get(payment.consortium_id) ?? [];
+      list.push(display);
+      map.set(payment.consortium_id, list);
+    });
+
+    map.forEach((list) => {
+      list.sort((a, b) => {
+        const paymentA = consortiumPaymentSchedule.find(
+          (payment) => payment.id === a.id
+        );
+        const paymentB = consortiumPaymentSchedule.find(
+          (payment) => payment.id === b.id
+        );
+        return (
+          (paymentA?.installment_number ?? 0) -
+          (paymentB?.installment_number ?? 0)
+        );
+      });
+    });
+
+    return map;
+  }, [consortiumPaymentSchedule, consortiumPaymentsDisplay]);
+
+  const activePaymentPlanCount =
+    installmentSummaries.length + consortiumSummaries.length;
+  const paymentPlansRemainingTotal =
+    installmentSummaries.reduce(
+      (sum, summary) => sum + summary.remainingAmount,
+      0
+    ) +
+    consortiumSummaries.reduce(
+      (sum, summary) => sum + summary.remainingAmount,
+      0
+    );
+
   const currentMonthGroup = useMemo(() => groupedByMonth.find((g) => g.month === currentMonth), [groupedByMonth, currentMonth]);
   const futureMonthGroups = useMemo(
     () => groupedByMonth.filter((g) => g.month > currentMonth).sort((a, b) => a.month.localeCompare(b.month)),
@@ -595,8 +769,12 @@ export default function ExpensesPage() {
     return sorted.map((m) => ({ value: m, label: formatMonthLabel(m) }));
   }, [groupedByMonth, currentMonth]);
 
-  const monthTotal = realizedEntries.filter(e => e.spent_at.startsWith(currentMonth)).reduce((s, e) => s + e.amount, 0);
-  const totalAll = realizedEntries.reduce((s, e) => s + e.amount, 0);
+  const pendingTotal = allEntries
+    .filter(
+      (entry) =>
+        entry.status !== "paid" && entry.spent_at.startsWith(currentMonth)
+    )
+    .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
 
   const openCreate = () => {
     setEditingEntry(null);
@@ -1011,9 +1189,8 @@ export default function ExpensesPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
-        <StatCard title="Total Geral" value={formatCurrency(totalAll, currency)} icon={TrendingDown} variant="expense" loading={loading} />
+      <div className="mb-6">
+        <StatCard title="Falta pagar" value={formatCurrency(pendingTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
       </div>
 
       {/* Trend chart */}
@@ -1093,15 +1270,15 @@ export default function ExpensesPage() {
       )}
 
       {/* Installment progress */}
-      {!loading && installmentSummaries.length > 0 && (
+      {!loading && activePaymentPlanCount > 0 && (
         <div className="mb-5 overflow-hidden rounded-2xl border border-border/50">
           <button type="button" onClick={() => setInstallmentSummaryOpen((o) => !o)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-border/20">
             <div className="flex flex-1 flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Parcelamentos em andamento</span>
-              <span className="text-[10px] text-text-secondary">{installmentSummaries.length} ativo{installmentSummaries.length !== 1 ? "s" : ""}</span>
+              <span className="text-[10px] text-text-secondary">{activePaymentPlanCount} ativo{activePaymentPlanCount !== 1 ? "s" : ""}</span>
               <span className="rounded-full bg-expense/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-expense">
-                Falta {formatCurrency(installmentSummaries.reduce((s, i) => s + i.remainingAmount, 0), currency)}
+                Falta {formatCurrency(paymentPlansRemainingTotal, currency)}
               </span>
             </div>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-secondary transition-transform duration-300", installmentSummaryOpen ? "rotate-180" : "rotate-0")} />
@@ -1191,6 +1368,77 @@ export default function ExpensesPage() {
                                       </>
                                     )}
                                   </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {consortiumSummaries.map(({ consortium, paidCount, paidAmount, progress, remainingAmount, nextPayment }) => {
+                  const expansionId = `consortium:${consortium.id}`;
+                  const isExpanded = expandedInstallmentIds.has(expansionId);
+                  const scheduledPayments = consortiumPaymentsDisplayById.get(consortium.id) ?? [];
+
+                  return (
+                    <div key={consortium.id} className="rounded-2xl border border-border/50 px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <Landmark className="h-4 w-4 shrink-0 text-accent" />
+                          <p className="min-w-0 break-words text-sm font-medium text-text-primary">{consortium.name}</p>
+                        </div>
+                        <span className={cn(
+                          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                          progress >= 80 ? "bg-profit/20 text-profit" : progress >= 40 ? "bg-warning/20 text-warning" : "bg-accent/20 text-accent"
+                        )}>
+                          {paidCount}/{consortium.total_installments}
+                        </span>
+                        <button type="button" onClick={() => toggleInstallmentExpanded(expansionId)}
+                          className="shrink-0 rounded-lg p-0.5 text-text-secondary transition-colors hover:bg-border/20 hover:text-text-primary"
+                          title={isExpanded ? "Recolher parcelas" : "Ver parcelas"}>
+                          <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", isExpanded ? "rotate-180" : "rotate-0")} />
+                        </button>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">{"Cons\u00f3rcio"}</Badge>
+                      </div>
+                      <Progress value={progress} className="mt-2 h-1.5"
+                        indicatorClassName={progress >= 80 ? "bg-profit" : progress >= 40 ? "bg-warning" : "bg-accent"} />
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-text-secondary">
+                        <span>Pago: <span className="font-semibold text-text-primary">{formatCurrency(paidAmount, currency)}</span></span>
+                        <span>Falta: <span className="font-semibold text-text-primary">{formatCurrency(remainingAmount, currency)}</span></span>
+                      </div>
+                      {nextPayment && (
+                        <p className="mt-1 text-[10px] text-text-secondary">
+                          Pr\u00f3xima: {formatDate(nextPayment.due_date)} {"\u00b7"} {formatCurrency(nextPayment.amount, currency)}
+                        </p>
+                      )}
+
+                      <div className={cn("grid transition-all duration-300 ease-in-out", isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                        <div className="overflow-hidden">
+                          <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                            {scheduledPayments.map((payment) => {
+                              const paymentRow = consortiumPaymentSchedule.find((row) => row.id === payment.id);
+                              const paymentNumber = paymentRow?.installment_number;
+                              const isDiscounted = paymentRow?.status === "paid_with_discount";
+
+                              return (
+                                <div key={payment.id} className="flex items-center gap-2 py-1">
+                                  <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-secondary">
+                                    {paymentNumber}/{consortium.total_installments}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} {"\u00b7"} {formatCurrency(payment.amount, currency)}</p>
+                                    {payment.status === "paid" && payment.dueDateRef && payment.dueDateRef !== payment.spent_at && (
+                                      <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(payment.dueDateRef)}</p>
+                                    )}
+                                  </div>
+                                  {payment.status === "overdue" && <Badge variant="expense" className="px-1.5 py-0 text-[9px]">Atrasada</Badge>}
+                                  {payment.status === "pending" && <Badge variant="pending" className="px-1.5 py-0 text-[9px]">Pendente</Badge>}
+                                  {isDiscounted && <Badge variant="paid_with_discount" className="px-1.5 py-0 text-[9px]">Pago com desconto</Badge>}
+                                  {payment.status === "paid" && !isDiscounted && <Badge variant="paid" className="px-1.5 py-0 text-[9px]">Pago</Badge>}
                                 </div>
                               );
                             })}
