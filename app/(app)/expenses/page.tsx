@@ -186,6 +186,9 @@ export default function ExpensesPage() {
   const [expandedInstallmentIds, setExpandedInstallmentIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const monthCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pendingScrollMonthRef = useRef<string | null>(null);
+  const lastTrendClickRef = useRef<{ month: string; at: number } | null>(null);
 
   const expenseCategories = useMemo(() => buildExpenseCategories(customCategories), [customCategories]);
 
@@ -382,7 +385,7 @@ export default function ExpensesPage() {
         .filter((e) => e.spent_at.startsWith(key))
         .reduce((sum, entry) => sum + entry.amount, 0);
 
-      return { month: label, value };
+      return { key, month: label, value };
     });
   }, [realizedEntries, trendMonths, trendOffset]);
 
@@ -519,6 +522,67 @@ export default function ExpensesPage() {
   const otherMonthsDefaultStart = Math.min(pastMonthGroups.length, otherMonthsMaxStart);
   const otherMonthsStart = Math.min(otherMonthsWindowStart ?? otherMonthsDefaultStart, otherMonthsMaxStart);
   const visibleOtherMonths = otherMonthGroups.slice(otherMonthsStart, otherMonthsStart + OTHER_MONTHS_WINDOW);
+
+  useEffect(() => {
+    const month = pendingScrollMonthRef.current;
+    if (!month) return;
+
+    const target = monthCardRefs.current[month];
+    if (!target) return;
+
+    pendingScrollMonthRef.current = null;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [visibleOtherMonths, currentMonthGroup, openMonths]);
+
+  const openMonthFromTrend = (month: string) => {
+    if (!groupedByMonth.some((group) => group.month === month)) return;
+
+    setOpenMonths((previous) => {
+      const next = new Set(previous);
+      next.add(month);
+      return next;
+    });
+
+    const otherMonthIndex = otherMonthGroups.findIndex((group) => group.month === month);
+    if (otherMonthIndex >= 0) {
+      const nextStart = Math.min(
+        otherMonthsMaxStart,
+        Math.max(0, otherMonthIndex - Math.floor(OTHER_MONTHS_WINDOW / 2))
+      );
+      setOtherMonthsWindowStart(nextStart);
+    }
+
+    pendingScrollMonthRef.current = month;
+  };
+
+  const getTrendMonthFromEvent = (event: unknown) => {
+    const candidate = event as {
+      activePayload?: Array<{ payload?: { key?: string } }>;
+      payload?: { key?: string };
+    };
+
+    return candidate.activePayload?.[0]?.payload?.key ?? candidate.payload?.key ?? null;
+  };
+
+  const handleTrendClick = (event: unknown) => {
+    const month = getTrendMonthFromEvent(event);
+    if (!month) return;
+
+    const now = Date.now();
+    const lastClick = lastTrendClickRef.current;
+    if (lastClick?.month === month && now - lastClick.at <= 450) {
+      lastTrendClickRef.current = null;
+      openMonthFromTrend(month);
+      return;
+    }
+
+    lastTrendClickRef.current = { month, at: now };
+  };
+
+  const handleTrendDoubleClick = (event: unknown) => {
+    const month = getTrendMonthFromEvent(event);
+    if (month) openMonthFromTrend(month);
+  };
 
   const monthOptions = useMemo(() => {
     const months = new Set<string>(groupedByMonth.map((g) => g.month));
@@ -996,7 +1060,12 @@ export default function ExpensesPage() {
           </div>
 
           <ResponsiveContainer width="100%" height={80}>
-            <BarChart data={trendData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+            <BarChart
+              data={trendData}
+              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+              onClick={handleTrendClick}
+              onDoubleClick={handleTrendDoubleClick}
+            >
               <XAxis
                 dataKey="month"
                 tick={{ fontSize: 11, fill: chartColors.axis }}
@@ -1163,13 +1232,15 @@ export default function ExpensesPage() {
       ) : (
         <div className="space-y-2">
           {currentMonthGroup && (
-            <MonthGroupCard
-              month={currentMonthGroup.month} label={currentMonthGroup.label} items={currentMonthGroup.items}
-              isCurrent isOpen={openMonths.has(currentMonthGroup.month)} onToggle={() => toggleMonth(currentMonthGroup.month)}
-              currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
-              onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
-              onRevert={(entry) => setRevertItem(entry)}
-            />
+            <div ref={(node) => { monthCardRefs.current[currentMonthGroup.month] = node; }}>
+              <MonthGroupCard
+                month={currentMonthGroup.month} label={currentMonthGroup.label} items={currentMonthGroup.items}
+                isCurrent isOpen={openMonths.has(currentMonthGroup.month)} onToggle={() => toggleMonth(currentMonthGroup.month)}
+                currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+                onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+                onRevert={(entry) => setRevertItem(entry)}
+              />
+            </div>
           )}
 
           {otherMonthGroups.length > 0 && (
@@ -1191,14 +1262,15 @@ export default function ExpensesPage() {
               )}
               <div className="flex flex-col gap-2">
                 {visibleOtherMonths.map((group) => (
-                  <MonthGroupCard
-                    key={group.month}
-                    month={group.month} label={group.label} items={group.items}
-                    isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
-                    currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
-                    onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
-                    onRevert={(entry) => setRevertItem(entry)}
-                  />
+                  <div key={group.month} ref={(node) => { monthCardRefs.current[group.month] = node; }}>
+                    <MonthGroupCard
+                      month={group.month} label={group.label} items={group.items}
+                      isCurrent={false} isOpen={openMonths.has(group.month)} onToggle={() => toggleMonth(group.month)}
+                      currency={currency} getCategoryColor={getCategoryColor} isDiscounted={isEntryDiscounted}
+                      onMarkPaid={openMarkPaid} onEdit={handleEntryEdit} onDelete={handleEntryDelete}
+                      onRevert={(entry) => setRevertItem(entry)}
+                    />
+                  </div>
                 ))}
               </div>
               {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
