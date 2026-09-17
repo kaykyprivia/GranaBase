@@ -3,19 +3,18 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { NavigationGroup } from "@/components/layout/navigation";
 
 interface NavigationGroupsProps {
   groups: NavigationGroup[];
-  storageKey: string;
   onNavigate?: () => void;
 }
 
 type ExpandedState = Record<NavigationGroup["id"], boolean>;
 
-export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationGroupsProps) {
+export function NavigationGroups({ groups, onNavigate }: NavigationGroupsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeGroupIds = useMemo(
@@ -31,35 +30,10 @@ export function NavigationGroups({ groups, storageKey, onNavigate }: NavigationG
     "/investments": pathname === "/investments",
   }));
 
-  const [expanded, setExpanded] = useState<ExpandedState>(() => ({
-    finance: !pathname.startsWith("/business"),
-    business: pathname.startsWith("/business"),
-  }));
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Partial<ExpandedState>;
-        setExpanded({
-          finance: activeGroupIds.has("finance") || (parsed.finance ?? true),
-          business: activeGroupIds.has("business") || (parsed.business ?? false),
-        });
-        return;
-      } catch {
-        window.localStorage.removeItem(storageKey);
-      }
-    }
-
-    setExpanded((current) => ({
-      finance: activeGroupIds.has("finance") || current.finance,
-      business: activeGroupIds.has("business") || current.business,
-    }));
-  }, [activeGroupIds, storageKey]);
-
-  useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(expanded));
-  }, [expanded, storageKey]);
+  const [expanded, setExpanded] = useState<ExpandedState>({
+    finance: false,
+    business: false,
+  });
 
   const toggleGroup = (groupId: NavigationGroup["id"]) => {
     setExpanded((current) => ({

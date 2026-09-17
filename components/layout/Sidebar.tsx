@@ -35,7 +35,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 min-h-0 px-2 py-4 overflow-y-auto">
-        <NavigationGroups groups={getNavigationGroups(isMaeUser)} storageKey="granabase-sidebar-groups" />
+        <NavigationGroups groups={getNavigationGroups(isMaeUser)} />
       </nav>
 
       <div className="shrink-0 px-2 pb-4 border-t border-border/70 pt-3">

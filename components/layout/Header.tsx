@@ -409,7 +409,6 @@ export function Header({ pageTitle }: HeaderProps) {
             <nav className="flex-1 min-h-0 px-2 py-4 overflow-y-auto">
               <NavigationGroups
                 groups={getNavigationGroups(isMaeUser)}
-                storageKey="granabase-mobile-nav-groups"
                 onNavigate={() => setMobileMenuOpen(false)}
               />
             </nav>
