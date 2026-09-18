@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMonthlyPersonalCashFlow,
   filterPersonalCashFlowEvents,
+  getPersonalCashFlowDateRange,
   summarizePersonalCashFlow,
   type PersonalCashFlowEvent,
 } from "@/lib/personal-cash-flow";
@@ -31,6 +32,20 @@ describe("personal cash flow", () => {
       "expense-2",
     ]);
     expect(filterPersonalCashFlowEvents(events, "3m", now)).toHaveLength(4);
+  });
+
+  it("builds the selected period date range", () => {
+    const now = new Date(2026, 8, 17);
+
+    expect(getPersonalCashFlowDateRange("month", now)).toEqual({
+      start: "2026-09-01",
+      end: "2026-09-17",
+    });
+    expect(getPersonalCashFlowDateRange("12m", now)).toEqual({
+      start: "2025-10-01",
+      end: "2026-09-17",
+    });
+    expect(getPersonalCashFlowDateRange("all", now)).toBeNull();
   });
 
   it("builds ordered monthly totals", () => {

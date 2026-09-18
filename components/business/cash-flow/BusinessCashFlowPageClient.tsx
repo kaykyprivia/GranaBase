@@ -12,6 +12,7 @@ import {
   ArrowUpCircle,
   Banknote,
   CircleDollarSign,
+  FileDown,
   ReceiptText,
   WalletCards,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/EmptyState";
+import { CashFlowPdfDialog } from "@/components/cash-flow/CashFlowPdfDialog";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 
@@ -41,6 +43,7 @@ import {
 } from "@/components/ui/card";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 import { useChartColors } from "@/hooks/useChartColors";
 
@@ -54,6 +57,7 @@ import {
 } from "@/lib/business-cash-flow";
 
 import { createClient } from "@/lib/supabase/client";
+import { downloadCashFlowPdf } from "@/lib/cash-flow-pdf";
 
 import {
   coerceData,
@@ -65,7 +69,7 @@ import {
   formatCurrency,
 } from "@/lib/utils";
 
-import type { Database } from "@/types/database";
+import type { BusinessCashFlowEvent, Database } from "@/types/database";
 
 type WorkspaceRpcResult = {
   workspace_id: string;
@@ -137,6 +141,7 @@ export function BusinessCashFlowPageClient() {
   const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   const [period, setPeriod] =
     useState<BusinessCashFlowPeriod>("month");
@@ -253,6 +258,113 @@ export function BusinessCashFlowPageClient() {
     [outflowCategories]
   );
 
+  const pdfDefaultRange = useMemo(() => {
+    const selectedRange = getBusinessCashFlowDateRange(period);
+    const today = toDateKey(new Date());
+
+    if (selectedRange) {
+      return {
+        startDate: selectedRange.start,
+        endDate: selectedRange.end,
+      };
+    }
+
+    return {
+      startDate: cashFlow.daily[0]?.date ?? today,
+      endDate: today,
+    };
+  }, [cashFlow.daily, period]);
+
+  const handleDownloadPdf = async ({
+    startDate,
+    endDate,
+  }: {
+    startDate: string;
+    endDate: string;
+  }) => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user) throw authError ?? new Error("Sessão expirada");
+
+      const workspaceRes = await supabase.rpc(
+        "get_or_create_business_workspace",
+        coerceMutation({ p_name: "Meu Negocio" })
+      );
+      if (workspaceRes.error) throw workspaceRes.error;
+
+      const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
+      const args = {
+        p_workspace_id: workspace.workspace_id,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: 500,
+      } satisfies CashFlowArgs;
+      const cashFlowRes = await supabase.rpc(
+        "get_business_cash_flow",
+        coerceMutation(args)
+      );
+      if (cashFlowRes.error) throw cashFlowRes.error;
+
+      const report = coerceData<BusinessCashFlowData>(cashFlowRes.data);
+      const reportTransactions: BusinessCashFlowEvent[] = [];
+      const batchSize = 1000;
+
+      for (let from = 0; ; from += batchSize) {
+        const transactionsRes = await supabase
+          .from("business_cash_flow_events")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("workspace_id", workspace.workspace_id)
+          .gte("event_date", startDate)
+          .lte("event_date", endDate)
+          .order("occurred_at", { ascending: true })
+          .range(from, from + batchSize - 1);
+
+        if (transactionsRes.error) throw transactionsRes.error;
+
+        const rows = coerceData<BusinessCashFlowEvent[]>(transactionsRes.data ?? []);
+        reportTransactions.push(...rows);
+        if (rows.length < batchSize) break;
+      }
+
+      await downloadCashFlowPdf({
+        title: "Extrato do Fluxo de Caixa",
+        accountLabel: "Meu negócio",
+        startDate,
+        endDate,
+        currency: "BRL",
+        summary: [
+          { label: "Saldo anterior", value: report.summary.opening_balance },
+          { label: "Entradas", value: report.summary.inflows, tone: "income" },
+          { label: "Saídas", value: report.summary.outflows, tone: "expense" },
+          {
+            label: "Saldo final",
+            value: report.summary.closing_balance,
+            tone: report.summary.closing_balance >= 0 ? "income" : "expense",
+          },
+        ],
+        transactions: reportTransactions.map((transaction) => ({
+          date: transaction.event_date ?? "",
+          description: transaction.title ?? "Movimentação",
+          category: getBusinessCashFlowCategoryLabel(transaction.category ?? ""),
+          direction: transaction.direction === "INFLOW" ? "income" : "expense",
+          amount: Number(transaction.amount ?? 0),
+          paymentMethod: transaction.payment_method,
+        })),
+        filenamePrefix: "extrato-fluxo-caixa-negocio",
+      });
+
+      toast.success("Extrato PDF baixado.");
+    } catch (error) {
+      console.error("Erro ao gerar extrato do negócio em PDF", error);
+      toast.error("Não foi possível gerar o extrato PDF.");
+      throw error;
+    }
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <PageIntro
@@ -260,6 +372,18 @@ export function BusinessCashFlowPageClient() {
         iconTone="accent"
         title="Fluxo de Caixa"
         description="Acompanhe o dinheiro que realmente entrou e saiu do negócio, separado de lucro, estoque e valores a receber."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={loading}
+            onClick={() => setPdfOpen(true)}
+          >
+            <FileDown className="h-4 w-4" />
+            Extrato PDF
+          </Button>
+        }
       />
 
       <div className="mb-5 flex flex-wrap gap-1.5">
@@ -650,6 +774,13 @@ export function BusinessCashFlowPageClient() {
           </Card>
         </>
       )}
+      <CashFlowPdfDialog
+        open={pdfOpen}
+        onOpenChange={setPdfOpen}
+        defaultStartDate={pdfDefaultRange.startDate}
+        defaultEndDate={pdfDefaultRange.endDate}
+        onDownload={handleDownloadPdf}
+      />
     </div>
   );
 }
@@ -662,4 +793,12 @@ function formatCashFlowDate(value: string): string {
   }
 
   return `${day}/${month}/${year}`;
+}
+
+function toDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }

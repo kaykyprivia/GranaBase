@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, WalletCards } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, FileDown, WalletCards } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -13,10 +13,12 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { CashFlowPdfDialog } from "@/components/cash-flow/CashFlowPdfDialog";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useChartColors } from "@/hooks/useChartColors";
 import { useCurrency } from "@/lib/hooks/useCurrency";
 import { appliesMaeFilter } from "@/lib/mae";
@@ -24,12 +26,14 @@ import { getInstallmentPaidAmount, isInstallmentPaid } from "@/lib/installments"
 import {
   buildMonthlyPersonalCashFlow,
   filterPersonalCashFlowEvents,
+  getPersonalCashFlowDateRange,
   PERSONAL_CASH_FLOW_PERIODS,
   summarizePersonalCashFlow,
   type PersonalCashFlowEvent,
   type PersonalCashFlowPeriod,
   type PersonalCashFlowSource,
 } from "@/lib/personal-cash-flow";
+import { downloadCashFlowPdf } from "@/lib/cash-flow-pdf";
 import { createClient } from "@/lib/supabase/client";
 import { coerceData } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
@@ -94,6 +98,7 @@ export default function PersonalCashFlowPage() {
   const [events, setEvents] = useState<PersonalCashFlowEvent[]>([]);
   const [period, setPeriod] = useState<PersonalCashFlowPeriod>("month");
   const [loading, setLoading] = useState(true);
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   const loadCashFlow = useCallback(async () => {
     setLoading(true);
@@ -258,6 +263,65 @@ export default function PersonalCashFlowPage() {
   );
   const periodLabel = PERSONAL_CASH_FLOW_PERIODS.find((option) => option.value === period)?.label ?? "Período";
   const currencyCode = currency === "USD" ? "USD" : "BRL";
+  const pdfDefaultRange = useMemo(() => {
+    const selectedRange = getPersonalCashFlowDateRange(period);
+    const today = toDateKey(new Date());
+
+    if (selectedRange) {
+      return { startDate: selectedRange.start, endDate: selectedRange.end };
+    }
+
+    const firstEventDate = [...events]
+      .sort((a, b) => a.date.localeCompare(b.date))[0]?.date.slice(0, 10);
+
+    return { startDate: firstEventDate ?? today, endDate: today };
+  }, [events, period]);
+
+  const handleDownloadPdf = async ({
+    startDate,
+    endDate,
+  }: {
+    startDate: string;
+    endDate: string;
+  }) => {
+    try {
+      const selectedEvents = events.filter(
+        (event) => event.date >= startDate && event.date <= endDate
+      );
+      const selectedSummary = summarizePersonalCashFlow(selectedEvents);
+
+      await downloadCashFlowPdf({
+        title: "Extrato do Fluxo de Caixa",
+        accountLabel: "Finanças pessoais",
+        startDate,
+        endDate,
+        currency: currencyCode,
+        summary: [
+          { label: "Entradas", value: selectedSummary.income, tone: "income" },
+          { label: "Saídas", value: selectedSummary.expenses, tone: "expense" },
+          {
+            label: "Saldo",
+            value: selectedSummary.balance,
+            tone: selectedSummary.balance >= 0 ? "income" : "expense",
+          },
+        ],
+        transactions: selectedEvents.map((event) => ({
+          date: event.date,
+          description: event.description,
+          category: `${event.category} · ${SOURCE_LABELS[event.source]}`,
+          direction: event.direction,
+          amount: event.amount,
+        })),
+        filenamePrefix: "extrato-fluxo-caixa-pessoal",
+      });
+
+      toast.success("Extrato PDF baixado.");
+    } catch (error) {
+      console.error("Erro ao gerar extrato pessoal em PDF", error);
+      toast.error("Não foi possível gerar o extrato PDF.");
+      throw error;
+    }
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -266,6 +330,18 @@ export default function PersonalCashFlowPage() {
         iconTone="accent"
         title="Fluxo de Caixa"
         description="Entradas recebidas, saídas pagas e saldo das suas finanças pessoais"
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={loading}
+            onClick={() => setPdfOpen(true)}
+          >
+            <FileDown className="h-4 w-4" />
+            Extrato PDF
+          </Button>
+        }
       />
 
       <div className="mb-5 flex flex-wrap gap-1.5" role="group" aria-label="Período do fluxo de caixa">
@@ -435,8 +511,23 @@ export default function PersonalCashFlowPage() {
           </div>
         </>
       )}
+      <CashFlowPdfDialog
+        open={pdfOpen}
+        onOpenChange={setPdfOpen}
+        defaultStartDate={pdfDefaultRange.startDate}
+        defaultEndDate={pdfDefaultRange.endDate}
+        onDownload={handleDownloadPdf}
+      />
     </div>
   );
+}
+
+function toDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function formatMonthLabel(month: string): string {

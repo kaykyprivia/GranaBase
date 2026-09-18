@@ -38,6 +38,24 @@ const PERIOD_MONTHS: Record<Exclude<PersonalCashFlowPeriod, "all">, number> = {
   "12m": 12,
 };
 
+export function getPersonalCashFlowDateRange(
+  period: PersonalCashFlowPeriod,
+  now = new Date()
+): { start: string; end: string } | null {
+  if (period === "all") return null;
+
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth() - (PERIOD_MONTHS[period] - 1),
+    1
+  );
+
+  return {
+    start: toDateKey(start),
+    end: toDateKey(now),
+  };
+}
+
 export function filterPersonalCashFlowEvents(
   events: PersonalCashFlowEvent[],
   period: PersonalCashFlowPeriod,
@@ -45,10 +63,10 @@ export function filterPersonalCashFlowEvents(
 ): PersonalCashFlowEvent[] {
   if (period === "all") return events;
 
-  const start = new Date(now.getFullYear(), now.getMonth() - (PERIOD_MONTHS[period] - 1), 1);
-  const startKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-01`;
+  const range = getPersonalCashFlowDateRange(period, now);
+  if (!range) return events;
 
-  return events.filter((event) => event.date >= startKey);
+  return events.filter((event) => event.date >= range.start && event.date <= range.end);
 }
 
 export function summarizePersonalCashFlow(events: PersonalCashFlowEvent[]) {
@@ -93,4 +111,12 @@ export function buildMonthlyPersonalCashFlow(events: PersonalCashFlowEvent[]) {
 
 function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function toDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
