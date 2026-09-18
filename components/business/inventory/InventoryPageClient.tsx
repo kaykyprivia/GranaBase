@@ -64,7 +64,7 @@ export function InventoryPageClient() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filter, setFilter] = useState<InventoryFilter>("all");
+  const [filter, setFilter] = useState<InventoryFilter>("available");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   const [sort, setSort] = useState<InventorySort>("name");
   const [page, setPage] = useState(1);
