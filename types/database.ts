@@ -152,6 +152,125 @@ export interface Database {
         };
         Relationships: [];
       };
+      entitlement_accounts: {
+        Row: {
+          user_id: string;
+          status: "active" | "suspended" | "closed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          status?: "active" | "suspended" | "closed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          status?: "active" | "suspended" | "closed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_accounts_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      entitlement_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          product: "personal" | "business";
+          source:
+            | "free"
+            | "trial"
+            | "bonus"
+            | "referral"
+            | "subscription"
+            | "admin"
+            | "legacy";
+          status: "active" | "revoked";
+          starts_at: string;
+          ends_at: string | null;
+          external_reference: string | null;
+          metadata: Json;
+          created_by: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          product: "personal" | "business";
+          source:
+            | "free"
+            | "trial"
+            | "bonus"
+            | "referral"
+            | "subscription"
+            | "admin"
+            | "legacy";
+          status?: "active" | "revoked";
+          starts_at?: string;
+          ends_at?: string | null;
+          external_reference?: string | null;
+          metadata?: Json;
+          created_by?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          product?: "personal" | "business";
+          source?:
+            | "free"
+            | "trial"
+            | "bonus"
+            | "referral"
+            | "subscription"
+            | "admin"
+            | "legacy";
+          status?: "active" | "revoked";
+          starts_at?: string;
+          ends_at?: string | null;
+          external_reference?: string | null;
+          metadata?: Json;
+          created_by?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_grants_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "entitlement_accounts";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "entitlement_grants_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "entitlement_grants_revoked_by_fkey";
+            columns: ["revoked_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_settings: {
         Row: {
           user_id: string;
@@ -1622,6 +1741,23 @@ export interface Database {
       };
     };
     Functions: {
+      get_my_entitlements: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          product: "personal" | "business";
+          has_access: boolean;
+          access_until: string | null;
+          sources: string[];
+          account_status: "active" | "suspended" | "closed" | "missing";
+          evaluated_at: string;
+        }[];
+      };
+      has_entitlement: {
+        Args: {
+          p_product: "personal" | "business";
+        };
+        Returns: boolean;
+      };
       create_consortium: {
         Args: {
           p_name: string;
