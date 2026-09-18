@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { PeriodFilterButton } from "@/components/shared/PeriodFilterButton";
 import { CashFlowPdfDialog } from "@/components/cash-flow/CashFlowPdfDialog";
 import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -331,36 +332,27 @@ export default function PersonalCashFlowPage() {
         title="Fluxo de Caixa"
         description="Entradas recebidas, saídas pagas e saldo das suas finanças pessoais"
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2"
-            disabled={loading}
-            onClick={() => setPdfOpen(true)}
-          >
-            <FileDown className="h-4 w-4" />
-            Extrato PDF
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-10 gap-2"
+              disabled={loading}
+              onClick={() => setPdfOpen(true)}
+            >
+              <FileDown className="h-4 w-4" />
+              Extrato PDF
+            </Button>
+            <PeriodFilterButton
+              value={period}
+              options={PERSONAL_CASH_FLOW_PERIODS}
+              defaultValue="month"
+              onChange={setPeriod}
+              disabled={loading}
+            />
+          </div>
         }
       />
-
-      <div className="mb-5 flex flex-wrap gap-1.5" role="group" aria-label="Período do fluxo de caixa">
-        {PERSONAL_CASH_FLOW_PERIODS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => setPeriod(option.value)}
-            className={cn(
-              "rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors",
-              period === option.value
-                ? "border-accent bg-accent/15 text-accent"
-                : "border-border/60 bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard

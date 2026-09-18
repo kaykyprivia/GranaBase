@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 
 import { PageIntro } from "@/components/shared/PageIntro";
+import { PeriodFilterButton } from "@/components/shared/PeriodFilterButton";
 import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,31 +299,17 @@ export function BusinessDashboardPageClient() {
                 Venda
               </Link>
             </Button>
+
+            <PeriodFilterButton
+              value={period}
+              options={BUSINESS_REPORT_PERIOD_OPTIONS}
+              defaultValue="month"
+              onChange={setPeriod}
+              disabled={loading}
+            />
           </div>
         }
       />
-
-      <div className="mb-5 flex flex-wrap gap-1.5">
-        {BUSINESS_REPORT_PERIOD_OPTIONS.map(
-          (option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() =>
-                setPeriod(option.value)
-              }
-              className={cn(
-                "rounded-xl border px-3.5 py-1.5 text-xs font-medium transition-all",
-                period === option.value
-                  ? "border-accent bg-accent/15 text-accent"
-                  : "border-border/60 bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
-              )}
-            >
-              {option.label}
-            </button>
-          )
-        )}
-      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-3">
         <StatCard

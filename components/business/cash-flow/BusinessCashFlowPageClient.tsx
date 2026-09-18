@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CashFlowPdfDialog } from "@/components/cash-flow/CashFlowPdfDialog";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { PeriodFilterButton } from "@/components/shared/PeriodFilterButton";
 import { StatCard } from "@/components/shared/StatCard";
 
 import {
@@ -373,40 +374,27 @@ export function BusinessCashFlowPageClient() {
         title="Fluxo de Caixa"
         description="Acompanhe o dinheiro que realmente entrou e saiu do negócio, separado de lucro, estoque e valores a receber."
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2"
-            disabled={loading}
-            onClick={() => setPdfOpen(true)}
-          >
-            <FileDown className="h-4 w-4" />
-            Extrato PDF
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-10 gap-2"
+              disabled={loading}
+              onClick={() => setPdfOpen(true)}
+            >
+              <FileDown className="h-4 w-4" />
+              Extrato PDF
+            </Button>
+            <PeriodFilterButton
+              value={period}
+              options={BUSINESS_CASH_FLOW_PERIOD_OPTIONS}
+              defaultValue="month"
+              onChange={setPeriod}
+              disabled={loading}
+            />
+          </div>
         }
       />
-
-      <div className="mb-5 flex flex-wrap gap-1.5">
-        {BUSINESS_CASH_FLOW_PERIOD_OPTIONS.map(
-          (option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() =>
-                setPeriod(option.value)
-              }
-              className={cn(
-                "rounded-xl border px-3.5 py-1.5 text-xs font-medium transition-all",
-                period === option.value
-                  ? "border-accent bg-accent/15 text-accent"
-                  : "border-border/60 bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
-              )}
-            >
-              {option.label}
-            </button>
-          )
-        )}
-      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
