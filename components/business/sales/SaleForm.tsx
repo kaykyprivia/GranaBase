@@ -43,7 +43,7 @@ export function SaleForm({
   onSubmit,
 }: SaleFormProps) {
   const availableProducts = useMemo(() => products.filter((product) => product.active && product.available > 0), [products]);
-  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(availableProducts[0]?.product_id);
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined);
   const [draft, setDraft] = useState<SaleFormDraft>({
     customerId: "",
     quickCustomerName: "",
@@ -54,7 +54,7 @@ export function SaleForm({
     deliveryFee: 0,
     deliveryCost: 0,
     notes: "",
-    items: availableProducts[0] ? [mapInventoryToSaleItem(availableProducts[0])] : [],
+    items: [],
   });
   const [errors, setErrors] = useState<SaleFormErrors>(emptyErrors);
 
