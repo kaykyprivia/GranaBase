@@ -188,17 +188,14 @@ export default function ReferralsPage() {
             <div className="mb-4 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-accent" />
               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-secondary">
-                Seu código de indicação
+                Convide seus amigos
               </h2>
             </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-mono text-3xl font-bold tracking-wider text-accent">
-                  {referralCode ?? "—"}
-                </p>
-                <p className="mt-1 text-xs text-text-secondary">
-                  Compartilhe este código com amigos
+                <p className="text-sm text-text-secondary">
+                  Compartilhe seu link e ganhe comissao quando seu amigo assinar
                 </p>
               </div>
 
