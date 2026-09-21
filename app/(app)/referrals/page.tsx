@@ -77,7 +77,6 @@ export default function ReferralsPage() {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [commissions, setCommissions] = useState<Commission[]>([]);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -127,17 +126,6 @@ export default function ReferralsPage() {
     ? `${baseUrl}/register?ref=${referralCode}`
     : "";
 
-  async function handleCopyCode() {
-    if (!referralCode) return;
-    try {
-      await navigator.clipboard.writeText(referralCode);
-      setCopiedCode(true);
-      toast.success("Código copiado!");
-      setTimeout(() => setCopiedCode(false), 2000);
-    } catch {
-      toast.error("Erro ao copiar");
-    }
-  }
 
   async function handleCopyLink() {
     if (!referralLink) return;
@@ -212,30 +200,11 @@ export default function ReferralsPage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleCopyCode}
-                  className="min-h-10"
-                >
-                  {copiedCode ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Copiado
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copiar código
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
                   onClick={handleShareWhatsApp}
                   className="min-h-10"
                 >
                   <Share2 className="h-4 w-4" />
-                  Compartilhar
+                  Compartilhar link
                 </Button>
               </div>
             </div>
