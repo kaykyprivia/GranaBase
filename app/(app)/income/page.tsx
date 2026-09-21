@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -41,8 +41,8 @@ function getSupabaseErrorMessage(error: unknown): string {
   return "Erro inesperado.";
 }
 
-const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "Comissão", "Pix", "Reembolso", "Outro"];
-const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
+const INCOME_CATEGORIES = ["Bico", "Freela", "Venda", "ComissÃ£o", "Pix", "Reembolso", "Outro"];
+const PAYMENT_METHODS = ["Dinheiro", "Pix", "CartÃ£o DÃ©bito", "CartÃ£o CrÃ©dito", "TransferÃªncia", "Outro"];
 const OTHER_MONTHS_WINDOW = 5;
 
 function getMonthOptions() {
@@ -371,20 +371,13 @@ export default function IncomePage() {
   const onSubmit = async (data: IncomeFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.from("income_entries").update(coerceMutation({
-          description: data.description, amount: data.amount, category: data.category,
-          received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null,
-        })).eq("id", editingEntry.id);
+        const { error } = await supabase.rpc("update_income_entry" as never, { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } } as never);
         if (error) throw error;
         toast.success("Entrada atualizada");
       } else {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) { toast.error("Usuário não autenticado."); return; }
-        const { error } = await supabase.from("income_entries").insert(coerceMutation({
-          user_id: user.id, description: data.description, amount: data.amount,
-          category: data.category, received_at: data.received_at,
-          payment_method: data.payment_method || null, notes: data.notes || null,
-        }));
+        if (authError || !user) { toast.error("UsuÃ¡rio nÃ£o autenticado."); return; }
+        const { error } = await supabase.rpc("create_income_entry" as never, { p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } } as never);
         if (error) throw new Error(getSupabaseErrorMessage(error));
         toast.success("Entrada registrada");
       }
@@ -399,9 +392,9 @@ export default function IncomePage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from("income_entries").delete().eq("id", deleteId);
+      const { error } = await supabase.rpc("delete_income_entry" as never, { p_id: deleteId } as never);
       if (error) throw error;
-      toast.success("Entrada excluída");
+      toast.success("Entrada excluÃ­da");
       setEntries(prev => prev.filter(e => e.id !== deleteId));
     } catch {
       toast.error("Erro ao excluir entrada");
@@ -446,7 +439,7 @@ export default function IncomePage() {
       })).eq("id", revertReceivedItem.id);
       if (error) throw error;
 
-      toast.success("Recebimento desfeito — volta para pendente");
+      toast.success("Recebimento desfeito â€” volta para pendente");
       setRevertReceivedItem(null);
       await fetchEntries();
     } catch {
@@ -489,7 +482,7 @@ export default function IncomePage() {
                     <p className="break-words text-sm font-medium text-text-primary">{entry.description}</p>
                     <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                       <Badge variant="profit" className="text-[10px]">{entry.category}</Badge>
-                      {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">Recebível</Badge>}
+                      {entry.source === "receivable" && <Badge variant="default" className="text-[10px]">RecebÃ­vel</Badge>}
                       {entry.payment_method && <span className="text-[10px] text-text-secondary">{entry.payment_method}</span>}
                     </div>
                   </div>
@@ -554,7 +547,7 @@ export default function IncomePage() {
 
       {/* Stats */}
       <div className="mb-6">
-        <StatCard title="Total do Mês" value={formatCurrency(monthTotal, currency)} icon={TrendingUp} variant="profit" loading={loading} />
+        <StatCard title="Total do MÃªs" value={formatCurrency(monthTotal, currency)} icon={TrendingUp} variant="profit" loading={loading} />
       </div>
 
       {/* Trend chart */}
@@ -582,9 +575,9 @@ export default function IncomePage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="3">Últimos 3 meses</SelectItem>
-                <SelectItem value="6">Últimos 6 meses</SelectItem>
-                <SelectItem value="12">Últimos 12 meses</SelectItem>
+                <SelectItem value="3">Ãšltimos 3 meses</SelectItem>
+                <SelectItem value="6">Ãšltimos 6 meses</SelectItem>
+                <SelectItem value="12">Ãšltimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -671,7 +664,7 @@ export default function IncomePage() {
               {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
                 <button
                   type="button"
-                  aria-label="Próximos meses"
+                  aria-label="PrÃ³ximos meses"
                   disabled={otherMonthsStart >= otherMonthsMaxStart}
                   onClick={() => setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, otherMonthsStart + 1))}
                   className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
@@ -691,7 +684,7 @@ export default function IncomePage() {
             <DialogTitle>{editingEntry ? "Editar Entrada" : "Nova Entrada"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FormField label="Descrição" error={errors.description?.message} required>
+            <FormField label="DescriÃ§Ã£o" error={errors.description?.message} required>
               <Input placeholder="Ex: Freela de design" error={errors.description?.message} {...register("description")} />
             </FormField>
             <FormField label="Valor" error={errors.amount?.message} required>
@@ -711,7 +704,7 @@ export default function IncomePage() {
                 <Input type="date" error={errors.received_at?.message} {...register("received_at")} />
               </FormField>
             </div>
-            <FormField label="Método de pagamento" error={errors.payment_method?.message} required>
+            <FormField label="MÃ©todo de pagamento" error={errors.payment_method?.message} required>
               <Controller name="payment_method" control={control} render={({ field }) => (
                 <Select value={field.value ?? ""} onValueChange={field.onChange}>
                   <SelectTrigger error={errors.payment_method?.message}><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -719,7 +712,7 @@ export default function IncomePage() {
                 </Select>
               )} />
             </FormField>
-            <FormField label="Observações">
+            <FormField label="ObservaÃ§Ãµes">
               <Textarea placeholder="Notas opcionais..." rows={2} {...register("notes")} />
             </FormField>
             <DialogFooter>
@@ -731,7 +724,7 @@ export default function IncomePage() {
       </Dialog>
 
       <ConfirmDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}
-        title="Excluir entrada" description="Tem certeza? Esta ação não pode ser desfeita."
+        title="Excluir entrada" description="Tem certeza? Esta aÃ§Ã£o nÃ£o pode ser desfeita."
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
 
       <Dialog open={editReceivedItem !== null} onOpenChange={open => !open && setEditReceivedItem(null)}>
@@ -757,7 +750,7 @@ export default function IncomePage() {
 
       <ConfirmDialog open={revertReceivedItem !== null} onOpenChange={open => !open && setRevertReceivedItem(null)}
         title="Desfazer recebimento"
-        description={`"${revertReceivedItem?.description}" vai voltar para pendente em A Receber e vai sair da lista de Entradas. O registro não é excluído.`}
+        description={`"${revertReceivedItem?.description}" vai voltar para pendente em A Receber e vai sair da lista de Entradas. O registro nÃ£o Ã© excluÃ­do.`}
         confirmLabel="Desfazer recebimento" onConfirm={handleRevertReceived} loading={revertingReceived} />
 
       <ImportStatementDialog
