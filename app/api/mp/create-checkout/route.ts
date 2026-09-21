@@ -1,20 +1,16 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { getMercadoPagoResources } from "@/lib/mercado-pago/client";
 
 /**
  * POST /api/mp/create-checkout
  *
- * Body esperado:
- * {
- *   planType: "monthly" | "semiannual" | "annual"
- * }
+ * Body: { planType: "monthly" | "semiannual" | "annual" }
  *
- * Fluxo:
- * 1. Verifica usuario autenticado (via header Authorization)
- * 2. Cria preapproval (assinatura) no Mercado Pago
- * 3. Registra tentativa no banco (subscription_payments)
- * 4. Retorna URL de checkout pro frontend redirecionar
+ * Aceita autenticacao por:
+ * - Header Authorization: Bearer <token>
+ * - Cookies de sessao Supabase (navegador)
  */
 
 export const dynamic = "force-dynamic";
@@ -35,38 +31,36 @@ const PLAN_TITLES: Record<PlanType, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Pega token do header Authorization
-    const authHeader = request.headers.get("authorization");
-    const accessToken = authHeader?.replace("Bearer ", "");
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: "Nao autenticado" },
-        { status: 401 }
-      );
-    }
-
-    // 2. Cria cliente Supabase (service_role para validar user + gravar)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !serviceKey) {
+    if (!supabaseUrl || !anonKey || !serviceKey) {
       return NextResponse.json(
         { error: "Supabase nao configurado" },
         { status: 500 }
       );
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false },
+    // 1. Tenta pegar user via cookie (SSR client)
+    const cookieStore = await cookies();
+    const supabaseSSR = createServerClient(supabaseUrl, anonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {
+          // read-only neste contexto
+        },
+      },
     });
 
-    // 3. Valida usuario
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
+    const { data: userData, error: userError } =
+      await supabaseSSR.auth.getUser();
 
     if (userError || !userData?.user) {
       return NextResponse.json(
-        { error: "Token invalido" },
+        { error: "Nao autenticado" },
         { status: 401 }
       );
     }
@@ -74,7 +68,7 @@ export async function POST(request: NextRequest) {
     const userId = userData.user.id;
     const userEmail = userData.user.email;
 
-    // 4. Parseia o body
+    // 2. Parseia body
     const body = await request.json();
     const planType = body?.planType as PlanType;
 
@@ -85,19 +79,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Cria preapproval no Mercado Pago
+    // 3. Cria preapproval no MP
     const { preApproval, environment } = getMercadoPagoResources();
-
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://granabase.vercel.app";
+
 
     const preapprovalResult = await preApproval.create({
       body: {
         reason: PLAN_TITLES[planType],
         external_reference: userId,
-        payer_email: userEmail ?? undefined,
-        back_url: `${baseUrl}/business/plans/success`,
+        payer_email:
+          environment === "sandbox"
+            ? userEmail
+            : userEmail ?? undefined,
+        back_url: `${baseUrl}/dashboard`,
         auto_recurring: {
-          frequency: planType === "monthly" ? 1 : planType === "semiannual" ? 6 : 12,
+          frequency:
+            planType === "monthly" ? 1 : planType === "semiannual" ? 6 : 12,
           frequency_type: "months",
           transaction_amount: PLAN_PRICES[planType],
           currency_id: "BRL",
@@ -108,13 +106,18 @@ export async function POST(request: NextRequest) {
 
     if (!preapprovalResult.id) {
       return NextResponse.json(
-        { error: "Falha ao criar assinatura no Mercado Pago" },
+        { error: "Falha ao criar assinatura" },
         { status: 500 }
       );
     }
 
-    // 6. Registra no banco via RPC
-    const { data: paymentId, error: rpcError } = await supabase.rpc(
+    // 4. Registra no banco via service_role
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
+
+    const { data: paymentId, error: rpcError } = await supabaseAdmin.rpc(
       "create_mp_subscription_record",
       {
         p_user_id: userId,
@@ -133,7 +136,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Retorna dados pro frontend
     return NextResponse.json({
       success: true,
       paymentId,
