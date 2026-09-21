@@ -6,7 +6,6 @@ import {
   Check,
   Copy,
   Gift,
-  Loader2,
   Share2,
   Sparkles,
   TrendingUp,

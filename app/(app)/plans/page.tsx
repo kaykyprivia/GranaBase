@@ -13,7 +13,6 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -113,7 +112,6 @@ type SubscriptionInfo = {
 } | null;
 
 export default function PlansPage() {
-  const router = useRouter();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);

@@ -8,14 +8,12 @@ import {
   Clock,
   Crown,
   Gift,
-  Loader2,
   Receipt,
   Settings,
   Sparkles,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
