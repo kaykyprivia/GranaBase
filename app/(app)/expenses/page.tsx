@@ -39,7 +39,7 @@ const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Mora
 const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
 const INSTALLMENT_PAYMENT_METHODS = ["Cartão Crédito", "Boleto"];
 const OTHER_MONTHS_WINDOW = 5;
-const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
+const BILL_CATEGORIES = ["Aluguel", "Energia", "ÃÂgua", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
 
@@ -486,7 +486,7 @@ export default function ExpensesPage() {
   );
 
   // Compra manual no cartão com vencimento: spent_at guarda a data de vencimento
-  // (fatura) e actualDate guarda a data real da compra — ver mapeamento acima.
+  // (fatura) e actualDate guarda a data real da compra âÂÂ ver mapeamento acima.
   const getCardDueDay = (entry: DisplayExpense): number | null =>
     entry.source === "manual" && entry.actualDate !== undefined
       ? Number(entry.spent_at.slice(8, 10))
@@ -1191,7 +1191,7 @@ export default function ExpensesPage() {
         if (error) throw error;
       }
 
-      toast.success("Pagamento desfeito — volta para pendente");
+      toast.success("Pagamento desfeito âÂÂ volta para pendente");
       setRevertItem(null);
       await fetchEntries();
     } catch {
@@ -1280,9 +1280,9 @@ export default function ExpensesPage() {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="3">Últimos 3 meses</SelectItem>
-                <SelectItem value="6">Últimos 6 meses</SelectItem>
-                <SelectItem value="12">Últimos 12 meses</SelectItem>
+                <SelectItem value="3">ÃÂltimos 3 meses</SelectItem>
+                <SelectItem value="6">ÃÂltimos 6 meses</SelectItem>
+                <SelectItem value="12">ÃÂltimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1375,7 +1375,7 @@ export default function ExpensesPage() {
                       </div>
                       {nextPayment && (
                         <p className="mt-1 text-[10px] text-text-secondary">
-                          Próxima: {formatDate(nextPayment.due_date)} · {formatCurrency(nextPayment.amount, currency)}
+                          Próxima: {formatDate(nextPayment.due_date)} ÃÂ· {formatCurrency(nextPayment.amount, currency)}
                         </p>
                       )}
 
@@ -1391,7 +1391,7 @@ export default function ExpensesPage() {
                                     {paymentNumber}/{installment.installment_count}
                                   </span>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} · {formatCurrency(payment.amount, currency)}</p>
+                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} ÃÂ· {formatCurrency(payment.amount, currency)}</p>
                                     {payment.status === "paid" && payment.dueDateRef && payment.dueDateRef !== payment.spent_at && (
                                       <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(payment.dueDateRef)}</p>
                                     )}
@@ -1423,7 +1423,7 @@ export default function ExpensesPage() {
                                           <Pencil className="h-3 w-3" />
                                         </Button>
                                         <Button variant="ghost" size="icon-sm" onClick={() => setRevertItem(payment)}
-                                          className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento — volta para pendente">
+                                          className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento âÂÂ volta para pendente">
                                           <RotateCcw className="h-3 w-3" />
                                         </Button>
                                       </>
@@ -1659,7 +1659,7 @@ export default function ExpensesPage() {
                 )} />
               </FormField>
               {paymentMethodValue === "Cartão Crédito" && (
-                <FormField label="Vencimento da fatura" hint="Opcional — edite se for diferente da data do gasto">
+                <FormField label="Vencimento da fatura" hint="Opcional âÂÂ edite se for diferente da data do gasto">
                   <Input type="date" {...register("card_due_date")} />
                 </FormField>
               )}
@@ -1689,7 +1689,7 @@ export default function ExpensesPage() {
                     onChange={(e) => setInstallmentCountInput(e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Data da 1ª parcela" error={installmentFormErrors.first_due_date} required>
+              <FormField label="Data da 1ÃÂª parcela" error={installmentFormErrors.first_due_date} required>
                 <Input type="date" error={installmentFormErrors.first_due_date} value={installmentForm.first_due_date}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, first_due_date: e.target.value }))} />
               </FormField>
@@ -1784,7 +1784,7 @@ export default function ExpensesPage() {
             </FormField>
             {(markPaidItem?.source === "installment" || markPaidItem?.source === "consortium") && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
               <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
-                Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
+                Será registrado como <strong>Pago com desconto</strong> âÂÂ economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
               </p>
             )}
             {markPaidItem?.source !== "consortium" && (
@@ -1817,7 +1817,7 @@ export default function ExpensesPage() {
             </FormField>
             {editPaidItem?.source === "installment" && editPaidItem.dueAmount !== undefined && editPaidAmount > 0 && editPaidAmount < editPaidItem.dueAmount && (
               <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
-                Será registrado como <strong>Pago com desconto</strong> — economia de {formatCurrency(editPaidItem.dueAmount - editPaidAmount, currency)}
+                Será registrado como <strong>Pago com desconto</strong> âÂÂ economia de {formatCurrency(editPaidItem.dueAmount - editPaidAmount, currency)}
               </p>
             )}
             <FormField label="Data do pagamento" required>
