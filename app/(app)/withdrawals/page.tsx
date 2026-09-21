@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -196,38 +196,53 @@ export default function WithdrawalsPage() {
                 </p>
               </div>
 
-              {summary?.has_pending_request ? (
-                <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2">
-                  <Clock className="h-4 w-4 text-warning" />
-                  <p className="text-xs text-warning">
-                    Voce ja tem um saque em andamento
-                  </p>
-                </div>
-              ) : summary?.can_withdraw ? (
-                <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-end gap-2">
+                {summary?.has_pending_request ? (
+                  <div className="flex items-center gap-2 rounded-full border border-warning/40 bg-warning/10 px-3 py-1">
+                    <Clock className="h-3 w-3 text-warning" />
+                    <p className="text-xs font-semibold text-warning">
+                      Saque em andamento
+                    </p>
+                  </div>
+                ) : summary?.can_withdraw ? (
                   <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1">
                     <Sparkles className="h-3 w-3 text-success" />
                     <p className="text-xs font-semibold text-success">
                       Voce ja pode sacar!
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => setShowForm(!showForm)}
-                    className="min-h-10"
-                  >
-                    <HandCoins className="h-4 w-4" />
-                    {showForm ? "Cancelar" : "Solicitar saque"}
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/30 px-3 py-2">
-                  <AlertCircle className="h-4 w-4 text-text-muted" />
-                  <p className="text-xs text-text-secondary">
-                    Saldo minimo nao atingido
+                ) : null}
+
+                <Button
+                  type="button"
+                  onClick={() => setShowForm(!showForm)}
+                  disabled={
+                    summary?.has_pending_request ||
+                    !summary?.can_withdraw
+                  }
+                  title={
+                    summary?.has_pending_request
+                      ? "Voce ja tem um saque em andamento"
+                      : !summary?.can_withdraw
+                      ? "Faltam " + formatCurrency(Math.max(0, (summary?.minimum_withdrawal ?? 20) - (summary?.available_total ?? 0))) + " para liberar"
+                      : "Solicitar saque"
+                  }
+                  className="min-h-10"
+                >
+                  <HandCoins className="h-4 w-4" />
+                  {showForm
+                    ? "Cancelar"
+                    : summary?.has_pending_request
+                    ? "Saque em andamento"
+                    : "Solicitar saque"}
+                </Button>
+
+                {!summary?.can_withdraw && !summary?.has_pending_request && (
+                  <p className="max-w-[200px] text-right text-[11px] text-text-muted">
+                    Faltam {formatCurrency(Math.max(0, (summary?.minimum_withdrawal ?? 20) - (summary?.available_total ?? 0)))} para liberar
                   </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Progresso ate o minimo */}
