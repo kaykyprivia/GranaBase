@@ -777,6 +777,15 @@ export default function ExpensesPage() {
     )
     .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
 
+  const openInstallmentsTotal = installments.reduce((sum, inst) => {
+    const paid = payments
+      .filter((p) => p.installment_id === inst.id && p.status === "paid")
+      .reduce((s, p) => s + Number(p.paid_amount ?? p.amount ?? 0), 0);
+    return sum + Math.max(0, Number(inst.total_amount) - paid);
+  }, 0);
+
+  const faltaPagarTotal = pendingTotal + openInstallmentsTotal;
+
   const openCreate = () => {
     setEditingEntry(null);
     setExpenseType("normal");
@@ -1240,7 +1249,7 @@ export default function ExpensesPage() {
       />
 
       <div className="mb-6">
-        <StatCard title="Falta pagar" value={formatCurrency(pendingTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
+        <StatCard title="Falta pagar" value={formatCurrency(faltaPagarTotal, currency)} icon={TrendingDown} variant="expense" loading={loading} />
       </div>
 
       {/* Trend chart */}
