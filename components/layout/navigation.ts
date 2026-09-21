@@ -74,6 +74,7 @@ export const subscriptionNavItems: NavigationItem[] = [
   { href: "/my-plan", label: "Meu Plano", icon: Wallet },
   { href: "/plans", label: "Planos", icon: Crown },
   { href: "/referrals", label: "Indique e Ganhe", icon: Gift },
+  { href: "/withdrawals", label: "Saques", icon: HandCoins },
 ];
 
 export function getNavigationGroups(isMaeUser: boolean): NavigationGroup[] {
