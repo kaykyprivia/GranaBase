@@ -39,3 +39,9 @@ supabase/.temp/
 next-env.d.ts
 
 .vercel
+
+# Backups de env (nunca commitar)
+.env.local.backup
+.env.local.bak
+.env*.backup
+.env*.bak
