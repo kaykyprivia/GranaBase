@@ -1,7 +1,18 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Crown, Loader2, Sparkles } from "lucide-react";
+import {
+  BadgeCheck,
+  Check,
+  CreditCard,
+  Crown,
+  Flame,
+  Loader2,
+  Lock,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +26,10 @@ type Plan = {
   id: PlanType | "free";
   name: string;
   price: string;
+  originalPrice?: string;
   priceLabel: string;
+  discountPercent?: string;
+  savings?: string;
   badge?: string;
   highlight?: boolean;
   features: string[];
@@ -28,45 +42,66 @@ const PLANS: Plan[] = [
     price: "R$ 0",
     priceLabel: "7 dias gratis",
     features: [
-      "Acesso ao Personal e Negocio",
-      "7 dias de teste em cada",
+      "7 dias no GranaBase Pessoal",
+      "7 dias no GranaBase Negocio",
+      "Controle de gastos e receitas",
+      "Fluxo de caixa completo",
       "Sem cartao de credito",
     ],
   },
   {
     id: "monthly",
     name: "Mensal",
-    price: "R$ 19,90",
+    price: "R$ 19,99",
+    originalPrice: "R$ 24,99",
     priceLabel: "por mes",
+    discountPercent: "20% OFF",
+    savings: "Economize R$ 60,00/ano",
     features: [
-      "Acesso completo ao Personal",
-      "Acesso completo ao Negocio",
+      "Personal ilimitado (gastos, metas, investimentos)",
+      "Negocio completo (vendas, estoque, clientes)",
+      "Consorcios e carteira de investimentos",
+      "Relatorios e graficos avancados",
+      "Exportacao de PDF",
+      "Comissao de indicacao: 15%",
       "Cancele quando quiser",
     ],
   },
   {
     id: "semiannual",
     name: "Semestral",
-    price: "R$ 65,67",
+    price: "R$ 89,96",
+    originalPrice: "R$ 149,94",
     priceLabel: "a cada 6 meses",
-    badge: "45% OFF",
+    discountPercent: "40% OFF",
+    savings: "Economize R$ 59,98",
+    badge: "MAIS ESCOLHIDO",
     highlight: true,
     features: [
-      "Tudo do Mensal",
-      "Economia de 45%",
+      "Tudo do plano Mensal",
+      "Economia de R$ 59,98",
       "Comissao de indicacao: 25%",
+      "Suporte prioritario",
+      "Acesso antecipado a novidades",
+      "Backup em nuvem ilimitado",
     ],
   },
   {
     id: "annual",
     name: "Anual",
-    price: "R$ 167,16",
+    price: "R$ 164,93",
+    originalPrice: "R$ 299,88",
     priceLabel: "por ano",
-    badge: "30% OFF",
+    discountPercent: "45% OFF",
+    savings: "Economize R$ 134,95",
     features: [
-      "Tudo do Mensal",
-      "Economia de 30%",
+      "Tudo do plano Mensal",
+      "Economia de R$ 134,95",
       "Comissao de indicacao: 35%",
+      "Suporte prioritario",
+      "Acesso antecipado a novidades",
+      "Backup em nuvem ilimitado",
+      "Acesso VIP a novas features",
     ],
   },
 ];
@@ -138,10 +173,11 @@ export default function PlansPage() {
 
   return (
     <div className="page-container animate-fade-in">
+      {/* Header */}
       <div className="mb-8 text-center">
         <div className="mb-3 flex justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10">
-            <Crown className="h-6 w-6 text-accent" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
+            <Crown className="h-7 w-7 text-accent" />
           </div>
         </div>
         <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">
@@ -150,12 +186,28 @@ export default function PlansPage() {
         <p className="mt-2 text-sm text-text-secondary">
           Acesso completo ao GranaBase Pessoal e Negocio. Cancele quando quiser.
         </p>
+
+        {/* Gatilhos visuais abaixo do título */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-text-secondary">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-accent" />
+            Garantia 7 dias
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Zap className="h-4 w-4 text-accent" />
+            Acesso imediato
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Lock className="h-4 w-4 text-accent" />
+            Pagamento seguro
+          </span>
+        </div>
       </div>
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-[420px] rounded-xl" />
+            <Skeleton key={i} className="h-[460px] rounded-xl" />
           ))}
         </div>
       ) : (
@@ -179,24 +231,48 @@ export default function PlansPage() {
               <div
                 key={plan.id}
                 className={cn(
-                  "relative flex flex-col rounded-xl border p-5 transition-all",
+                  "relative flex flex-col rounded-xl border p-5 pt-8 transition-all",
                   plan.highlight
-                    ? "border-accent/40 bg-accent/5 shadow-lg"
-                    : "border-border/60 bg-surface",
+                    ? "border-accent/60 bg-accent/5 shadow-lg ring-1 ring-accent/30"
+                    : "border-border/60 bg-surface hover:border-border",
                   plan.id === "free" && "opacity-90"
                 )}
               >
+                {/* Badge principal (MAIS ESCOLHIDO) */}
                 {plan.badge && (
-                  <div className="absolute -top-3 right-4 rounded-full bg-accent px-3 py-1 text-xs font-bold text-white shadow">
-                    {plan.badge}
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[10px] font-bold tracking-wider text-white shadow-md">
+                    <span className="flex items-center gap-1">
+                      <Flame className="h-3 w-3" />
+                      {plan.badge}
+                    </span>
                   </div>
                 )}
 
+                {/* Badge de desconto */}
+                {plan.discountPercent && (
+                  <div className="absolute -top-3 right-4 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white shadow">
+                    {plan.discountPercent}
+                  </div>
+                )}
+
+                {/* Nome do plano */}
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-text-primary">
-                    {plan.name}
-                  </h3>
-                  <div className="mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-lg font-bold text-text-primary">
+                      {plan.name}
+                    </h3>
+                    {plan.highlight && (
+                      <BadgeCheck className="h-4 w-4 text-accent" />
+                    )}
+                  </div>
+
+                  {/* Preços */}
+                  <div className="mt-2 flex flex-col gap-0.5">
+                    {plan.originalPrice && (
+                      <span className="text-xs text-text-muted line-through">
+                        {plan.originalPrice}
+                      </span>
+                    )}
                     <span className="text-2xl font-bold text-text-primary">
                       {plan.price}
                     </span>
@@ -204,9 +280,17 @@ export default function PlansPage() {
                   <p className="text-xs text-text-secondary">
                     {plan.priceLabel}
                   </p>
+
+                  {/* Savings */}
+                  {plan.savings && (
+                    <p className="mt-1.5 text-[11px] font-medium text-emerald-500">
+                      💚 {plan.savings}
+                    </p>
+                  )}
                 </div>
 
-                <ul className="mb-6 flex-1 space-y-2">
+                {/* Features */}
+                <ul className="mb-5 flex-1 space-y-2">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
@@ -218,6 +302,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
 
+                {/* Botão */}
                 {plan.id === "free" ? (
                   <Button
                     type="button"
@@ -247,12 +332,32 @@ export default function PlansPage() {
                       currentSubscription?.plan === plan.id ? (
                       "Assinatura ativa"
                     ) : (
-                      "Assinar"
+                      "Assinar agora"
                     )}
                   </Button>
                 )}
+
+                {/* Selo de garantia */}
+                {plan.id !== "free" && (
+                  <p className="mt-2 text-center text-[10px] text-text-muted">
+                    <ShieldCheck className="mr-1 inline h-3 w-3" />
+                    Garantia de 7 dias
+                  </p>
+                )}
               </div>
             ))}
+          </div>
+
+          {/* Rodapé com métodos de pagamento */}
+          <div className="mt-8 flex flex-col items-center gap-2 text-xs text-text-secondary">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span>Pagamento via Pix ou Cartao de Credito</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              <span>Ambiente 100% seguro via Mercado Pago</span>
+            </div>
           </div>
         </>
       )}
