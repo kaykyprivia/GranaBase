@@ -237,11 +237,7 @@ export default function WithdrawalsPage() {
                     : "Solicitar saque"}
                 </Button>
 
-                {!summary?.can_withdraw && !summary?.has_pending_request && (
-                  <p className="max-w-[200px] text-right text-[11px] text-text-muted">
-                    Faltam {formatCurrency(Math.max(0, (summary?.minimum_withdrawal ?? 20) - (summary?.available_total ?? 0)))} para liberar
-                  </p>
-                )}
+
               </div>
             </div>
 
