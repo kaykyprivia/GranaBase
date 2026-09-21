@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Target, Plus, Pencil, Trash2, Wallet, PauseCircle, CheckCircle2, Lightbulb, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation, coerceData } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { GOAL_CATEGORIES } from "@/lib/finance";
 import { calculateGoalMetrics, calculateMonthlySuggestion, summarizeGoals } from "@/lib/goals";
 import { addMonths, cn, formatCurrency, formatDate, toLocalDateString } from "@/lib/utils";
@@ -55,7 +55,6 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -75,7 +74,6 @@ export default function GoalsPage() {
       return;
     }
 
-    setUserId(user.id);
     setLoading(true);
 
     const [investmentsResponse, goalsResponse] = await Promise.all([
@@ -193,16 +191,13 @@ export default function GoalsPage() {
       };
 
       if (editingGoal) {
-        const { error } = await supabase.from("financial_goals").update(coerceMutation(payload)).eq("id", editingGoal.id);
+        const { error } = await supabase.rpc("update_financial_goal" as never, { p_id: editingGoal.id, p_payload: payload } as never);
         if (error) {
           throw error;
         }
         toast.success("Meta atualizada");
       } else {
-        const { error } = await supabase.from("financial_goals").insert(coerceMutation({
-          user_id: userId,
-          ...payload,
-        }));
+        const { error } = await supabase.rpc("create_financial_goal" as never, { p_payload: payload } as never);
         if (error) {
           throw error;
         }
@@ -225,7 +220,7 @@ export default function GoalsPage() {
 
     setDeleting(true);
     try {
-      const { error } = await supabase.from("financial_goals").delete().eq("id", deleteId);
+      const { error } = await supabase.rpc("delete_financial_goal" as never, { p_id: deleteId } as never);
       if (error) {
         throw error;
       }
@@ -241,7 +236,7 @@ export default function GoalsPage() {
 
   const updateGoalStatus = async (goal: FinancialGoal, nextStatus: Exclude<GoalStatus, "completed">) => {
     const resolvedStatus: GoalStatus = walletBalance >= goal.target_amount ? "completed" : nextStatus;
-    const { error } = await supabase.from("financial_goals").update(coerceMutation({ status: resolvedStatus })).eq("id", goal.id);
+    const { error } = await supabase.rpc("update_financial_goal" as never, { p_id: goal.id, p_payload: { status: resolvedStatus } } as never);
 
     if (error) {
       toast.error(nextStatus === "paused" ? "Erro ao pausar meta" : "Erro ao retomar meta");
@@ -274,13 +269,13 @@ export default function GoalsPage() {
               <Wallet className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">Patrimônio Atual</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">PatrimÃ´nio Atual</p>
               {loading ? (
                 <Skeleton className="mt-1 h-9 w-48" />
               ) : (
                 <p className="text-3xl font-bold text-profit">{formatCurrency(walletBalance)}</p>
               )}
-              <p className="mt-1 text-xs text-text-secondary">Saldo único — alimenta todas as suas metas</p>
+              <p className="mt-1 text-xs text-text-secondary">Saldo Ãºnico â€” alimenta todas as suas metas</p>
             </div>
           </div>
           <GlobalContributionButton className="shrink-0" />

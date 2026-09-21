@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { AlertCircle, Calendar, Check, ChevronDown, FileText, Loader2, Pencil, RefreshCw, RotateCcw, Search, Trash2, Clock, CheckCircle2 } from "lucide-react";
@@ -24,7 +24,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
 import { StatCard } from "@/components/shared/StatCard";
 
-const BILL_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
+const BILL_CATEGORIES = ["Aluguel", "Energia", "Ãgua", "Internet", "Telefone", "CartÃ£o", "EmprÃ©stimo", "Seguro", "Mensalidade", "Outro"];
 type StatusFilter = "all" | "pending" | "overdue" | "paid";
 
 function getEffectiveStatus(bill: Bill): Bill["status"] {
@@ -47,7 +47,6 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
 
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -64,7 +63,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const [holidaysByYear, setHolidaysByYear] = useState<Record<string, BrasilApiHoliday[]>>({});
 
   const ensureModeName = (name: string) =>
-    mode === "only-mae" && !isMaeName(name) ? `Mãe - ${name}` : name;
+    mode === "only-mae" && !isMaeName(name) ? `MÃ£e - ${name}` : name;
 
   const fetchBills = useCallback(async () => {
     const {
@@ -75,7 +74,6 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
       return;
     }
 
-    setUserId(user.id);
     const { data, error } = await supabase.from("bills").select("*").eq("user_id", user.id).order("due_date");
     if (error) {
       toast.error("Erro ao carregar contas");
@@ -115,7 +113,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     }
 
     if (toCreate.length > 0) {
-      await supabase.from("bills").insert(toCreate.map((b) => coerceMutation(b)));
+      await supabase.rpc("create_bill" as never, { p_payload: toCreate[0] } as never);
       const { data: refreshed } = await supabase.from("bills").select("*").eq("user_id", user.id).order("due_date");
       setBills(((refreshed ?? []) as Bill[]).filter((bill) => appliesMaeFilter(user.id, mode, bill.name)));
     } else {
@@ -194,7 +192,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const handleCnpjLookup = async () => {
     const digits = cnpjInput.replace(/\D/g, "");
     if (digits.length !== 14) {
-      toast.error("CNPJ inválido");
+      toast.error("CNPJ invÃ¡lido");
       return;
     }
 
@@ -203,20 +201,20 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
       const response = await fetch(`/api/brasilapi/cnpj?cnpj=${digits}`);
       const data = await response.json();
       if (!response.ok || data?.error) {
-        toast.error("CNPJ não encontrado");
+        toast.error("CNPJ nÃ£o encontrado");
         return;
       }
 
       const name = data?.nome_fantasia || data?.razao_social;
       if (!name) {
-        toast.error("CNPJ não encontrado");
+        toast.error("CNPJ nÃ£o encontrado");
         return;
       }
 
       setForm((current) => ({ ...current, name }));
       toast.success(`Conta encontrada: ${name}`);
     } catch {
-      toast.error("CNPJ não encontrado");
+      toast.error("CNPJ nÃ£o encontrado");
     } finally {
       setCnpjLoading(false);
     }
@@ -248,13 +246,11 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
       };
 
       if (editingBill) {
-        const { error } = await supabase.from("bills").update(coerceMutation(payload)).eq("id", editingBill.id);
+        const { error } = await supabase.rpc("update_bill" as never, { p_id: editingBill.id, p_payload: payload } as never);
         if (error) throw error;
         toast.success("Conta atualizada");
       } else {
-        const { error } = await supabase
-          .from("bills")
-          .insert(coerceMutation({ ...payload, user_id: userId, status: "pending" as const }));
+        const { error } = await supabase.rpc("create_bill" as never, { p_payload: { ...payload, status: "pending" } } as never);
         if (error) throw error;
         toast.success("Conta criada");
       }
@@ -273,26 +269,14 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     try {
       const bill = bills.find((b) => b.id === id);
 
-      const { error } = await supabase
-        .from("bills")
-        .update(coerceMutation({ status: "paid" as const, paid_at: new Date().toISOString() }))
-        .eq("id", id);
+      const { error } = await supabase.rpc("update_bill" as never, { p_id: id, p_payload: { status: "paid", paid_at: new Date().toISOString() } } as never);
       if (error) throw error;
 
       if (bill?.is_recurring) {
         const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
         const nextDueDateStr = toLocalDateString(nextDate);
-        await supabase.from("bills").insert(coerceMutation({
-          user_id: userId,
-          name: bill.name,
-          amount: bill.amount,
-          due_date: nextDueDateStr,
-          status: "pending" as const,
-          category: bill.category,
-          is_recurring: true,
-          notes: bill.notes ?? null,
-        }));
-        toast.success("Conta paga! Próximo mês já gerado automaticamente.");
+        await supabase.rpc("create_bill" as never, { p_payload: { name: bill.name, amount: bill.amount, due_date: nextDueDateStr, category: bill.category, status: "pending" } } as never);
+        toast.success("Conta paga! PrÃ³ximo mÃªs jÃ¡ gerado automaticamente.");
       } else {
         toast.success("Conta marcada como paga!");
       }
@@ -308,10 +292,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const handleUnmarkPaid = async (id: string) => {
     setMarkingPaidId(id);
     try {
-      const { error } = await supabase
-        .from("bills")
-        .update(coerceMutation({ status: "pending" as const, paid_at: null }))
-        .eq("id", id);
+      const { error } = await supabase.rpc("update_bill" as never, { p_id: id, p_payload: { status: "pending", paid_at: null } } as never);
       if (error) throw error;
       toast.success("Conta voltou para pendente");
       await fetchBills();
@@ -326,9 +307,9 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from("bills").delete().eq("id", deleteId);
+      const { error } = await supabase.rpc("delete_bill" as never, { p_id: deleteId } as never);
       if (error) throw error;
-      toast.success("Conta excluída");
+      toast.success("Conta excluÃ­da");
       setBills((prev) => prev.filter((bill) => bill.id !== deleteId));
     } catch {
       toast.error("Erro ao excluir");
@@ -403,7 +384,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
             <StatCard title="Atrasadas" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
           )}
           {statusFilter === "paid" && (
-            <StatCard title="Pagas este mês" value={formatCurrency(paidThisMonth)} icon={Check} variant="profit" loading={loading} />
+            <StatCard title="Pagas este mÃªs" value={formatCurrency(paidThisMonth)} icon={Check} variant="profit" loading={loading} />
           )}
         </div>
       )}
@@ -461,7 +442,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                     <Calendar className="h-3 w-3" />{formatDate(bill.due_date)}
                   </span>
                   {holiday && (
-                    <span className="text-text-secondary">🎉 Feriado: {holiday.name}</span>
+                    <span className="text-text-secondary">ðŸŽ‰ Feriado: {holiday.name}</span>
                   )}
                   {effective === "overdue" && (
                     <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>
@@ -473,7 +454,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                   {bill.is_recurring && effective !== "paid" && (
                     <span className="flex items-center gap-1 text-accent">
                       <RefreshCw className="h-3 w-3" />
-                      Próximo: {formatDate(toLocalDateString(addMonths(new Date(bill.due_date + "T00:00:00"), 1)))}
+                      PrÃ³ximo: {formatDate(toLocalDateString(addMonths(new Date(bill.due_date + "T00:00:00"), 1)))}
                     </span>
                   )}
                 </div>
@@ -649,7 +630,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
               <span className="text-sm font-medium text-text-primary">Conta recorrente mensal</span>
             </label>
 
-            <FormField label="Observações">
+            <FormField label="ObservaÃ§Ãµes">
               <Textarea
                 placeholder="Notas opcionais..."
                 value={form.notes ?? ""}
@@ -674,7 +655,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Excluir conta"
-        description="Esta ação não pode ser desfeita."
+        description="Esta aÃ§Ã£o nÃ£o pode ser desfeita."
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}
