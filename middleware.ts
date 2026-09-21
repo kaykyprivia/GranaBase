@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
@@ -41,7 +41,10 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/sw.js" ||
     request.nextUrl.pathname.startsWith("/icons/");
 
-  if (!user && !isAuthRoute && !isPublicRoute && !isPwaAssetRoute) {
+  const isWebhookRoute =
+    request.nextUrl.pathname === "/api/mp/webhook";
+
+  if (!user && !isAuthRoute && !isPublicRoute && !isPwaAssetRoute && !isWebhookRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
