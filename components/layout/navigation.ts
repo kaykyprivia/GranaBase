@@ -13,6 +13,7 @@ import {
   PiggyBank,
   PlusCircle,
   ReceiptText,
+  ShieldCheck,
   ShoppingCart,
   Target,
   TrendingDown,
@@ -30,7 +31,7 @@ export type NavigationItem = {
 };
 
 export type NavigationGroup = {
-  id: "finance" | "business" | "subscription";
+  id: "finance" | "business" | "subscription" | "admin";
   label: string;
   icon: LucideIcon;
   items: NavigationItem[];
@@ -77,8 +78,15 @@ export const subscriptionNavItems: NavigationItem[] = [
   { href: "/withdrawals", label: "Saques", icon: HandCoins },
 ];
 
-export function getNavigationGroups(isMaeUser: boolean): NavigationGroup[] {
-  return [
+export const adminNavItems: NavigationItem[] = [
+  { href: "/admin/withdrawals", label: "Saques", icon: HandCoins },
+];
+
+export function getNavigationGroups(
+  isMaeUser: boolean,
+  isSuperAdmin: boolean = false
+): NavigationGroup[] {
+  const groups: NavigationGroup[] = [
     {
       id: "finance",
       label: "Financas",
@@ -98,4 +106,15 @@ export function getNavigationGroups(isMaeUser: boolean): NavigationGroup[] {
       items: subscriptionNavItems,
     },
   ];
+
+  if (isSuperAdmin) {
+    groups.push({
+      id: "admin",
+      label: "Admin",
+      icon: ShieldCheck,
+      items: adminNavItems,
+    });
+  }
+
+  return groups;
 }

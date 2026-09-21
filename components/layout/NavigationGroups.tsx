@@ -18,6 +18,7 @@ const collapsedGroups: ExpandedState = {
   finance: false,
   business: false,
   subscription: false,
+  admin: false,
 };
 
 let expandedGroups: ExpandedState = collapsedGroups;
