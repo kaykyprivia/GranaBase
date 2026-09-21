@@ -8,6 +8,8 @@ import {
   Clock,
   Copy,
   HandCoins,
+  Sparkles,
+  TrendingUp,
   Loader2,
   Wallet,
 } from "lucide-react";
@@ -202,14 +204,22 @@ export default function WithdrawalsPage() {
                   </p>
                 </div>
               ) : summary?.can_withdraw ? (
-                <Button
-                  type="button"
-                  onClick={() => setShowForm(!showForm)}
-                  className="min-h-10"
-                >
-                  <HandCoins className="h-4 w-4" />
-                  {showForm ? "Cancelar" : "Solicitar saque"}
-                </Button>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1">
+                    <Sparkles className="h-3 w-3 text-success" />
+                    <p className="text-xs font-semibold text-success">
+                      Voce ja pode sacar!
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setShowForm(!showForm)}
+                    className="min-h-10"
+                  >
+                    <HandCoins className="h-4 w-4" />
+                    {showForm ? "Cancelar" : "Solicitar saque"}
+                  </Button>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/30 px-3 py-2">
                   <AlertCircle className="h-4 w-4 text-text-muted" />
@@ -219,6 +229,48 @@ export default function WithdrawalsPage() {
                 </div>
               )}
             </div>
+
+            {/* Progresso ate o minimo */}
+            {!summary?.has_pending_request && !summary?.can_withdraw && (
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-text-secondary">
+                    <TrendingUp className="h-3 w-3" />
+                    Progresso para saque
+                  </span>
+                  <span className="font-semibold text-text-primary">
+                    {formatCurrency(summary?.available_total ?? 0)} /{" "}
+                    {formatCurrency(summary?.minimum_withdrawal ?? 20)}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-background/60">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-accent to-accent/60 transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        ((summary?.available_total ?? 0) /
+                          (summary?.minimum_withdrawal ?? 20)) *
+                          100
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-text-muted">
+                  Faltam{" "}
+                  <strong className="text-accent">
+                    {formatCurrency(
+                      Math.max(
+                        0,
+                        (summary?.minimum_withdrawal ?? 20) -
+                          (summary?.available_total ?? 0)
+                      )
+                    )}
+                  </strong>{" "}
+                  para voce poder sacar
+                </p>
+              </div>
+            )}
 
             {/* Mini stats */}
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -318,6 +370,42 @@ export default function WithdrawalsPage() {
               </div>
             </div>
           )}
+
+          {/* Como funciona */}
+          <div className="rounded-xl border border-border/60 bg-surface p-5">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-secondary">
+              Como funciona
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-border/40 bg-background/30 p-4">
+                <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+                  1
+                </div>
+                <p className="font-semibold text-text-primary">Acumule R$ 20</p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Ganhe comissoes indicando o GranaBase
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-background/30 p-4">
+                <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+                  2
+                </div>
+                <p className="font-semibold text-text-primary">Solicite saque</p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Informe sua chave Pix e envie
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-background/30 p-4">
+                <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+                  3
+                </div>
+                <p className="font-semibold text-text-primary">Receba em ate 7 dias</p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Pagamento via Pix direto na sua conta
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Historico */}
           <div className="rounded-xl border border-border/60 bg-surface p-5">
