@@ -96,12 +96,49 @@ export async function POST(request: NextRequest) {
       // Mapeia status do MP para o nosso
       const mappedStatus = mapMPStatusToOurs(status);
 
+      const paymentDetail = detail as unknown as Record<string, unknown>;
+
       await supabase.rpc("update_mp_payment_status", {
         p_mp_preapproval_id: resourceId,
         p_status: mappedStatus,
         p_mp_payment_id: null,
-        p_raw_payload: detail as unknown as Record<string, unknown>,
+        p_raw_payload: paymentDetail,
       });
+
+      // Se pagamento foi aprovado, processa bonus + comissao de referral
+      if (mappedStatus === "authorized" || mappedStatus === "approved") {
+        const externalRef = (paymentDetail as { external_reference?: string })
+          .external_reference;
+
+        if (externalRef) {
+          const planType = extractPlanType(paymentDetail);
+
+          if (planType) {
+            try {
+              await supabase.rpc("grant_referral_purchase_bonus", {
+                p_referred_user_id: externalRef,
+                p_plan_type: planType,
+              });
+              console.log("Bonus de referral concedido");
+            } catch (bonusError) {
+              console.error("Erro ao conceder bonus:", bonusError);
+            }
+
+            try {
+              const { data: planAmount } = getPlanAmount(planType);
+
+              await supabase.rpc("create_referral_commission", {
+                p_referred_user_id: externalRef,
+                p_plan_type: planType,
+                p_base_amount: planAmount,
+              });
+              console.log("Comissao de referral criada");
+            } catch (commissionError) {
+              console.error("Erro ao criar comissao:", commissionError);
+            }
+          }
+        }
+      }
     }
 
     // 5. Sempre retorna 200
@@ -133,4 +170,24 @@ function mapMPStatusToOurs(mpStatus: string): string {
     default:
       return "pending";
   }
+}
+
+function extractPlanType(paymentDetail: Record<string, unknown>): string | null {
+  const autoRecurring = (paymentDetail as { auto_recurring?: { frequency?: number } })
+    .auto_recurring;
+  const freq = autoRecurring?.frequency;
+
+  if (freq === 1) return "monthly";
+  if (freq === 6) return "semiannual";
+  if (freq === 12) return "annual";
+  return null;
+}
+
+function getPlanAmount(planType: string): { data: number } {
+  const prices: Record<string, number> = {
+    monthly: 19.99,
+    semiannual: 89.96,
+    annual: 164.93,
+  };
+  return { data: prices[planType] ?? 0 };
 }
