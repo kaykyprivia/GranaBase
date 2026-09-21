@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
@@ -17,6 +17,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref");
   const supabase = createClient();
 
   const {
@@ -38,7 +40,7 @@ export default function RegisterPage() {
 
     if (error) {
       if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("already been registered")) {
-        toast.error("Este email já está cadastrado. Faça login.");
+        toast.error("Este email jÃ¡ estÃ¡ cadastrado. FaÃ§a login.");
       } else {
         toast.error(error.message || "Erro ao criar conta. Tente novamente.");
       }
@@ -46,6 +48,16 @@ export default function RegisterPage() {
     }
 
     if (signUpData.session) {
+      if (referralCode) {
+        try {
+          await supabase.rpc("attribute_my_referral" as never, {
+            p_referral_code: referralCode,
+          } as never);
+        } catch (refError) {
+          console.error("Erro ao atribuir indicacao:", refError);
+        }
+      }
+
       toast.success("Conta criada com sucesso! Bem-vindo ao GranaBase.");
       router.push("/dashboard");
       router.refresh();
@@ -58,9 +70,9 @@ export default function RegisterPage() {
   return (
     <div className="animate-fade-in">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary mb-2">Criar conta grátis</h1>
+        <h1 className="text-2xl font-bold text-text-primary mb-2">Criar conta grÃ¡tis</h1>
         <p className="text-text-secondary">
-          Já tem uma conta?{" "}
+          JÃ¡ tem uma conta?{" "}
           <Link href="/login" className="text-accent hover:underline font-medium">
             Fazer login
           </Link>
@@ -71,7 +83,7 @@ export default function RegisterPage() {
         <FormField label="Nome completo" error={errors.full_name?.message} required>
           <Input
             type="text"
-            placeholder="João da Silva"
+            placeholder="JoÃ£o da Silva"
             leftIcon={<User className="h-4 w-4" />}
             error={errors.full_name?.message}
             autoComplete="name"
@@ -93,7 +105,7 @@ export default function RegisterPage() {
         <FormField label="Senha" error={errors.password?.message} required>
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="MÃ­nimo 6 caracteres"
             leftIcon={<Lock className="h-4 w-4" />}
             rightIcon={
               <button
@@ -136,16 +148,16 @@ export default function RegisterPage() {
           size="lg"
           loading={isSubmitting}
         >
-          Criar conta grátis
+          Criar conta grÃ¡tis
         </Button>
       </form>
 
       <div className="mt-8 pt-6 border-t border-border text-center">
         <p className="text-xs text-text-secondary">
-          Ao criar sua conta, você concorda com os{" "}
+          Ao criar sua conta, vocÃª concorda com os{" "}
           <span className="text-accent cursor-pointer hover:underline">Termos de uso</span>
           {" "}e{" "}
-          <span className="text-accent cursor-pointer hover:underline">Política de privacidade</span>
+          <span className="text-accent cursor-pointer hover:underline">PolÃ­tica de privacidade</span>
         </p>
       </div>
     </div>
