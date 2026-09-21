@@ -41,10 +41,10 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/sw.js" ||
     request.nextUrl.pathname.startsWith("/icons/");
 
-  const isWebhookRoute =
-    request.nextUrl.pathname === "/api/mp/webhook";
+  const isApiRoute =
+    request.nextUrl.pathname.startsWith("/api/");
 
-  if (!user && !isAuthRoute && !isPublicRoute && !isPwaAssetRoute && !isWebhookRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute && !isPwaAssetRoute && !isApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
