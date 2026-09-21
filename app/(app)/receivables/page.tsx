@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Calendar, Check, ChevronDown, HandCoins, Pencil, Plus, RotateCcw, Trash2, Clock, CheckCircle2 } from "lucide-react";
@@ -24,7 +24,7 @@ import { FormField } from "@/components/shared/FormField";
 import { StatCard } from "@/components/shared/StatCard";
 import { PageIntro } from "@/components/shared/PageIntro";
 
-const RECEIVABLE_CATEGORIES = ["Trabalho", "Freela", "EmprÃ©stimo", "Venda", "Reembolso", "Outro"];
+const RECEIVABLE_CATEGORIES = ["Trabalho", "Freela", "Emprestimo", "Venda", "Reembolso", "Outro"];
 type StatusFilter = "all" | "pending" | "overdue" | "received";
 
 const EMPTY_FORM: ReceivableFormData = { description: "", amount: 0, expected_date: "", category: "", notes: "" };
@@ -56,7 +56,7 @@ export default function ReceivablesPage() {
 
     const { data, error } = await supabase.from("receivables").select("*").eq("user_id", user.id).order("expected_date");
     if (error) {
-      toast.error("Erro ao carregar recebÃ­veis");
+      toast.error("Erro ao carregar recebiveis");
       setLoading(false);
       return;
     }
@@ -151,17 +151,17 @@ export default function ReceivablesPage() {
       if (editingReceivable) {
         const { error } = await supabase.rpc("update_receivable" as never, { p_id: editingReceivable.id, p_payload: payload } as never);
         if (error) throw error;
-        toast.success("RecebÃ­vel atualizado");
+        toast.success("Recebivel atualizado");
       } else {
         const { error } = await supabase.rpc("create_receivable" as never, { p_payload: { ...payload, status: "pending" } } as never);
         if (error) throw error;
-        toast.success("RecebÃ­vel criado");
+        toast.success("Recebivel criado");
       }
 
       setModalOpen(false);
       await fetchReceivables();
     } catch {
-      toast.error("Erro ao salvar recebÃ­vel");
+      toast.error("Erro ao salvar recebivel");
     } finally {
       setSaving(false);
     }
@@ -172,10 +172,10 @@ export default function ReceivablesPage() {
     try {
       const { error } = await supabase.rpc("update_receivable" as never, { p_id: id, p_payload: { status: "received", received_at: new Date().toISOString() } } as never);
       if (error) throw error;
-      toast.success("RecebÃ­vel marcado como recebido! JÃ¡ aparece em Entradas.");
+      toast.success("Recebivel marcado como recebido! Ja aparece em Entradas.");
       await fetchReceivables();
     } catch {
-      toast.error("Erro ao marcar recebÃ­vel");
+      toast.error("Erro ao marcar recebivel");
     } finally {
       setMarkingReceivedId(null);
     }
@@ -186,10 +186,10 @@ export default function ReceivablesPage() {
     try {
       const { error } = await supabase.rpc("update_receivable" as never, { p_id: id, p_payload: { status: "pending", received_at: null } } as never);
       if (error) throw error;
-      toast.success("RecebÃ­vel voltou para pendente");
+      toast.success("Recebivel voltou para pendente");
       await fetchReceivables();
     } catch {
-      toast.error("Erro ao desmarcar recebÃ­vel");
+      toast.error("Erro ao desmarcar recebivel");
     } finally {
       setMarkingReceivedId(null);
     }
@@ -201,7 +201,7 @@ export default function ReceivablesPage() {
     try {
       const { error } = await supabase.rpc("delete_receivable" as never, { p_id: deleteId } as never);
       if (error) throw error;
-      toast.success("RecebÃ­vel excluÃ­do");
+      toast.success("Recebivel excluido");
       setReceivables((prev) => prev.filter((r) => r.id !== deleteId));
     } catch {
       toast.error("Erro ao excluir");
@@ -243,11 +243,11 @@ export default function ReceivablesPage() {
         icon={HandCoins}
         iconTone="profit"
         title="A Receber"
-        description="Dinheiro que ainda vai entrar: trabalhos, emprÃ©stimos, etc."
+        description="Dinheiro que ainda vai entrar: trabalhos, emprestimos, etc."
         actions={
           <Button onClick={openCreate} size="sm" variant="profit" className="shrink-0 gap-1.5">
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo RecebÃ­vel</span>
+            <span className="hidden sm:inline">Novo Recebivel</span>
             <span className="sm:hidden">Novo</span>
           </Button>
         }
@@ -256,7 +256,7 @@ export default function ReceivablesPage() {
       {statusFilter === "all" && (
         <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StatCard title="Total a receber" value={formatCurrency(totalToReceive)} icon={HandCoins} variant="warning" loading={loading} />
-          <StatCard title="Recebido no mÃªs" value={formatCurrency(receivedThisMonth)} icon={CheckCircle2} variant="profit" loading={loading} />
+          <StatCard title="Recebido no mes" value={formatCurrency(receivedThisMonth)} icon={CheckCircle2} variant="profit" loading={loading} />
         </div>
       )}
 
@@ -296,7 +296,7 @@ export default function ReceivablesPage() {
             <StatCard title="Atrasados" value={formatCurrency(overdueTotal)} icon={AlertCircle} variant="expense" loading={loading} />
           )}
           {statusFilter === "received" && (
-            <StatCard title="Recebidos este mÃªs" value={formatCurrency(receivedThisMonth)} icon={Check} variant="profit" loading={loading} />
+            <StatCard title="Recebidos este mes" value={formatCurrency(receivedThisMonth)} icon={Check} variant="profit" loading={loading} />
           )}
         </div>
       )}
@@ -310,9 +310,9 @@ export default function ReceivablesPage() {
       ) : filteredReceivables.length === 0 ? (
         <EmptyState
           icon={HandCoins}
-          title="Nenhum recebÃ­vel encontrado"
-          description={statusFilter !== "all" ? "Tente outro filtro." : "Registre o primeiro dinheiro que vocÃª tem a receber."}
-          actionLabel={statusFilter === "all" ? "+ Novo RecebÃ­vel" : undefined}
+          title="Nenhum recebivel encontrado"
+          description={statusFilter !== "all" ? "Tente outro filtro." : "Registre o primeiro dinheiro que voce tem a receber."}
+          actionLabel={statusFilter === "all" ? "+ Novo Recebivel" : undefined}
           onAction={statusFilter === "all" ? openCreate : undefined}
         />
       ) : (() => {
@@ -452,7 +452,7 @@ export default function ReceivablesPage() {
             <Section title="Atrasados" tone="expense" items={overdue} />
             <Section title="Previsto hoje" tone="warning" items={today} />
             <Section title="Previsto esta semana" tone="caution" items={week} />
-            <Section title="PrÃ³ximos" tone="accent" items={upcoming} />
+            <Section title="Proximos" tone="accent" items={upcoming} />
             <ReceivedSection items={received} />
           </div>
         );
@@ -461,10 +461,10 @@ export default function ReceivablesPage() {
       <Dialog open={modalOpen} onOpenChange={(open) => !open && setModalOpen(false)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingReceivable ? "Editar RecebÃ­vel" : "Novo RecebÃ­vel"}</DialogTitle>
+            <DialogTitle>{editingReceivable ? "Editar Recebivel" : "Novo Recebivel"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
-            <FormField label="DescriÃ§Ã£o" error={formErrors.description} required>
+            <FormField label="Descricao" error={formErrors.description} required>
               <Input
                 placeholder="Ex: Trabalho freelance para Empresa X"
                 value={form.description}
@@ -477,7 +477,7 @@ export default function ReceivablesPage() {
               <FormField label="Valor" error={formErrors.amount} required>
                 <CurrencyInput value={form.amount} onChange={(value) => setForm((current) => ({ ...current, amount: value }))} error={formErrors.amount} />
               </FormField>
-              <FormField label="PrevisÃ£o de recebimento" error={formErrors.expected_date} required>
+              <FormField label="Previsao de recebimento" error={formErrors.expected_date} required>
                 <Input
                   type="date"
                   value={form.expected_date}
@@ -502,7 +502,7 @@ export default function ReceivablesPage() {
               </Select>
             </FormField>
 
-            <FormField label="ObservaÃ§Ãµes">
+            <FormField label="Observacoes">
               <Textarea
                 placeholder="Notas opcionais..."
                 value={form.notes ?? ""}
@@ -516,7 +516,7 @@ export default function ReceivablesPage() {
                 Cancelar
               </Button>
               <Button type="submit" variant="profit" loading={saving}>
-                {editingReceivable ? "Salvar" : "Criar recebÃ­vel"}
+                {editingReceivable ? "Salvar" : "Criar recebivel"}
               </Button>
             </DialogFooter>
           </form>
@@ -526,8 +526,8 @@ export default function ReceivablesPage() {
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
-        title="Excluir recebÃ­vel"
-        description="Esta aÃ§Ã£o nÃ£o pode ser desfeita."
+        title="Excluir recebivel"
+        description="Esta acao nao pode ser desfeita."
         confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}

@@ -35,11 +35,11 @@ import { ExpensesFilters } from "@/components/expenses/ExpensesFilters";
 import { MonthGroupCard } from "@/components/expenses/MonthGroupCard";
 import type { DisplayExpense } from "@/components/expenses/types";
 
-const BASE_EXPENSE_CATEGORIES = ["Alimentação", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergência", "Outro"];
-const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão Débito", "Cartão Crédito", "Transferência", "Outro"];
-const INSTALLMENT_PAYMENT_METHODS = ["Cartão Crédito", "Boleto"];
+const BASE_EXPENSE_CATEGORIES = ["Alimentacao", "Mercado", "Transporte", "Moradia", "Internet", "Lazer", "Assinatura", "Emergencia", "Outro"];
+const PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartao Debito", "Cartao Credito", "Transferencia", "Outro"];
+const INSTALLMENT_PAYMENT_METHODS = ["Cartao Credito", "Boleto"];
 const OTHER_MONTHS_WINDOW = 5;
-const BILL_CATEGORIES = ["Aluguel", "Energia", "ÃÂgua", "Internet", "Telefone", "Cartão", "Empréstimo", "Seguro", "Mensalidade", "Outro"];
+const BILL_CATEGORIES = ["Aluguel", "Energia", "ÃƒÂƒÃ‚Âgua", "Internet", "Telefone", "Cartao", "Emprestimo", "Seguro", "Mensalidade", "Outro"];
 
 type ExpenseType = "normal" | "parcelado" | "fixa";
 
@@ -48,7 +48,7 @@ type ConsortiumPayment = Database["public"]["Tables"]["consortium_payments"]["Ro
 type ScheduledConsortiumPayment = ConsortiumPayment & { projected?: boolean };
 
 const installmentWithExtrasSchema = installmentSchema.extend({
-  category: z.string().min(1, "Categoria é obrigatória"),
+  category: z.string().min(1, "Categoria e obrigatoria"),
   payment_method: z.string().optional(),
 });
 type InstallmentExtrasFormData = z.infer<typeof installmentWithExtrasSchema>;
@@ -86,13 +86,13 @@ function buildExpenseCategories(customCategories: string[]): string[] {
 
 const CATEGORY_COLORS: Record<string, string> = {
   Transporte:   "#F97316",
-  Alimentação:  "#22C55E",
+  Alimentacao:  "#22C55E",
   Lazer:        "#A78BFA",
   Moradia:      "#38BDF8",
   Mercado:      "#14B8A6",
   Internet:     "#6366F1",
   Assinatura:   "#8B5CF6",
-  Emergência:   "#EF4444",
+  Emergencia:   "#EF4444",
   Outro:        "#94A3B8",
   "Cons\u00f3rcio": "#38BDF8",
 };
@@ -460,7 +460,7 @@ export default function ExpensesPage() {
 
   const allEntries = useMemo<DisplayExpense[]>(() => [
     ...entries.map((e) => {
-      const isCardWithDueDate = e.payment_method === "Cartão Crédito" && !!e.card_due_date;
+      const isCardWithDueDate = e.payment_method === "Cartao Credito" && !!e.card_due_date;
       return {
         ...e,
         source: "manual" as const,
@@ -485,8 +485,8 @@ export default function ExpensesPage() {
     [allEntries]
   );
 
-  // Compra manual no cartão com vencimento: spent_at guarda a data de vencimento
-  // (fatura) e actualDate guarda a data real da compra âÂÂ ver mapeamento acima.
+  // Compra manual no Cartao com vencimento: spent_at guarda a data de vencimento
+  // (fatura) e actualDate guarda a data real da compra aÃ‚Â€Ã‚Â” ver mapeamento acima.
   const getCardDueDay = (entry: DisplayExpense): number | null =>
     entry.source === "manual" && entry.actualDate !== undefined
       ? Number(entry.spent_at.slice(8, 10))
@@ -802,22 +802,11 @@ export default function ExpensesPage() {
   const onSubmit = async (data: ExpenseFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.from("expense_entries").update(coerceMutation({
-          description: data.description, amount: data.amount, category: data.category,
-          spent_at: data.spent_at, payment_method: data.payment_method || null,
-          card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null,
-          notes: data.notes || null,
-        })).eq("id", editingEntry.id);
+        const { error } = await supabase.rpc("update_expense_entry" as never, { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null, notes: data.notes || null } } as never);
         if (error) throw error;
         toast.success("Gasto atualizado");
       } else {
-        const { error } = await supabase.from("expense_entries").insert(coerceMutation({
-          user_id: userId, description: data.description, amount: data.amount,
-          category: data.category, spent_at: data.spent_at,
-          payment_method: data.payment_method || null,
-          card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null,
-          notes: data.notes || null,
-        }));
+        const { error } = await supabase.rpc("create_expense_entry" as never, { p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null, notes: data.notes || null } } as never);
         if (error) throw error;
         toast.success("Gasto registrado");
       }
@@ -865,7 +854,7 @@ export default function ExpensesPage() {
         .single();
 
       const created = createdData ? coerceData<Installment>(createdData) : null;
-      if (error || !created) throw error ?? new Error("Não foi possível criar o parcelamento.");
+      if (error || !created) throw error ?? new Error("Nao foi possivel criar o parcelamento.");
 
       const paymentsRows = Array.from({ length: result.data.installment_count }, (_, index) => {
         const dueDate = addMonths(new Date(`${result.data.first_due_date}T00:00:00`), index);
@@ -929,9 +918,9 @@ export default function ExpensesPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from("expense_entries").delete().eq("id", deleteId);
+      const { error } = await supabase.rpc("delete_expense_entry" as never, { p_id: deleteId } as never);
       if (error) throw error;
-      toast.success("Gasto excluído");
+      toast.success("Gasto excluido");
       setEntries(prev => prev.filter(e => e.id !== deleteId));
     } catch {
       toast.error("Erro ao excluir gasto");
@@ -1008,7 +997,7 @@ export default function ExpensesPage() {
             is_recurring: true,
             notes: bill.notes ?? null,
           }));
-          toast.success("Conta paga! Próximo mês já gerado automaticamente.");
+          toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
         } else {
           toast.success("Conta marcada como paga!");
         }
@@ -1126,11 +1115,11 @@ export default function ExpensesPage() {
         if (consortiumError) throw consortiumError;
       }
 
-      toast.success("Lançamento atualizado");
+      toast.success("Lancamento atualizado");
       setEditPendingItem(null);
       await fetchEntries();
     } catch {
-      toast.error("Erro ao atualizar lançamento");
+      toast.error("Erro ao atualizar lancamento");
     } finally {
       setEditPendingSaving(false);
     }
@@ -1143,7 +1132,7 @@ export default function ExpensesPage() {
       if (deletePendingItem.source === "bill") {
         const { error } = await supabase.from("bills").delete().eq("id", deletePendingItem.id);
         if (error) throw error;
-        toast.success("Conta excluída");
+        toast.success("Conta excluida");
       } else if (deletePendingItem.source === "installment") {
         const payment = payments.find((p) => p.id === deletePendingItem.id);
         if (payment) {
@@ -1151,19 +1140,19 @@ export default function ExpensesPage() {
           const { error } = await supabase.from("installments").delete().eq("id", payment.installment_id);
           if (error) throw error;
         }
-        toast.success("Parcelamento excluído");
+        toast.success("Parcelamento excluido");
       } else if (deletePendingItem.source === "consortium") {
         const payment = consortiumPayments.find(
           (item) => item.id === deletePendingItem.id
         );
-        if (!payment) throw new Error("Parcela do consórcio não encontrada");
+        if (!payment) throw new Error("Parcela do consorcio nao encontrada");
 
         const { error } = await supabase
           .from("consortiums")
           .delete()
           .eq("id", payment.consortium_id);
         if (error) throw error;
-        toast.success("Consórcio excluído");
+        toast.success("Consorcio excluido");
       }
 
       setDeletePendingItem(null);
@@ -1191,7 +1180,7 @@ export default function ExpensesPage() {
         if (error) throw error;
       }
 
-      toast.success("Pagamento desfeito âÂÂ volta para pendente");
+      toast.success("Pagamento desfeito aÃ‚Â€Ã‚Â” volta para pendente");
       setRevertItem(null);
       await fetchEntries();
     } catch {
@@ -1280,9 +1269,9 @@ export default function ExpensesPage() {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="3">ÃÂltimos 3 meses</SelectItem>
-                <SelectItem value="6">ÃÂltimos 6 meses</SelectItem>
-                <SelectItem value="12">ÃÂltimos 12 meses</SelectItem>
+                <SelectItem value="3">ÃƒÂƒÃ‚Âšltimos 3 meses</SelectItem>
+                <SelectItem value="6">ÃƒÂƒÃ‚Âšltimos 6 meses</SelectItem>
+                <SelectItem value="12">ÃƒÂƒÃ‚Âšltimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1375,7 +1364,7 @@ export default function ExpensesPage() {
                       </div>
                       {nextPayment && (
                         <p className="mt-1 text-[10px] text-text-secondary">
-                          Próxima: {formatDate(nextPayment.due_date)} ÃÂ· {formatCurrency(nextPayment.amount, currency)}
+                          Proxima: {formatDate(nextPayment.due_date)} ÃƒÂ‚Ã‚Â· {formatCurrency(nextPayment.amount, currency)}
                         </p>
                       )}
 
@@ -1391,7 +1380,7 @@ export default function ExpensesPage() {
                                     {paymentNumber}/{installment.installment_count}
                                   </span>
                                   <div className="min-w-0 flex-1">
-                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} ÃÂ· {formatCurrency(payment.amount, currency)}</p>
+                                    <p className="text-[11px] text-text-primary">{formatDate(payment.spent_at)} ÃƒÂ‚Ã‚Â· {formatCurrency(payment.amount, currency)}</p>
                                     {payment.status === "paid" && payment.dueDateRef && payment.dueDateRef !== payment.spent_at && (
                                       <p className="text-[9px] text-text-secondary/60">Vencia em {formatDate(payment.dueDateRef)}</p>
                                     )}
@@ -1423,7 +1412,7 @@ export default function ExpensesPage() {
                                           <Pencil className="h-3 w-3" />
                                         </Button>
                                         <Button variant="ghost" size="icon-sm" onClick={() => setRevertItem(payment)}
-                                          className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento âÂÂ volta para pendente">
+                                          className="text-warning hover:bg-warning/10 hover:text-warning" title="Desfazer pagamento aÃ‚Â€Ã‚Â” volta para pendente">
                                           <RotateCcw className="h-3 w-3" />
                                         </Button>
                                       </>
@@ -1585,7 +1574,7 @@ export default function ExpensesPage() {
               {otherMonthGroups.length > OTHER_MONTHS_WINDOW && (
                 <button
                   type="button"
-                  aria-label="Próximos meses"
+                  aria-label="Proximos meses"
                   disabled={otherMonthsStart >= otherMonthsMaxStart}
                   onClick={() => setOtherMonthsWindowStart(Math.min(otherMonthsMaxStart, otherMonthsStart + 1))}
                   className="flex w-full items-center justify-center rounded-lg border border-border/60 py-1 text-text-secondary transition-colors duration-150 hover:bg-border/40 disabled:pointer-events-none disabled:opacity-30"
@@ -1630,8 +1619,8 @@ export default function ExpensesPage() {
 
           {expenseType === "normal" && (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <FormField label="Descrição" error={errors.description?.message} required>
-                <Input placeholder="Ex: Almoço restaurante" error={errors.description?.message} {...register("description")} />
+              <FormField label="Descricao" error={errors.description?.message} required>
+                <Input placeholder="Ex: Almoco restaurante" error={errors.description?.message} {...register("description")} />
               </FormField>
               <FormField label="Valor" error={errors.amount?.message} required>
                 <Controller name="amount" control={control}
@@ -1650,7 +1639,7 @@ export default function ExpensesPage() {
                   <Input type="date" error={errors.spent_at?.message} {...register("spent_at")} />
                 </FormField>
               </div>
-              <FormField label="Método de pagamento" error={errors.payment_method?.message} required>
+              <FormField label="Metodo de pagamento" error={errors.payment_method?.message} required>
                 <Controller name="payment_method" control={control} render={({ field }) => (
                   <Select value={field.value ?? ""} onValueChange={field.onChange}>
                     <SelectTrigger error={errors.payment_method?.message}><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -1658,12 +1647,12 @@ export default function ExpensesPage() {
                   </Select>
                 )} />
               </FormField>
-              {paymentMethodValue === "Cartão Crédito" && (
-                <FormField label="Vencimento da fatura" hint="Opcional âÂÂ edite se for diferente da data do gasto">
+              {paymentMethodValue === "Cartao Credito" && (
+                <FormField label="Vencimento da fatura" hint="Opcional aÃ‚Â€Ã‚Â” edite se for diferente da data do gasto">
                   <Input type="date" {...register("card_due_date")} />
                 </FormField>
               )}
-              <FormField label="Observações">
+              <FormField label="Observacoes">
                 <Textarea placeholder="Notas opcionais..." rows={2} {...register("notes")} />
               </FormField>
               <DialogFooter>
@@ -1675,7 +1664,7 @@ export default function ExpensesPage() {
 
           {expenseType === "parcelado" && (
             <form onSubmit={(e) => { e.preventDefault(); void handleCreateInstallment(); }} className="space-y-4">
-              <FormField label="Descrição" error={installmentFormErrors.description} required>
+              <FormField label="Descricao" error={installmentFormErrors.description} required>
                 <Input placeholder="Ex: Notebook novo" value={installmentForm.description} error={installmentFormErrors.description}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, description: e.target.value }))} />
               </FormField>
@@ -1689,7 +1678,7 @@ export default function ExpensesPage() {
                     onChange={(e) => setInstallmentCountInput(e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Data da 1ÃÂª parcela" error={installmentFormErrors.first_due_date} required>
+              <FormField label="Data da 1ÃƒÂ‚Ã‚Âª parcela" error={installmentFormErrors.first_due_date} required>
                 <Input type="date" error={installmentFormErrors.first_due_date} value={installmentForm.first_due_date}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, first_due_date: e.target.value }))} />
               </FormField>
@@ -1700,14 +1689,14 @@ export default function ExpensesPage() {
                     <SelectContent>{expenseCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </FormField>
-                <FormField label="Método de pagamento" error={installmentFormErrors.payment_method}>
+                <FormField label="Metodo de pagamento" error={installmentFormErrors.payment_method}>
                   <Select value={installmentForm.payment_method} onValueChange={(value) => setInstallmentForm((c) => ({ ...c, payment_method: value }))}>
                     <SelectTrigger error={installmentFormErrors.payment_method}><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 </FormField>
               </div>
-              <FormField label="Observações">
+              <FormField label="Observacoes">
                 <Textarea placeholder="Notas opcionais..." rows={2} value={installmentForm.notes ?? ""}
                   onChange={(e) => setInstallmentForm((c) => ({ ...c, notes: e.target.value }))} />
               </FormField>
@@ -1740,7 +1729,7 @@ export default function ExpensesPage() {
                   <SelectContent>{BILL_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </FormField>
-              <FormField label="Observações">
+              <FormField label="Observacoes">
                 <Textarea placeholder="Notas opcionais..." rows={2} value={billForm.notes ?? ""}
                   onChange={(e) => setBillForm((c) => ({ ...c, notes: e.target.value }))} />
               </FormField>
@@ -1754,7 +1743,7 @@ export default function ExpensesPage() {
       </Dialog>
 
       <ConfirmDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}
-        title="Excluir gasto" description="Tem certeza? Esta ação não pode ser desfeita."
+        title="Excluir gasto" description="Tem certeza? Esta acao nao pode ser desfeita."
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
 
       <Dialog open={markPaidItem !== null} onOpenChange={open => !open && setMarkPaidItem(null)}>
@@ -1774,7 +1763,7 @@ export default function ExpensesPage() {
               required
               hint={
                 markPaidItem?.source === "installment"
-                  ? "Altere o valor se pagou com desconto ou acréscimo."
+                  ? "Altere o valor se pagou com desconto ou acrescimo."
                   : markPaidItem?.source === "consortium"
                     ? "Altere o valor se pagou com desconto."
                     : undefined
@@ -1784,7 +1773,7 @@ export default function ExpensesPage() {
             </FormField>
             {(markPaidItem?.source === "installment" || markPaidItem?.source === "consortium") && markPaidItem.dueAmount !== undefined && markPaidAmount > 0 && markPaidAmount < markPaidItem.dueAmount && (
               <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
-                Será registrado como <strong>Pago com desconto</strong> âÂÂ economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
+                Sera registrado como <strong>Pago com desconto</strong> aÃ‚Â€Ã‚Â” economia de {formatCurrency(markPaidItem.dueAmount - markPaidAmount, currency)}
               </p>
             )}
             {markPaidItem?.source !== "consortium" && (
@@ -1817,7 +1806,7 @@ export default function ExpensesPage() {
             </FormField>
             {editPaidItem?.source === "installment" && editPaidItem.dueAmount !== undefined && editPaidAmount > 0 && editPaidAmount < editPaidItem.dueAmount && (
               <p className="rounded-lg bg-profit/10 px-3 py-2 text-xs text-profit">
-                Será registrado como <strong>Pago com desconto</strong> âÂÂ economia de {formatCurrency(editPaidItem.dueAmount - editPaidAmount, currency)}
+                Sera registrado como <strong>Pago com desconto</strong> aÃ‚Â€Ã‚Â” economia de {formatCurrency(editPaidItem.dueAmount - editPaidAmount, currency)}
               </p>
             )}
             <FormField label="Data do pagamento" required>
@@ -1833,7 +1822,7 @@ export default function ExpensesPage() {
 
       <ConfirmDialog open={revertItem !== null} onOpenChange={open => !open && setRevertItem(null)}
         title="Desfazer pagamento"
-        description={`"${revertItem?.description}" vai voltar para pendente em ${revertItem?.source === "bill" ? "Contas" : "Parcelamentos"} e vai sair da lista de Gastos. Os dados da conta/parcelamento não são excluídos.`}
+        description={`"${revertItem?.description}" vai voltar para pendente em ${revertItem?.source === "bill" ? "Contas" : "Parcelamentos"} e vai sair da lista de Gastos. Os dados da conta/parcelamento nao sao excluidos.`}
         confirmLabel="Desfazer pagamento" onConfirm={handleRevert} loading={reverting} />
 
       <Dialog open={editPendingItem !== null} onOpenChange={open => !open && setEditPendingItem(null)}>
@@ -1843,12 +1832,12 @@ export default function ExpensesPage() {
               {editPendingItem?.source === "bill"
                 ? "Editar conta"
                 : editPendingItem?.source === "consortium"
-                  ? "Editar parcela do consórcio"
+                  ? "Editar parcela do consorcio"
                   : "Editar parcelamento"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <FormField label={editPendingItem?.source === "bill" ? "Nome da conta fixa" : "Descrição"} required>
+            <FormField label={editPendingItem?.source === "bill" ? "Nome da conta fixa" : "Descricao"} required>
               <Input value={editPendingName} onChange={e => setEditPendingName(e.target.value)} />
             </FormField>
             <div className="grid grid-cols-2 gap-4">
@@ -1870,7 +1859,7 @@ export default function ExpensesPage() {
                   </Select>
                 </FormField>
                 {editPendingItem?.source === "installment" && (
-                  <FormField label="Método de pagamento">
+                  <FormField label="Metodo de pagamento">
                     <Select value={editPendingPaymentMethod} onValueChange={setEditPendingPaymentMethod}>
                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>{INSTALLMENT_PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
@@ -1879,7 +1868,7 @@ export default function ExpensesPage() {
                 )}
               </div>
             )}
-            <FormField label="Observações">
+            <FormField label="Observacoes">
               <Textarea placeholder="Notas opcionais..." rows={2} value={editPendingNotes} onChange={e => setEditPendingNotes(e.target.value)} />
             </FormField>
           </div>
@@ -1891,13 +1880,13 @@ export default function ExpensesPage() {
       </Dialog>
 
       <ConfirmDialog open={deletePendingItem !== null} onOpenChange={open => !open && setDeletePendingItem(null)}
-        title={deletePendingItem?.source === "installment" ? "Excluir parcelamento" : deletePendingItem?.source === "consortium" ? "Excluir consórcio" : "Excluir conta"}
+        title={deletePendingItem?.source === "installment" ? "Excluir parcelamento" : deletePendingItem?.source === "consortium" ? "Excluir consorcio" : "Excluir conta"}
         description={
           deletePendingItem?.source === "installment"
-            ? `Isso vai excluir TODAS as parcelas de "${deletePendingItem?.description}", não só esta. Esta ação não pode ser desfeita.`
+            ? `Isso vai excluir TODAS as parcelas de "${deletePendingItem?.description}", nao so esta. Esta acao nao pode ser desfeita.`
             : deletePendingItem?.source === "consortium"
-              ? `Isso vai excluir o consórcio e todo o histórico de parcelas de "${deletePendingItem?.description}". Esta ação não pode ser desfeita.`
-              : "Tem certeza? Esta ação não pode ser desfeita."
+              ? `Isso vai excluir o consorcio e todo o historico de parcelas de "${deletePendingItem?.description}". Esta acao nao pode ser desfeita.`
+              : "Tem certeza? Esta acao nao pode ser desfeita."
         }
         confirmLabel="Excluir" onConfirm={handleDeletePending} loading={deletingPending} />
 

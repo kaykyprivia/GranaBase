@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,7 +29,7 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    toast.success("SessÃ£o encerrada");
+    toast.success("Sessao encerrada");
     router.push("/login");
   };
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { BadgePercent, Check, ChevronDown, ChevronUp, Clock, CreditCard, Pencil, Trash2 } from "lucide-react";
@@ -259,7 +259,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
   }, [fetchData]);
 
   const ensureModeDescription = (description: string) =>
-    mode === "only-mae" && !isMaeName(description) ? `MÃ£e - ${description}` : description;
+    mode === "only-mae" && !isMaeName(description) ? `Mae - ${description}` : description;
 
   const handleCreate = async (values: InstallmentFormData) => {
     setSaving(true);
@@ -638,7 +638,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                     <div className="mt-2 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/8 px-3 py-2">
                       <Clock className="h-3.5 w-3.5 shrink-0 text-warning" />
                       <p className="text-xs text-warning">
-                        PrÃ³xima: parcela {nextPayment.installment_number} Â· {formatDate(nextPayment.due_date)} Â· {formatCurrency(nextPayment.amount)}
+                        Proxima: parcela {nextPayment.installment_number} Â· {formatDate(nextPayment.due_date)} Â· {formatCurrency(nextPayment.amount)}
                       </p>
                     </div>
                   )}
@@ -897,7 +897,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                 <SelectContent>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="paid_with_discount">Pago com desconto / antecipaÃ§Ã£o</SelectItem>
+                  <SelectItem value="paid_with_discount">Pago com desconto / antecipacao</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
@@ -922,7 +922,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
               </FormField>
             )}
 
-            <FormField label="ObservaÃ§Ã£o">
+            <FormField label="Observacao">
               <Textarea
                 placeholder="Notas opcionais..."
                 value={paymentNotes}
@@ -968,7 +968,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
 
             {confirmPayContext && confirmPayAmount > 0 && confirmPayAmount < confirmPayContext.payment.amount && (
               <p className="text-xs text-accent">
-                SerÃ¡ registrado como <strong>Pago com desconto</strong> â€” economia de {formatCurrency(confirmPayContext.payment.amount - confirmPayAmount)}
+                Sera registrado como <strong>Pago com desconto</strong> â€” economia de {formatCurrency(confirmPayContext.payment.amount - confirmPayAmount)}
               </p>
             )}
 

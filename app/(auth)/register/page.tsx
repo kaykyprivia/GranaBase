@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -40,7 +40,7 @@ export default function RegisterPage() {
 
     if (error) {
       if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("already been registered")) {
-        toast.error("Este email jÃ¡ estÃ¡ cadastrado. FaÃ§a login.");
+        toast.error("Este email ja esta cadastrado. Faca login.");
       } else {
         toast.error(error.message || "Erro ao criar conta. Tente novamente.");
       }
@@ -70,9 +70,9 @@ export default function RegisterPage() {
   return (
     <div className="animate-fade-in">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary mb-2">Criar conta grÃ¡tis</h1>
+        <h1 className="text-2xl font-bold text-text-primary mb-2">Criar conta gratis</h1>
         <p className="text-text-secondary">
-          JÃ¡ tem uma conta?{" "}
+          Ja tem uma conta?{" "}
           <Link href="/login" className="text-accent hover:underline font-medium">
             Fazer login
           </Link>
@@ -83,7 +83,7 @@ export default function RegisterPage() {
         <FormField label="Nome completo" error={errors.full_name?.message} required>
           <Input
             type="text"
-            placeholder="JoÃ£o da Silva"
+            placeholder="Joao da Silva"
             leftIcon={<User className="h-4 w-4" />}
             error={errors.full_name?.message}
             autoComplete="name"
@@ -105,7 +105,7 @@ export default function RegisterPage() {
         <FormField label="Senha" error={errors.password?.message} required>
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder="MÃ­nimo 6 caracteres"
+            placeholder="Minimo 6 caracteres"
             leftIcon={<Lock className="h-4 w-4" />}
             rightIcon={
               <button
@@ -148,16 +148,16 @@ export default function RegisterPage() {
           size="lg"
           loading={isSubmitting}
         >
-          Criar conta grÃ¡tis
+          Criar conta gratis
         </Button>
       </form>
 
       <div className="mt-8 pt-6 border-t border-border text-center">
         <p className="text-xs text-text-secondary">
-          Ao criar sua conta, vocÃª concorda com os{" "}
+          Ao criar sua conta, voce concorda com os{" "}
           <span className="text-accent cursor-pointer hover:underline">Termos de uso</span>
           {" "}e{" "}
-          <span className="text-accent cursor-pointer hover:underline">PolÃ­tica de privacidade</span>
+          <span className="text-accent cursor-pointer hover:underline">Politica de privacidade</span>
         </p>
       </div>
     </div>

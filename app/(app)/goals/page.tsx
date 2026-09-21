@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Target, Plus, Pencil, Trash2, Wallet, PauseCircle, CheckCircle2, Lightbulb, AlertTriangle } from "lucide-react";
@@ -269,13 +269,13 @@ export default function GoalsPage() {
               <Wallet className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">PatrimÃ´nio Atual</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">Patrimonio Atual</p>
               {loading ? (
                 <Skeleton className="mt-1 h-9 w-48" />
               ) : (
                 <p className="text-3xl font-bold text-profit">{formatCurrency(walletBalance)}</p>
               )}
-              <p className="mt-1 text-xs text-text-secondary">Saldo Ãºnico â€” alimenta todas as suas metas</p>
+              <p className="mt-1 text-xs text-text-secondary">Saldo unico â€” alimenta todas as suas metas</p>
             </div>
           </div>
           <GlobalContributionButton className="shrink-0" />
