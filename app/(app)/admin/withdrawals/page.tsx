@@ -134,6 +134,19 @@ export default function AdminWithdrawalsPage() {
     }
   }
 
+  async function handleCopyAll(key: string, amount: number, email: string) {
+    try {
+      const text =
+        "Chave Pix: " + key + "\n" +
+        "Valor: " + formatCurrency(amount) + "\n" +
+        "Email: " + email;
+      await navigator.clipboard.writeText(text);
+      toast.success("Dados copiados");
+    } catch {
+      toast.error("Erro ao copiar");
+    }
+  }
+
   async function handleCopy(key: string) {
     try {
       await navigator.clipboard.writeText(key);
@@ -159,6 +172,60 @@ export default function AdminWithdrawalsPage() {
               Gerencie as solicitacoes de saque dos usuarios
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <div className="flex items-center gap-2 text-warning">
+            <Clock className="h-4 w-4" />
+            <p className="text-xs font-medium uppercase tracking-wider">Pendentes</p>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-text-primary">
+            {requests.filter((r) => r.status === "pending").length}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {formatCurrency(
+              requests
+                .filter((r) => r.status === "pending")
+                .reduce((sum, r) => sum + r.amount, 0)
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+          <div className="flex items-center gap-2 text-accent">
+            <PlayCircle className="h-4 w-4" />
+            <p className="text-xs font-medium uppercase tracking-wider">Processando</p>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-text-primary">
+            {requests.filter((r) => r.status === "processing").length}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {formatCurrency(
+              requests
+                .filter((r) => r.status === "processing")
+                .reduce((sum, r) => sum + r.amount, 0)
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-success/30 bg-success/5 p-4">
+          <div className="flex items-center gap-2 text-success">
+            <CheckCircle2 className="h-4 w-4" />
+            <p className="text-xs font-medium uppercase tracking-wider">Pagos</p>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-text-primary">
+            {requests.filter((r) => r.status === "paid").length}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {formatCurrency(
+              requests
+                .filter((r) => r.status === "paid")
+                .reduce((sum, r) => sum + r.amount, 0)
+            )}
+          </p>
         </div>
       </div>
 
@@ -264,6 +331,16 @@ export default function AdminWithdrawalsPage() {
                     onClick={() => handleCopy(req.pix_key)}
                   >
                     <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      handleCopyAll(req.pix_key, req.amount, req.user_email)
+                    }
+                  >
+                    Copiar tudo
                   </Button>
                 </div>
               </div>
