@@ -28,8 +28,13 @@ type ReferralStats = {
 type Referral = {
   referral_id: string;
   referred_user_id: string;
+  referred_display_name: string;
   referral_code: string;
   attributed_at: string;
+  has_active_subscription: boolean;
+  active_plan_type: string | null;
+  converted_at: string | null;
+  commission_earned: number;
 };
 
 type Commission = {
@@ -303,24 +308,63 @@ export default function ReferralsPage() {
                 {referrals.map((ref) => (
                   <div
                     key={ref.referral_id}
-                    className="flex items-center justify-between rounded-lg border border-border/40 bg-background/30 p-3"
+                    className="rounded-lg border border-border/40 bg-background/30 p-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10">
-                        <UserPlus className="h-4 w-4 text-accent" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div
+                          className={
+                            ref.has_active_subscription
+                              ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/10"
+                              : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/10"
+                          }
+                        >
+                          <UserPlus
+                            className={
+                              ref.has_active_subscription
+                                ? "h-4 w-4 text-success"
+                                : "h-4 w-4 text-accent"
+                            }
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-text-primary">
+                            {ref.referred_display_name}
+                          </p>
+                          <p className="text-xs text-text-secondary">
+                            Indicado em {formatDate(ref.attributed_at)}
+                          </p>
+                          {ref.has_active_subscription && ref.active_plan_type && (
+                            <p className="mt-1 text-xs font-medium text-success">
+                              ✓ Assinou {PLAN_LABELS[ref.active_plan_type] ?? ref.active_plan_type}
+                              {ref.converted_at && ` · ${formatDate(ref.converted_at)}`}
+                            </p>
+                          )}
+                          {!ref.has_active_subscription && (
+                            <p className="mt-1 text-xs text-text-muted">
+                              Aguardando assinatura
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">
-                          Indicado
-                        </p>
-                        <p className="text-xs text-text-secondary">
-                          {formatDate(ref.attributed_at)}
-                        </p>
+
+                      <div className="flex flex-col items-end gap-1">
+                        {ref.has_active_subscription ? (
+                          <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                            Convertido
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-border/40 px-2 py-0.5 text-xs text-text-secondary">
+                            Pendente
+                          </span>
+                        )}
+                        {ref.commission_earned > 0 && (
+                          <span className="text-xs font-semibold text-accent">
+                            +{formatCurrency(Number(ref.commission_earned))}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
-                      Ativo
-                    </span>
                   </div>
                 ))}
               </div>
