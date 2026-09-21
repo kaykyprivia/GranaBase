@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ type ExpandedState = Record<NavigationGroup["id"], boolean>;
 const collapsedGroups: ExpandedState = {
   finance: false,
   business: false,
+  subscription: false,
 };
 
 let expandedGroups: ExpandedState = collapsedGroups;
@@ -124,7 +125,7 @@ export function NavigationGroups({ groups, onNavigate }: NavigationGroupsProps) 
                           aria-disabled="true"
                           tabIndex={isExpanded ? undefined : -1}
                           className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-muted/60"
-                          title="Disponível nas próximas etapas"
+                          title="Disponivel nas proximas etapas"
                         >
                           <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.75} />
                           <span className="flex-1">{item.label}</span>
