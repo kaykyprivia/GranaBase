@@ -777,14 +777,16 @@ export default function ExpensesPage() {
     )
     .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
 
-  const openInstallmentsTotal = installments.reduce((sum, inst) => {
-    const paid = payments
-      .filter((p) => p.installment_id === inst.id && p.status === "paid")
-      .reduce((s, p) => s + Number(p.paid_amount ?? p.amount ?? 0), 0);
-    return sum + Math.max(0, Number(inst.total_amount) - paid);
-  }, 0);
+  // Parcelas com vencimento NESTE mes, ainda nao pagas
+  const openInstallmentsThisMonth = payments
+    .filter((p) => {
+      if (p.status === "paid") return false;
+      if (!p.due_date) return false;
+      return p.due_date.startsWith(currentMonth);
+    })
+    .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
-  const faltaPagarTotal = pendingTotal + openInstallmentsTotal;
+  const faltaPagarTotal = pendingTotal + openInstallmentsThisMonth;
 
   const openCreate = () => {
     setEditingEntry(null);
