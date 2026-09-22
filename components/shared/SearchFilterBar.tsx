@@ -74,7 +74,6 @@ export function SearchFilterBar({
 
           {activeFilterCount > 0 && (
             <Badge
-              variant="expense"
               className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none"
             >
               {activeFilterCount}

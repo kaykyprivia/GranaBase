@@ -554,7 +554,7 @@ export default function ExpensesPage() {
   );
   const activeFilterCount = [
     monthFilter !== "all", statusFilter !== "all", categoryFilter !== "all",
-    paymentMethodFilter !== "all", sourceFilter !== "all", dueDayFilter !== "all", Boolean(search),
+    paymentMethodFilter !== "all", sourceFilter !== "all", dueDayFilter !== "all",
   ].filter(Boolean).length;
 
   const clearFilters = () => {
