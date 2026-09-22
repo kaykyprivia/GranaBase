@@ -439,7 +439,7 @@ export default function IncomePage() {
       })).eq("id", revertReceivedItem.id);
       if (error) throw error;
 
-      toast.success("Recebimento desfeito â€” volta para pendente");
+      toast.success("Recebimento desfeito  volta para pendente");
       setRevertReceivedItem(null);
       await fetchEntries();
     } catch {

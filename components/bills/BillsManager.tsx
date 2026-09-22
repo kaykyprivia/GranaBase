@@ -442,7 +442,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
                     <Calendar className="h-3 w-3" />{formatDate(bill.due_date)}
                   </span>
                   {holiday && (
-                    <span className="text-text-secondary">ðŸŽ‰ Feriado: {holiday.name}</span>
+                    <span className="text-text-secondary"> Feriado: {holiday.name}</span>
                   )}
                   {effective === "overdue" && (
                     <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>

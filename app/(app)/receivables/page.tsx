@@ -353,7 +353,7 @@ export default function ReceivablesPage() {
                     <Calendar className="h-3 w-3" />{formatDate(receivable.expected_date)}
                   </span>
                   {holiday && (
-                    <span className="text-text-secondary">ðŸŽ‰ Feriado: {holiday.name}</span>
+                    <span className="text-text-secondary"> Feriado: {holiday.name}</span>
                   )}
                   {effective === "overdue" && (
                     <span className="font-medium text-expense">{Math.abs(daysUntil)} dia{Math.abs(daysUntil) !== 1 ? "s" : ""} de atraso</span>

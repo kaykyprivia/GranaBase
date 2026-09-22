@@ -598,7 +598,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-text-secondary">
-                        {formatCurrency(item.installment_amount)}/parcela Â· Total: {formatCurrency(item.total_amount)}
+                        {formatCurrency(item.installment_amount)}/parcela  Total: {formatCurrency(item.total_amount)}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -638,7 +638,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                     <div className="mt-2 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/8 px-3 py-2">
                       <Clock className="h-3.5 w-3.5 shrink-0 text-warning" />
                       <p className="text-xs text-warning">
-                        Proxima: parcela {nextPayment.installment_number} Â· {formatDate(nextPayment.due_date)} Â· {formatCurrency(nextPayment.amount)}
+                        Proxima: parcela {nextPayment.installment_number}  {formatDate(nextPayment.due_date)}  {formatCurrency(nextPayment.amount)}
                       </p>
                     </div>
                   )}
@@ -676,7 +676,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
 
                         return (
                           <div key={payment.id} className="grid grid-cols-[2rem_1fr_auto] gap-x-2 rounded-lg bg-background/50 px-3 py-2">
-                            {/* Installment number â€” spans both rows */}
+                            {/* Installment number  spans both rows */}
                             <span className="row-span-2 self-center text-xs font-medium text-text-secondary">
                               {payment.installment_number}/{item.installment_count}
                             </span>
@@ -704,7 +704,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
                               )}
                               {payment.notes && (
                                 <span className="break-words text-[10px] text-text-secondary" title={payment.notes}>
-                                  Â· {payment.notes}
+                                   {payment.notes}
                                 </span>
                               )}
                             </div>
@@ -873,7 +873,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
           <DialogHeader>
             <DialogTitle>Editar parcela</DialogTitle>
             <DialogDescription>
-              {editingPayment ? `${editingPayment.installmentDescription} Â· ${formatDate(editingPayment.payment.due_date)}` : "Atualize o status da parcela."}
+              {editingPayment ? `${editingPayment.installmentDescription}  ${formatDate(editingPayment.payment.due_date)}` : "Atualize o status da parcela."}
             </DialogDescription>
           </DialogHeader>
 
@@ -943,14 +943,14 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
         </DialogContent>
       </Dialog>
 
-      {/* Confirm payment dialog â€” triggered by the âœ“ button on unpaid rows */}
+      {/* Confirm payment dialog  triggered by the  button on unpaid rows */}
       <Dialog open={confirmPayOpen} onOpenChange={(open) => { if (!open) { setConfirmPayOpen(false); setConfirmPayContext(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar pagamento</DialogTitle>
             <DialogDescription>
               {confirmPayContext
-                ? `${confirmPayContext.item.description} Â· Parcela ${confirmPayContext.payment.installment_number}/${confirmPayContext.item.installment_count}`
+                ? `${confirmPayContext.item.description}  Parcela ${confirmPayContext.payment.installment_number}/${confirmPayContext.item.installment_count}`
                 : "Confirme o valor pago."}
             </DialogDescription>
           </DialogHeader>
@@ -968,7 +968,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
 
             {confirmPayContext && confirmPayAmount > 0 && confirmPayAmount < confirmPayContext.payment.amount && (
               <p className="text-xs text-accent">
-                Sera registrado como <strong>Pago com desconto</strong> â€” economia de {formatCurrency(confirmPayContext.payment.amount - confirmPayAmount)}
+                Sera registrado como <strong>Pago com desconto</strong>  economia de {formatCurrency(confirmPayContext.payment.amount - confirmPayAmount)}
               </p>
             )}
 

@@ -82,7 +82,7 @@ export default function LoginPage() {
         <FormField label="Senha" error={errors.password?.message} required>
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder="••••••••"
+            placeholder=""
             leftIcon={<Lock className="h-4 w-4" />}
             rightIcon={
               <button

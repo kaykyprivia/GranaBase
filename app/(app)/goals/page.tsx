@@ -275,7 +275,7 @@ export default function GoalsPage() {
               ) : (
                 <p className="text-3xl font-bold text-profit">{formatCurrency(walletBalance)}</p>
               )}
-              <p className="mt-1 text-xs text-text-secondary">Saldo unico â€” alimenta todas as suas metas</p>
+              <p className="mt-1 text-xs text-text-secondary">Saldo unico  alimenta todas as suas metas</p>
             </div>
           </div>
           <GlobalContributionButton className="shrink-0" />
