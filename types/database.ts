@@ -2046,6 +2046,9 @@ export interface Database {
           p_page?: number;
           p_page_size?: number;
           p_search?: string | null;
+          p_purchase_filter?: "all" | "buyers" | "recurring" | "no_orders";
+          p_contact_filter?: "all" | "with_whatsapp" | "without_whatsapp";
+          p_sort?: "recent" | "name" | "orders_desc" | "value_desc" | "last_purchase_desc";
         };
         Returns: Json;
       };

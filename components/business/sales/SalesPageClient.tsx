@@ -11,6 +11,7 @@ import type { SaleRow, SalesPageRpcResult, SalesSummaryRpcResult, WorkspaceRpcRe
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -96,6 +97,13 @@ export function SalesPageClient() {
     () => getSalesDateRange(periodFilter, new Date(), customStart, customEnd),
     [customEnd, customStart, periodFilter]
   );
+
+  const activeFilterCount =
+    Number(statusFilter !== "all") +
+    Number(paymentFilter !== "all") +
+    Number(channelFilter !== "all") +
+    Number(deliveryMethodFilter !== "all") +
+    Number(periodFilter !== "month");
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -465,16 +473,23 @@ export function SalesPageClient() {
             leftIcon={<Search className="h-4 w-4" />}
             className="min-h-11"
           />
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 shrink-0"
-            onClick={() => setFiltersOpen(true)}
-            aria-label="Abrir filtros"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            <span>Filtros</span>
-          </Button>
+          <div className="relative shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setFiltersOpen(true)}
+              aria-label="Abrir filtros"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span>Filtros</span>
+            </Button>
+            {activeFilterCount > 0 && (
+              <Badge className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 

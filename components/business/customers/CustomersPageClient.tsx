@@ -5,7 +5,6 @@ import {
   MessageCircle,
   Pencil,
   Plus,
-  Search,
   ShoppingBag,
   UserRoundCheck,
   Users,
@@ -18,6 +17,7 @@ import { Customer360Dialog } from "@/components/business/customers/Customer360Di
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FormField } from "@/components/shared/FormField";
 import { PageIntro } from "@/components/shared/PageIntro";
+import { SearchFilterBar } from "@/components/shared/SearchFilterBar";
 import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
@@ -68,6 +75,24 @@ type CustomersPageArgs =
   Database["public"]["Functions"]["get_business_customers_page"]["Args"];
 
 const CUSTOMER_PAGE_SIZE = 25;
+
+type CustomerPurchaseFilter =
+  | "all"
+  | "buyers"
+  | "recurring"
+  | "no_orders";
+
+type CustomerContactFilter =
+  | "all"
+  | "with_whatsapp"
+  | "without_whatsapp";
+
+type CustomerSort =
+  | "recent"
+  | "name"
+  | "orders_desc"
+  | "value_desc"
+  | "last_purchase_desc";
 
 type CustomerForm = {
   name: string;
@@ -127,6 +152,12 @@ export function CustomersPageClient() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [purchaseFilter, setPurchaseFilter] =
+    useState<CustomerPurchaseFilter>("all");
+  const [contactFilter, setContactFilter] =
+    useState<CustomerContactFilter>("all");
+  const [sort, setSort] =
+    useState<CustomerSort>("recent");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     total_count: 0,
@@ -156,6 +187,10 @@ export function CustomersPageClient() {
 
     return () => window.clearTimeout(timeout);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [contactFilter, purchaseFilter, sort]);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -195,6 +230,9 @@ export function CustomersPageClient() {
         p_page: page,
         p_page_size: CUSTOMER_PAGE_SIZE,
         p_search: debouncedSearch || null,
+        p_purchase_filter: purchaseFilter,
+        p_contact_filter: contactFilter,
+        p_sort: sort,
       } satisfies CustomersPageArgs;
 
       const customersRes = await supabase.rpc(
@@ -281,14 +319,25 @@ export function CustomersPageClient() {
     }
   }, [
     debouncedSearch,
+    contactFilter,
     page,
+    purchaseFilter,
     router,
+    sort,
     supabase,
   ]);
 
   useEffect(() => {
     void loadCustomers();
   }, [loadCustomers]);
+
+  const activeFilterCount =
+    Number(purchaseFilter !== "all") +
+    Number(contactFilter !== "all") +
+    Number(sort !== "recent");
+
+  const hasActiveQuery =
+    search.trim().length > 0 || activeFilterCount > 0;
 
 
 
@@ -442,15 +491,66 @@ export function CustomersPageClient() {
         />
       </div>
 
-      <div className="mb-5">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, WhatsApp ou observação..."
-          leftIcon={<Search className="h-4 w-4" />}
-          className="min-h-11"
-        />
-      </div>
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por nome, WhatsApp ou observação..."
+        activeFilterCount={activeFilterCount}
+        onClearFilters={() => {
+          setPurchaseFilter("all");
+          setContactFilter("all");
+          setSort("recent");
+        }}
+      >
+        <Select
+          value={purchaseFilter}
+          onValueChange={(value) =>
+            setPurchaseFilter(value as CustomerPurchaseFilter)
+          }
+        >
+          <SelectTrigger className="w-full" aria-label="Histórico de compras">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os clientes</SelectItem>
+            <SelectItem value="buyers">Já compraram</SelectItem>
+            <SelectItem value="recurring">Recorrentes</SelectItem>
+            <SelectItem value="no_orders">Ainda não compraram</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={contactFilter}
+          onValueChange={(value) =>
+            setContactFilter(value as CustomerContactFilter)
+          }
+        >
+          <SelectTrigger className="w-full" aria-label="Contato por WhatsApp">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Com ou sem WhatsApp</SelectItem>
+            <SelectItem value="with_whatsapp">Com WhatsApp</SelectItem>
+            <SelectItem value="without_whatsapp">Sem WhatsApp</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={sort}
+          onValueChange={(value) => setSort(value as CustomerSort)}
+        >
+          <SelectTrigger className="w-full" aria-label="Ordenar clientes">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recent">Cadastros mais recentes</SelectItem>
+            <SelectItem value="name">Nome (A-Z)</SelectItem>
+            <SelectItem value="orders_desc">Mais compras</SelectItem>
+            <SelectItem value="value_desc">Maior valor comprado</SelectItem>
+            <SelectItem value="last_purchase_desc">Compra mais recente</SelectItem>
+          </SelectContent>
+        </Select>
+      </SearchFilterBar>
 
       {loading ? (
         <div className="space-y-3">
@@ -466,20 +566,20 @@ export function CustomersPageClient() {
           <EmptyState
             icon={Users}
             title={
-              search
+              hasActiveQuery
                 ? "Nenhum cliente encontrado"
                 : "Nenhum cliente cadastrado"
             }
             description={
-              search
-                ? "Tente outro nome ou número de WhatsApp."
+              hasActiveQuery
+                ? "Tente ajustar a busca ou os filtros."
                 : "Cadastre seu primeiro cliente ou registre uma venda com cliente rápido."
             }
             actionLabel={
-              search ? undefined : "Cadastrar cliente"
+              hasActiveQuery ? undefined : "Cadastrar cliente"
             }
             onAction={
-              search ? undefined : openCreateCustomer
+              hasActiveQuery ? undefined : openCreateCustomer
             }
           />
         </div>

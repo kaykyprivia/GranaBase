@@ -231,10 +231,9 @@ export default function IncomePage() {
   const activeFilterCount = [
     monthFilter !== "all",
     categoryFilter !== "all",
-    Boolean(search),
   ].filter(Boolean).length;
 
-  const hasActiveFilters = activeFilterCount > 0;
+  const hasActiveFilters = Boolean(search) || activeFilterCount > 0;
 
   const clearFilters = () => {
     setMonthFilter("all");
