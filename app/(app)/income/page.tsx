@@ -68,6 +68,7 @@ interface DisplayIncome {
   category: string;
   received_at: string;
   payment_method: string | null;
+  notes: string | null;
   created_at: string;
   source: "manual" | "receivable";
 }
@@ -119,6 +120,7 @@ export default function IncomePage() {
   const [editReceivedDescription, setEditReceivedDescription] = useState("");
   const [editReceivedCategory, setEditReceivedCategory] = useState("");
   const [editReceivedPaymentMethod, setEditReceivedPaymentMethod] = useState("");
+  const [editReceivedNotes, setEditReceivedNotes] = useState("");
   const [editReceivedSaving, setEditReceivedSaving] = useState(false);
   const [revertReceivedItem, setRevertReceivedItem] = useState<DisplayIncome | null>(null);
   const [revertingReceived, setRevertingReceived] = useState(false);
@@ -164,6 +166,7 @@ export default function IncomePage() {
           category: r.category,
           received_at: r.received_at!.slice(0, 10),
           payment_method: null,
+          notes: r.notes ?? null,
           created_at: r.received_at!,
           source: "receivable" as const,
         }))
@@ -414,6 +417,7 @@ export default function IncomePage() {
     setEditReceivedDescription(entry.description || "");
     setEditReceivedCategory(entry.category || "");
     setEditReceivedPaymentMethod(entry.payment_method || "");
+    setEditReceivedNotes(entry.notes || "");
   };
 
   const handleSaveEditReceived = async () => {
@@ -427,6 +431,7 @@ export default function IncomePage() {
           category: editReceivedCategory || null,
           payment_method: editReceivedPaymentMethod || null,
           received_at: newReceivedAt,
+          notes: editReceivedNotes || null,
         })).eq("id", editReceivedItem.id);
       if (error) throw error;
 
@@ -738,47 +743,50 @@ export default function IncomePage() {
         confirmLabel="Excluir" onConfirm={handleDelete} loading={deleting} />
 
       <Dialog open={editReceivedItem !== null} onOpenChange={open => !open && setEditReceivedItem(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar recebimento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar recebimento</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
               <FormField label="Descricao" required>
                 <Input
+                  placeholder="Ex: Guardinha Anoite"
                   value={editReceivedDescription}
                   onChange={e => setEditReceivedDescription(e.target.value)}
-                  placeholder="Ex: Guardinha Anoite"
                 />
               </FormField>
-              <FormField label="Valor recebido" required>
+              <FormField label="Valor" required>
                 <CurrencyInput value={editReceivedAmount} onChange={setEditReceivedAmount} />
               </FormField>
-              <FormField label="Categoria">
-                <Input
-                  value={editReceivedCategory}
-                  onChange={e => setEditReceivedCategory(e.target.value)}
-                  placeholder="Ex: Freela, Venda, Bico"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Categoria" required>
+                  <Select value={editReceivedCategory} onValueChange={setEditReceivedCategory}>
+                    <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
+                    <SelectContent>{INCOME_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Data do recebimento" required>
+                  <Input type="date" value={editReceivedDate} onChange={e => setEditReceivedDate(e.target.value)} />
+                </FormField>
+              </div>
+              <FormField label="Metodo de pagamento" required>
+                <Select value={editReceivedPaymentMethod} onValueChange={setEditReceivedPaymentMethod}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
               </FormField>
-              <FormField label="Metodo de pagamento">
-                <Input
-                  value={editReceivedPaymentMethod}
-                  onChange={e => setEditReceivedPaymentMethod(e.target.value)}
-                  placeholder="Ex: Pix, Dinheiro"
-                />
-              </FormField>
-              <FormField label="Data do recebimento" required>
-                <Input type="date" value={editReceivedDate} onChange={e => setEditReceivedDate(e.target.value)} />
+              <FormField label="Observacoes">
+                <Textarea placeholder="Notas opcionais..." rows={2} value={editReceivedNotes} onChange={e => setEditReceivedNotes(e.target.value)} />
               </FormField>
             </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditReceivedItem(null)}>Cancelar</Button>
-            <Button type="button" variant="profit" loading={editReceivedSaving} onClick={handleSaveEditReceived}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditReceivedItem(null)}>Cancelar</Button>
+              <Button type="button" variant="profit" loading={editReceivedSaving} onClick={handleSaveEditReceived}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <ConfirmDialog open={revertReceivedItem !== null} onOpenChange={open => !open && setRevertReceivedItem(null)}
+        <ConfirmDialog open={revertReceivedItem !== null} onOpenChange={open => !open && setRevertReceivedItem(null)}
         title="Desfazer recebimento"
         description={`"${revertReceivedItem?.description}" vai voltar para pendente em A Receber e vai sair da lista de Entradas. O registro nao e excluido.`}
         confirmLabel="Desfazer recebimento" onConfirm={handleRevertReceived} loading={revertingReceived} />
