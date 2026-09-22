@@ -410,7 +410,7 @@ export default function WithdrawalsPage() {
                 <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
                   3
                 </div>
-                <p className="font-semibold text-text-primary">Receba em ate 7 dias</p>
+                <p className="font-semibold text-text-primary">Receba em ate 3 dias</p>
                 <p className="mt-1 text-xs text-text-secondary">
                   Pagamento via Pix direto na sua conta
                 </p>
