@@ -770,14 +770,17 @@ export default function ExpensesPage() {
     return sorted.map((m) => ({ value: m, label: formatMonthLabel(m) }));
   }, [groupedByMonth, currentMonth]);
 
-  const pendingTotal = allEntries
-    .filter(
-      (entry) =>
-        entry.status !== "paid" && entry.spent_at.startsWith(currentMonth)
-    )
+  // Gastos no CARTAO DE CREDITO com fatura vencendo no mes atual
+  const cardExpensesThisMonth = allEntries
+    .filter((entry) => {
+      if (entry.status === "paid") return false;
+      if (!entry.payment_method) return false;
+      if (!entry.payment_method.toLowerCase().includes("credito")) return false;
+      return entry.spent_at.startsWith(currentMonth);
+    })
     .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
 
-  // Parcelas com vencimento NESTE mes, ainda nao pagas
+  // Parcelas com vencimento neste mes, ainda nao pagas
   const openInstallmentsThisMonth = payments
     .filter((p) => {
       if (p.status === "paid") return false;
@@ -786,7 +789,29 @@ export default function ExpensesPage() {
     })
     .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
-  const faltaPagarTotal = pendingTotal + openInstallmentsThisMonth;
+  // Bills do mes atual, ainda nao pagas
+  const pendingBillsThisMonth = bills
+    .filter((bill) => {
+      if (bill.status === "paid") return false;
+      if (!bill.due_date) return false;
+      return bill.due_date.startsWith(currentMonth);
+    })
+    .reduce((sum, bill) => sum + Number(bill.amount ?? 0), 0);
+
+  // Consorcios do mes atual, ainda nao pagos
+  const pendingConsortiumsThisMonth = consortiumPayments
+    .filter((payment) => {
+      if (payment.status === "paid") return false;
+      if (!payment.due_date) return false;
+      return payment.due_date.startsWith(currentMonth);
+    })
+    .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+
+  const faltaPagarTotal =
+    cardExpensesThisMonth +
+    openInstallmentsThisMonth +
+    pendingBillsThisMonth +
+    pendingConsortiumsThisMonth;
 
   const openCreate = () => {
     setEditingEntry(null);
