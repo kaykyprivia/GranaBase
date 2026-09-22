@@ -116,6 +116,9 @@ export default function IncomePage() {
   const [editReceivedItem, setEditReceivedItem] = useState<DisplayIncome | null>(null);
   const [editReceivedAmount, setEditReceivedAmount] = useState(0);
   const [editReceivedDate, setEditReceivedDate] = useState("");
+  const [editReceivedDescription, setEditReceivedDescription] = useState("");
+  const [editReceivedCategory, setEditReceivedCategory] = useState("");
+  const [editReceivedPaymentMethod, setEditReceivedPaymentMethod] = useState("");
   const [editReceivedSaving, setEditReceivedSaving] = useState(false);
   const [revertReceivedItem, setRevertReceivedItem] = useState<DisplayIncome | null>(null);
   const [revertingReceived, setRevertingReceived] = useState(false);
@@ -408,16 +411,23 @@ export default function IncomePage() {
     setEditReceivedItem(entry);
     setEditReceivedAmount(entry.amount);
     setEditReceivedDate(entry.received_at);
+    setEditReceivedDescription(entry.description || "");
+    setEditReceivedCategory(entry.category || "");
+    setEditReceivedPaymentMethod(entry.payment_method || "");
   };
 
   const handleSaveEditReceived = async () => {
-    if (!editReceivedItem) return;
-    setEditReceivedSaving(true);
-    try {
-      const newReceivedAt = withNewDate(editReceivedItem.created_at, editReceivedDate);
-      const { error } = await supabase.from("receivables").update(coerceMutation({
-        amount: editReceivedAmount, received_at: newReceivedAt,
-      })).eq("id", editReceivedItem.id);
+      if (!editReceivedItem) return;
+      setEditReceivedSaving(true);
+      try {
+        const newReceivedAt = withNewDate(editReceivedItem.created_at, editReceivedDate);
+        const { error } = await supabase.from("receivables").update(coerceMutation({
+          description: editReceivedDescription,
+          amount: editReceivedAmount,
+          category: editReceivedCategory || null,
+          payment_method: editReceivedPaymentMethod || null,
+          received_at: newReceivedAt,
+        })).eq("id", editReceivedItem.id);
       if (error) throw error;
 
       toast.success("Recebimento atualizado");
@@ -733,14 +743,34 @@ export default function IncomePage() {
             <DialogTitle>Editar recebimento</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">{editReceivedItem?.description}</p>
-            <FormField label="Valor recebido" required>
-              <CurrencyInput value={editReceivedAmount} onChange={setEditReceivedAmount} />
-            </FormField>
-            <FormField label="Data do recebimento" required>
-              <Input type="date" value={editReceivedDate} onChange={e => setEditReceivedDate(e.target.value)} />
-            </FormField>
-          </div>
+              <FormField label="Descricao" required>
+                <Input
+                  value={editReceivedDescription}
+                  onChange={e => setEditReceivedDescription(e.target.value)}
+                  placeholder="Ex: Guardinha Anoite"
+                />
+              </FormField>
+              <FormField label="Valor recebido" required>
+                <CurrencyInput value={editReceivedAmount} onChange={setEditReceivedAmount} />
+              </FormField>
+              <FormField label="Categoria">
+                <Input
+                  value={editReceivedCategory}
+                  onChange={e => setEditReceivedCategory(e.target.value)}
+                  placeholder="Ex: Freela, Venda, Bico"
+                />
+              </FormField>
+              <FormField label="Metodo de pagamento">
+                <Input
+                  value={editReceivedPaymentMethod}
+                  onChange={e => setEditReceivedPaymentMethod(e.target.value)}
+                  placeholder="Ex: Pix, Dinheiro"
+                />
+              </FormField>
+              <FormField label="Data do recebimento" required>
+                <Input type="date" value={editReceivedDate} onChange={e => setEditReceivedDate(e.target.value)} />
+              </FormField>
+            </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditReceivedItem(null)}>Cancelar</Button>
             <Button type="button" variant="profit" loading={editReceivedSaving} onClick={handleSaveEditReceived}>Salvar</Button>
