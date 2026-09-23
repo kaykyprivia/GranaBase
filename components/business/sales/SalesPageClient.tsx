@@ -33,7 +33,7 @@ import {
 } from "@/lib/business-sales";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency, toLocalDateString } from "@/lib/utils";
 import type {
   BusinessCustomer,
@@ -135,7 +135,7 @@ export function SalesPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({ p_name: "Meu Negocio" })
+        { p_name: "Meu Negocio" }
       );
 
       if (workspaceRes.error) throw workspaceRes.error;
@@ -167,8 +167,8 @@ export function SalesPageClient() {
       } satisfies SalesSummaryArgs;
 
       const [pageRes, summaryRes] = await Promise.all([
-        supabase.rpc("get_business_sales_page", coerceMutation(pageArgs)),
-        supabase.rpc("get_business_sales_summary", coerceMutation(summaryArgs)),
+        supabase.rpc("get_business_sales_page", pageArgs),
+        supabase.rpc("get_business_sales_summary", summaryArgs),
       ]);
 
       if (pageRes.error) throw pageRes.error;
@@ -363,7 +363,7 @@ export function SalesPageClient() {
           p_sale_id: sale.id,
           p_idempotency_key: makeBusinessStableIdempotencyKey("sale-deliver", [sale.id, sale.order_status]),
         } satisfies DeliverArgs;
-        const { error } = await supabase.rpc("deliver_business_sale", coerceMutation(args));
+        const { error } = await supabase.rpc("deliver_business_sale", args);
         if (error) throw error;
         toast.success("Venda entregue.");
       } else {
@@ -372,7 +372,7 @@ export function SalesPageClient() {
           p_next_status: nextStatus,
           p_idempotency_key: makeBusinessStableIdempotencyKey("sale-advance", [sale.id, sale.order_status, nextStatus]),
         } satisfies AdvanceArgs;
-        const { error } = await supabase.rpc("advance_business_sale_status", coerceMutation(args));
+        const { error } = await supabase.rpc("advance_business_sale_status", args);
         if (error) throw error;
         toast.success(nextStatus === "SEPARATED" ? "Venda separada." : "Venda enviada.");
       }
@@ -405,7 +405,7 @@ export function SalesPageClient() {
         p_paid_at: new Date(`${payload.paidAt}T12:00:00`).toISOString(),
         p_notes: payload.notes?.trim() || null,
       } satisfies PaymentArgs;
-      const { error } = await supabase.rpc("record_business_payment", coerceMutation(args));
+      const { error } = await supabase.rpc("record_business_payment", args);
       if (error) throw error;
       toast.success("Pagamento registrado.");
       setPaymentTarget(null);
@@ -426,7 +426,7 @@ export function SalesPageClient() {
         p_sale_id: cancelTarget.id,
         p_idempotency_key: makeBusinessStableIdempotencyKey("sale-cancel", [cancelTarget.id, cancelTarget.order_status]),
       } satisfies CancelArgs;
-      const { error } = await supabase.rpc("cancel_business_sale", coerceMutation(args));
+      const { error } = await supabase.rpc("cancel_business_sale", args);
       if (error) throw error;
       toast.success("Venda cancelada.");
       setCancelTarget(null);

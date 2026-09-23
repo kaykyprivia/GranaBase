@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import {
   buildPurchaseMultiRpcItems,
@@ -69,7 +69,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
         return;
       }
 
-      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", coerceMutation({ p_name: "Meu Negócio" }));
+      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", { p_name: "Meu Negócio" });
       if (workspaceRes.error) throw workspaceRes.error;
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
 
@@ -302,7 +302,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
 
       const { error } = await supabase.rpc(
         "record_business_purchase_payment",
-        coerceMutation(args)
+        args
       );
 
       if (error) throw error;
@@ -350,7 +350,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
 
       const { error } = await supabase.rpc(
         "receive_business_purchase_items",
-        coerceMutation({
+        {
           p_purchase_order_id: purchase.id,
           p_items: items,
           p_idempotency_key: makeBusinessStableIdempotencyKey(
@@ -361,7 +361,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
               JSON.stringify(items),
             ]
           ),
-        })
+        }
       );
 
       if (error) throw error;
@@ -400,7 +400,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
 
       const { error } = await supabase.rpc(
         "update_business_purchase_multi",
-        coerceMutation({
+        {
           p_purchase_order_id: purchase.id,
           p_items: rpcItems,
           p_idempotency_key:
@@ -441,7 +441,7 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
             clearOrigin,
           p_clear_notes:
             clearNotes,
-        })
+        }
       );
 
       if (error) throw error;
@@ -466,10 +466,10 @@ export function PurchaseDetailsClient({ purchaseId }: { purchaseId: string }) {
     if (!purchase) return;
     setCancelling(true);
     try {
-      const { error } = await supabase.rpc("cancel_business_purchase", coerceMutation({
+      const { error } = await supabase.rpc("cancel_business_purchase", {
         p_purchase_order_id: purchase.id,
         p_idempotency_key: makeBusinessStableIdempotencyKey("purchase-cancel", [purchase.id, purchase.status]),
-      }));
+      });
 
       if (error) throw error;
       toast.success("Compra cancelada.");

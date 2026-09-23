@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSupabaseErrorMessage } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import type {
   InsertUserSettings,
   UpdateUserSettings,
@@ -193,7 +193,7 @@ export default function SettingsPage() {
   const updateUserSettings = async (payload: Partial<InsertUserSettings & UpdateUserSettings>) => {
     if (!userId) throw new Error("Usuario nao autenticado.");
     const { error } = await supabase.from("user_settings").upsert(
-      coerceMutation({ user_id: userId, ...payload })
+      { user_id: userId, ...payload }
     );
     if (error) throw error;
   };
@@ -226,11 +226,11 @@ export default function SettingsPage() {
       if (authError) throw authError;
 
       if (profileMatchField === "id") {
-        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("id", userId);
+        const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", userId);
         if (error) throw error;
       }
       if (profileMatchField === "user_id") {
-        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("user_id" as never, userId);
+        const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("user_id" as never, userId);
         if (error) throw error;
       }
 

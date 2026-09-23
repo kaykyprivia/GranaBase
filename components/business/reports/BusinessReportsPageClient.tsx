@@ -65,7 +65,6 @@ import { createClient } from "@/lib/supabase/client";
 
 import {
   coerceData,
-  coerceMutation,
 } from "@/lib/supabase/casts";
 
 import {
@@ -202,9 +201,9 @@ export function BusinessReportsPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({
+        {
           p_name: "Meu Negocio",
-        })
+        }
       );
 
       if (workspaceRes.error) {
@@ -228,7 +227,7 @@ export function BusinessReportsPageClient() {
 
       const reportsRes = await supabase.rpc(
         "get_business_reports_analytics",
-        coerceMutation(args)
+        args
       );
 
       if (reportsRes.error) {

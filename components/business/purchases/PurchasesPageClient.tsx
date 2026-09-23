@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency, toLocalDateString } from "@/lib/utils";
 import {
   getDateRange,
@@ -81,7 +81,7 @@ export function PurchasesPageClient() {
         return;
       }
 
-      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", coerceMutation({ p_name: "Meu Negócio" }));
+      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", { p_name: "Meu Negócio" });
       if (workspaceRes.error) {
         throw workspaceRes.error;
       }
@@ -240,7 +240,7 @@ export function PurchasesPageClient() {
 
       const { error } = await supabase.rpc(
         "receive_business_purchase_items",
-        coerceMutation({
+        {
           p_purchase_order_id: receiveTarget.id,
           p_items: items,
           p_idempotency_key: makeBusinessStableIdempotencyKey(
@@ -251,7 +251,7 @@ export function PurchasesPageClient() {
               JSON.stringify(items),
             ]
           ),
-        })
+        }
       );
 
       if (error) throw error;
@@ -275,10 +275,10 @@ export function PurchasesPageClient() {
     if (!cancelTarget) return;
     setCancelling(true);
     try {
-      const { error } = await supabase.rpc("cancel_business_purchase", coerceMutation({
+      const { error } = await supabase.rpc("cancel_business_purchase", {
         p_purchase_order_id: cancelTarget.id,
         p_idempotency_key: makeBusinessStableIdempotencyKey("purchase-cancel", [cancelTarget.id, cancelTarget.status]),
-      }));
+      });
 
       if (error) throw error;
       toast.success("Compra cancelada.");

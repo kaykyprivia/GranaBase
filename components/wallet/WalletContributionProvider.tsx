@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
 import { getSupabaseErrorMessage } from "@/lib/settings";
 import { walletContributionSchema, type WalletContributionFormData } from "@/lib/validations";
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -69,11 +68,11 @@ export function WalletContributionProvider({ children }: WalletContributionProvi
 
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("record_investment_contribution", coerceMutation({
+      const { error } = await supabase.rpc("record_investment_contribution", {
         p_amount: parsed.data.amount,
         p_type: parsed.data.type,
         p_description: parsed.data.description || null,
-      }));
+      });
 
       if (error) {
         throw error;

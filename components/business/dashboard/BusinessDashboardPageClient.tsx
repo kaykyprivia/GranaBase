@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -50,7 +50,7 @@ import {
 } from "@/lib/business-reports";
 import { getSaleChannelLabel } from "@/lib/business-sales";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import {
   cn,
   formatCurrency,
@@ -176,9 +176,9 @@ export function BusinessDashboardPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({
+        {
           p_name: "Meu Negocio",
-        })
+        }
       );
 
       if (workspaceRes.error) {
@@ -208,11 +208,11 @@ export function BusinessDashboardPageClient() {
         await Promise.all([
           supabase.rpc(
             "get_business_reports_analytics",
-            coerceMutation(reportArgs)
+            reportArgs
           ),
           supabase.rpc(
             "get_business_dashboard_operations",
-            coerceMutation(dashboardArgs)
+            dashboardArgs
           ),
         ]);
 

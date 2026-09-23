@@ -6,7 +6,6 @@ import { Bell, Check, Gift, LogOut, Menu, Package, Settings, ShoppingCart, Spark
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { NavigationGroups } from "@/components/layout/NavigationGroups";
@@ -127,12 +126,9 @@ export function Header({ pageTitle }: HeaderProps) {
 
     const readAt = new Date().toISOString();
 
-    const { error } = await supabase.rpc(
-      "mark_notification_read",
-      coerceMutation({
+    const { error } = await supabase.rpc("mark_notification_read", {
         notification_id: id,
-      })
-    );
+      });
 
     if (error) {
       toast.error("Nao foi possivel marcar a notificacao como lida.");

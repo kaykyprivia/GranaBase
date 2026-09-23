@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Upload, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { detectStatementFormat, parseCsv, parseOfx, type ParsedTransaction } from "@/lib/statementParser";
 import { Button } from "@/components/ui/button";
@@ -164,8 +164,11 @@ export function ImportStatementDialog({ open, onOpenChange, kind, userId, onImpo
             }
       );
 
-      const { error } = await supabase.from(tableName).insert(coerceMutation(rows));
-      if (error) throw error;
+      const insertResult =
+        kind === "expense"
+          ? await supabase.from("expense_entries").insert(rows as never)
+          : await supabase.from("income_entries").insert(rows as never);
+      if (insertResult.error) throw insertResult.error;
 
       toast.success(`${rows.length} transaç${rows.length === 1 ? "ão" : "ões"} importada${rows.length === 1 ? "" : "s"}`);
       onImported();

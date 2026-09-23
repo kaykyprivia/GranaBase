@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -62,7 +62,6 @@ import { downloadCashFlowPdf } from "@/lib/cash-flow-pdf";
 
 import {
   coerceData,
-  coerceMutation,
 } from "@/lib/supabase/casts";
 
 import {
@@ -172,9 +171,9 @@ export function BusinessCashFlowPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({
+        {
           p_name: "Meu Negocio",
-        })
+        }
       );
 
       if (workspaceRes.error) {
@@ -198,7 +197,7 @@ export function BusinessCashFlowPageClient() {
 
       const cashFlowRes = await supabase.rpc(
         "get_business_cash_flow",
-        coerceMutation(args)
+        args
       );
 
       if (cashFlowRes.error) {
@@ -292,7 +291,7 @@ export function BusinessCashFlowPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({ p_name: "Meu Negocio" })
+        { p_name: "Meu Negocio" }
       );
       if (workspaceRes.error) throw workspaceRes.error;
 
@@ -305,7 +304,7 @@ export function BusinessCashFlowPageClient() {
       } satisfies CashFlowArgs;
       const cashFlowRes = await supabase.rpc(
         "get_business_cash_flow",
-        coerceMutation(args)
+        args
       );
       if (cashFlowRes.error) throw cashFlowRes.error;
 

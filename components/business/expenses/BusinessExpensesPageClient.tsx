@@ -71,7 +71,6 @@ import { createClient } from "@/lib/supabase/client";
 
 import {
   coerceData,
-  coerceMutation,
 } from "@/lib/supabase/casts";
 
 import {
@@ -205,9 +204,9 @@ export function BusinessExpensesPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({
+        {
           p_name: "Meu Negocio",
-        })
+        }
       );
 
       if (workspaceRes.error) {
@@ -234,7 +233,7 @@ export function BusinessExpensesPageClient() {
 
       const expensesRes = await supabase.rpc(
         "get_business_expenses_page",
-        coerceMutation(args)
+        args
       );
 
       if (expensesRes.error) {
@@ -383,7 +382,7 @@ export function BusinessExpensesPageClient() {
 
         const { error } = await supabase.rpc(
           "update_business_expense",
-          coerceMutation(args)
+          args
         );
 
         if (error) {
@@ -407,7 +406,7 @@ export function BusinessExpensesPageClient() {
 
         const { error } = await supabase.rpc(
           "record_business_expense",
-          coerceMutation(args)
+          args
         );
 
         if (error) {
@@ -460,7 +459,7 @@ export function BusinessExpensesPageClient() {
 
       const { error } = await supabase.rpc(
         "delete_business_expense",
-        coerceMutation(args)
+        args
       );
 
       if (error) {

@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } fro
 import { BadgePercent, Check, ChevronDown, ChevronUp, Clock, CreditCard, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import {
   buildInstallmentStatusUpdate,
   getEffectiveInstallmentStatus,
@@ -268,7 +268,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
       const computedTotalAmount = calculateTotalAmount(values.installment_amount, values.installment_count);
       const { data: createdData, error } = await supabase
         .from("installments")
-        .insert(coerceMutation({
+        .insert({
           user_id: userId,
           description: ensureModeDescription(values.description),
           total_amount: computedTotalAmount,
@@ -276,7 +276,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
           installment_amount: unitAmount,
           first_due_date: values.first_due_date,
           notes: values.notes || null,
-        }))
+        })
         .select()
         .single();
 
@@ -286,7 +286,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
       }
 
       const payments = createInstallmentPayments(created.id, values.first_due_date, unitAmount, values.installment_count);
-      const { error: paymentsError } = await supabase.from("installment_payments").insert(coerceMutation(payments));
+      const { error: paymentsError } = await supabase.from("installment_payments").insert(payments);
 
       if (paymentsError) {
         throw paymentsError;
@@ -322,14 +322,14 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
 
       const { error: updateError } = await supabase
         .from("installments")
-        .update(coerceMutation({
+        .update({
           description: ensureModeDescription(values.description),
           installment_amount: unitAmount,
           installment_count: values.installment_count,
           total_amount: computedTotalAmount,
           first_due_date: values.first_due_date,
           notes: values.notes || null,
-        }))
+        })
         .eq("id", editingInstallment.id)
         .eq("user_id", userId);
 
@@ -350,7 +350,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
       const payments = createInstallmentPayments(editingInstallment.id, values.first_due_date, unitAmount, values.installment_count);
       const { error: insertPaymentsError } = await supabase
         .from("installment_payments")
-        .insert(coerceMutation(payments));
+        .insert(payments);
 
       if (insertPaymentsError) {
         throw insertPaymentsError;

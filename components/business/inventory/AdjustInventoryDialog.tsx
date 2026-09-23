@@ -16,7 +16,7 @@ import {
   type InventoryItem,
 } from "@/lib/business-inventory";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 
 type ProductSearchArgs =
@@ -105,7 +105,7 @@ export function AdjustInventoryDialog({
 
         const result = await supabase.rpc(
           "search_business_inventory_products",
-          coerceMutation(args)
+          args
         );
 
         if (result.error) throw result.error;

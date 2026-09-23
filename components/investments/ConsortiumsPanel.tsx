@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, Landmark, Plus, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -136,7 +135,7 @@ export function ConsortiumsPanel() {
 
       const { error } = await supabase.rpc(
         "create_consortium_v2",
-        coerceMutation({
+        {
           p_name: name.trim(),
           p_holder_name: holderName.trim(),
           p_credit_amount: creditAmount,
@@ -154,7 +153,7 @@ export function ConsortiumsPanel() {
             ? Number(reserveFund)
             : null,
           p_notes: notes.trim() || null,
-        })
+        }
       );
 
       if (error) throw error;
@@ -194,11 +193,11 @@ export function ConsortiumsPanel() {
 
       const { error } = await supabase.rpc(
         "pay_consortium_payment",
-        coerceMutation({
+        {
           p_payment_id: selectedPayment.id,
           p_paid_amount: paymentAmount,
           p_notes: paymentNotes.trim() || null,
-        })
+        }
       );
 
       if (error) throw error;

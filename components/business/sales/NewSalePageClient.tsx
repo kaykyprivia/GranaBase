@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getSaleErrorMessage, type SaleFormDraft } from "@/lib/business-sales";
 import { makeBusinessIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import type { BusinessCustomer, BusinessInventorySummary, Database } from "@/types/database";
 
 type CreateSaleArgs = Database["public"]["Functions"]["create_business_sale"]["Args"];
@@ -41,7 +41,7 @@ export function NewSalePageClient() {
       }
       setUserId(user.id);
 
-      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", coerceMutation({ p_name: "Meu Negocio" }));
+      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", { p_name: "Meu Negocio" });
       if (workspaceRes.error) throw workspaceRes.error;
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
       setWorkspaceId(workspace.workspace_id);
@@ -98,7 +98,7 @@ export function NewSalePageClient() {
 
       const result = await supabase.rpc(
         "search_business_customers",
-        coerceMutation(args)
+        args
       );
 
       if (!active) return;
@@ -136,12 +136,12 @@ export function NewSalePageClient() {
       if (!customerId && quickCustomerName) {
         const customerRes = await supabase
           .from("business_customers")
-          .insert(coerceMutation({
+          .insert({
             user_id: userId,
             workspace_id: workspaceId,
             name: quickCustomerName,
             whatsapp: draft.quickCustomerWhatsapp?.trim() || null,
-          }))
+          })
           .select("*")
           .single();
         if (customerRes.error) throw customerRes.error;
@@ -185,7 +185,7 @@ export function NewSalePageClient() {
         p_delivery_method: draft.deliveryMethod,
       } satisfies CreateSaleArgs;
 
-      const { data, error } = await supabase.rpc("create_business_sale", coerceMutation(args));
+      const { data, error } = await supabase.rpc("create_business_sale", args);
       if (error) throw error;
       const result = coerceData<SaleCreateResult>(data);
       toast.success("Venda registrada com sucesso.");

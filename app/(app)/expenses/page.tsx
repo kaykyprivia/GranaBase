@@ -10,7 +10,7 @@ import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { addMonths, cn, formatCurrency, formatDate, isOverdue, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
 import { useChartColors } from "@/hooks/useChartColors";
@@ -875,7 +875,7 @@ export default function ExpensesPage() {
       const totalAmount = calculateInstallmentTotal(unitAmount, result.data.installment_count);
       const { data: createdData, error } = await supabase
         .from("installments")
-        .insert(coerceMutation({
+        .insert({
           user_id: userId,
           description: result.data.description,
           total_amount: totalAmount,
@@ -885,7 +885,7 @@ export default function ExpensesPage() {
           category: result.data.category,
           payment_method: result.data.payment_method || null,
           notes: result.data.notes || null,
-        }))
+        })
         .select()
         .single();
 
@@ -903,7 +903,7 @@ export default function ExpensesPage() {
           status: "pending" as const,
         };
       });
-      const { error: paymentsError } = await supabase.from("installment_payments").insert(coerceMutation(paymentsRows));
+      const { error: paymentsError } = await supabase.from("installment_payments").insert(paymentsRows);
       if (paymentsError) throw paymentsError;
 
       toast.success(`Parcelamento criado com ${result.data.installment_count} parcelas`);
@@ -928,7 +928,7 @@ export default function ExpensesPage() {
 
     setCreatingExtra(true);
     try {
-      const { error } = await supabase.from("bills").insert(coerceMutation({
+      const { error } = await supabase.from("bills").insert({
         user_id: userId,
         name: result.data.name,
         amount: result.data.amount,
@@ -937,7 +937,7 @@ export default function ExpensesPage() {
         is_recurring: true,
         notes: result.data.notes || null,
         status: "pending" as const,
-      }));
+      });
       if (error) throw error;
 
       toast.success("Conta criada");
@@ -979,16 +979,16 @@ export default function ExpensesPage() {
       const newPaidAt = withNewDate(editPaidItem.created_at, editPaidDate);
 
       if (editPaidItem.source === "bill") {
-        const { error } = await supabase.from("bills").update(coerceMutation({
+        const { error } = await supabase.from("bills").update({
           amount: editPaidAmount, paid_at: newPaidAt,
-        })).eq("id", editPaidItem.id);
+        }).eq("id", editPaidItem.id);
         if (error) throw error;
       } else if (editPaidItem.source === "installment") {
         const dueAmount = editPaidItem.dueAmount ?? editPaidAmount;
         const status = editPaidAmount < dueAmount ? "paid_with_discount" : "paid";
-        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+        const { error } = await supabase.from("installment_payments").update({
           paid_amount: editPaidAmount, paid_at: newPaidAt, status,
-        })).eq("id", editPaidItem.id);
+        }).eq("id", editPaidItem.id);
         if (error) throw error;
       }
 
@@ -1016,14 +1016,14 @@ export default function ExpensesPage() {
 
       if (markPaidItem.source === "bill") {
         const bill = bills.find((b) => b.id === markPaidItem.id);
-        const { error } = await supabase.from("bills").update(coerceMutation({
+        const { error } = await supabase.from("bills").update({
           status: "paid" as const, paid_at: paidAtIso, amount: markPaidAmount,
-        })).eq("id", markPaidItem.id);
+        }).eq("id", markPaidItem.id);
         if (error) throw error;
 
         if (bill?.is_recurring) {
           const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
-          await supabase.from("bills").insert(coerceMutation({
+          await supabase.from("bills").insert({
             user_id: userId,
             name: bill.name,
             amount: bill.amount,
@@ -1032,7 +1032,7 @@ export default function ExpensesPage() {
             category: bill.category,
             is_recurring: true,
             notes: bill.notes ?? null,
-          }));
+          });
           toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
         } else {
           toast.success("Conta marcada como paga!");
@@ -1040,19 +1040,19 @@ export default function ExpensesPage() {
       } else if (markPaidItem.source === "installment") {
         const dueAmount = markPaidItem.dueAmount ?? markPaidAmount;
         const status = markPaidAmount < dueAmount ? "paid_with_discount" : "paid";
-        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+        const { error } = await supabase.from("installment_payments").update({
           status, paid_amount: markPaidAmount, paid_at: paidAtIso,
-        })).eq("id", markPaidItem.id);
+        }).eq("id", markPaidItem.id);
         if (error) throw error;
         toast.success("Parcela paga!");
       } else if (markPaidItem.source === "consortium") {
         const { error } = await supabase.rpc(
           "pay_consortium_payment",
-          coerceMutation({
+          {
             p_payment_id: markPaidItem.id,
             p_paid_amount: markPaidAmount,
             p_notes: null,
-          })
+          }
         );
         if (error) throw error;
         toast.success("Parcela do cons\u00f3rcio paga!");
@@ -1102,23 +1102,23 @@ export default function ExpensesPage() {
     setEditPendingSaving(true);
     try {
       if (editPendingItem.source === "bill") {
-        const { error } = await supabase.from("bills").update(coerceMutation({
+        const { error } = await supabase.from("bills").update({
           name: editPendingName, amount: editPendingAmount, due_date: editPendingDueDate,
           category: editPendingCategory, notes: editPendingNotes || null,
-        })).eq("id", editPendingItem.id);
+        }).eq("id", editPendingItem.id);
         if (error) throw error;
       } else if (editPendingItem.source === "installment") {
         const payment = payments.find((p) => p.id === editPendingItem.id);
-        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+        const { error } = await supabase.from("installment_payments").update({
           amount: editPendingAmount, due_date: editPendingDueDate,
-        })).eq("id", editPendingItem.id);
+        }).eq("id", editPendingItem.id);
         if (error) throw error;
 
         if (payment) {
-          const { error: installmentError } = await supabase.from("installments").update(coerceMutation({
+          const { error: installmentError } = await supabase.from("installments").update({
             description: editPendingName, category: editPendingCategory,
             payment_method: editPendingPaymentMethod || null, notes: editPendingNotes || null,
-          })).eq("id", payment.installment_id);
+          }).eq("id", payment.installment_id);
           if (installmentError) throw installmentError;
         }
       } else if (editPendingItem.source === "consortium") {
@@ -1130,11 +1130,11 @@ export default function ExpensesPage() {
         const { error } = await supabase
           .from("consortium_payments")
           .update(
-            coerceMutation({
+            {
               amount: editPendingAmount,
               due_date: editPendingDueDate,
               notes: editPendingNotes || null,
-            })
+            }
           )
           .eq("id", editPendingItem.id);
         if (error) throw error;
@@ -1142,10 +1142,10 @@ export default function ExpensesPage() {
         const { error: consortiumError } = await supabase
           .from("consortiums")
           .update(
-            coerceMutation({
+            {
               name: editPendingName,
               current_installment_amount: editPendingAmount,
-            })
+            }
           )
           .eq("id", payment.consortium_id);
         if (consortiumError) throw consortiumError;
@@ -1205,14 +1205,14 @@ export default function ExpensesPage() {
     setReverting(true);
     try {
       if (revertItem.source === "bill") {
-        const { error } = await supabase.from("bills").update(coerceMutation({
+        const { error } = await supabase.from("bills").update({
           status: "pending", paid_at: null,
-        })).eq("id", revertItem.id);
+        }).eq("id", revertItem.id);
         if (error) throw error;
       } else if (revertItem.source === "installment") {
-        const { error } = await supabase.from("installment_payments").update(coerceMutation({
+        const { error } = await supabase.from("installment_payments").update({
           status: "pending", paid_at: null, paid_amount: null,
-        })).eq("id", revertItem.id);
+        }).eq("id", revertItem.id);
         if (error) throw error;
       }
 

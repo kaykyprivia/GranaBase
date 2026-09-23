@@ -26,7 +26,7 @@ import {
 } from "@/lib/business-inventory";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 import type { Database } from "@/types/database";
 import type { ProductCategoryOption } from "@/lib/business-inventory";
@@ -105,7 +105,7 @@ export function InventoryPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({ p_name: "Meu Negócio" })
+        { p_name: "Meu Negócio" }
       );
 
       if (workspaceRes.error) throw workspaceRes.error;
@@ -168,7 +168,7 @@ export function InventoryPageClient() {
 
       const inventoryRes = await supabase.rpc(
         "get_business_inventory_page",
-        coerceMutation(args)
+        args
       );
 
       if (inventoryRes.error) throw inventoryRes.error;
@@ -347,7 +347,7 @@ export function InventoryPageClient() {
 
       const { error } = await supabase.rpc(
         "adjust_business_inventory",
-        coerceMutation(args)
+        args
       );
 
       if (error) throw error;

@@ -20,7 +20,6 @@ import { PurchaseForm } from "@/components/business/purchases/PurchaseForm";
 import { createClient } from "@/lib/supabase/client";
 import {
   coerceData,
-  coerceMutation,
 } from "@/lib/supabase/casts";
 import {
   buildPurchaseMultiRpcItems,
@@ -93,9 +92,9 @@ export function NewPurchaseFormClient({
         const workspaceRes =
           await supabase.rpc(
             "get_or_create_business_workspace",
-            coerceMutation({
+            {
               p_name: "Meu Negócio",
-            })
+            }
           );
 
         if (workspaceRes.error) {
@@ -210,7 +209,7 @@ export function NewPurchaseFormClient({
       const purchaseRes =
         await supabase.rpc(
           "create_business_purchase_multi",
-          coerceMutation({
+          {
             p_workspace_id: workspaceId,
             p_items: rpcItems,
             p_idempotency_key:
@@ -230,7 +229,7 @@ export function NewPurchaseFormClient({
             p_notes:
               draft.notes?.trim() ||
               null,
-          })
+          }
         );
 
       if (purchaseRes.error) {

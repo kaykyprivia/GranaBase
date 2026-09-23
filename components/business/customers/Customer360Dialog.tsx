@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 import type {
   BusinessCustomer,
@@ -204,7 +204,7 @@ export function Customer360Dialog({
 
         const { data: rpcData, error } = await supabase.rpc(
           "get_business_customer_360",
-          coerceMutation(args)
+          args
         );
 
         if (error) {

@@ -38,7 +38,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency } from "@/lib/utils";
 import type {
   BusinessCustomer,
@@ -211,9 +211,9 @@ export function CustomersPageClient() {
 
       const workspaceRes = await supabase.rpc(
         "get_or_create_business_workspace",
-        coerceMutation({
+        {
           p_name: "Meu Negocio",
-        })
+        }
       );
 
       if (workspaceRes.error) {
@@ -237,7 +237,7 @@ export function CustomersPageClient() {
 
       const customersRes = await supabase.rpc(
         "get_business_customers_page",
-        coerceMutation(args)
+        args
       );
 
       if (customersRes.error) {
@@ -384,7 +384,7 @@ export function CustomersPageClient() {
       if (editingCustomer) {
         const { error } = await supabase
           .from("business_customers")
-          .update(coerceMutation(payload))
+          .update(payload)
           .eq("id", editingCustomer.id)
           .eq("workspace_id", workspaceId);
 
@@ -397,11 +397,11 @@ export function CustomersPageClient() {
         const { error } = await supabase
           .from("business_customers")
           .insert(
-            coerceMutation({
+            {
               user_id: userId,
               workspace_id: workspaceId,
               ...payload,
-            })
+            }
           );
 
         if (error) {

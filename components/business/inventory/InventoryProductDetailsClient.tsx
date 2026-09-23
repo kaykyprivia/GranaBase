@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getPotentialProfit, type InventoryItem } from "@/lib/business-inventory";
 import { makeBusinessStableIdempotencyKey } from "@/lib/business-purchases";
 import { createClient } from "@/lib/supabase/client";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 import type {
   BusinessInventoryLot,
@@ -92,7 +92,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         return;
       }
 
-      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", coerceMutation({ p_name: "Meu Negócio" }));
+      const workspaceRes = await supabase.rpc("get_or_create_business_workspace", { p_name: "Meu Negócio" });
       if (workspaceRes.error) throw workspaceRes.error;
       const workspace = coerceData<WorkspaceRpcResult>(workspaceRes.data);
       setWorkspaceId(workspace.workspace_id);
@@ -203,7 +203,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         p_unit_cost: payload.unitCost,
       } satisfies AdjustArgs;
 
-      const { error } = await supabase.rpc("adjust_business_inventory", coerceMutation(args));
+      const { error } = await supabase.rpc("adjust_business_inventory", args);
       if (error) throw error;
       toast.success("Ajuste registrado.");
       setAdjustOpen(false);
@@ -256,7 +256,7 @@ export function InventoryProductDetailsClient({ productId }: { productId: string
         p_category_name: newCategoryName,
       } satisfies ProductUpdateArgs;
 
-      const { error } = await supabase.rpc("update_business_product_metadata", coerceMutation(args));
+      const { error } = await supabase.rpc("update_business_product_metadata", args);
       if (error) throw error;
       toast.success("Produto atualizado.");
       setEditOpen(false);
