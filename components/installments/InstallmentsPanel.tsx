@@ -15,7 +15,7 @@ import {
   summarizeInstallmentPayments,
   toggleDiscountStatus,
 } from "@/lib/installments";
-import { addMonths, cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
 import { installmentSchema, type InstallmentFormData } from "@/lib/validations";
 import { appliesMaeFilter, isMaeName, type MaeFilterMode } from "@/lib/mae";
 import type { Installment, InstallmentPayment, InstallmentStatus } from "@/types/database";
@@ -82,7 +82,6 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
   const supabase = createClient();
   const [items, setItems] = useState<InstallmentWithPayments[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -142,18 +141,6 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     openCreateModal,
   }));
 
-  const createInstallmentPayments = (installmentId: string, firstDueDate: string, unitAmount: number, count: number) =>
-    Array.from({ length: count }, (_, index) => {
-      const dueDate = addMonths(new Date(`${firstDueDate}T00:00:00`), index);
-      return {
-        user_id: userId,
-        installment_id: installmentId,
-        installment_number: index + 1,
-        due_date: toLocalDateString(dueDate),
-        amount: unitAmount,
-        status: "pending" as const,
-      };
-    });
 
   const getValidatedFormData = () => {
     setFormErrors({});
@@ -222,7 +209,6 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
       return;
     }
 
-    setUserId(user.id);
     const { data: installmentsData, error: installmentsError } = await supabase
       .from("installments")
       .select("*")
@@ -266,31 +252,19 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     try {
       const unitAmount = values.installment_amount;
       const computedTotalAmount = calculateTotalAmount(values.installment_amount, values.installment_count);
-      const { data: createdData, error } = await supabase
-        .from("installments")
-        .insert({
-          user_id: userId,
+
+      const { error } = await supabase.rpc("create_installment_with_payments", {
+        p_payload: {
           description: ensureModeDescription(values.description),
           total_amount: computedTotalAmount,
           installment_count: values.installment_count,
           installment_amount: unitAmount,
           first_due_date: values.first_due_date,
           notes: values.notes || null,
-        })
-        .select()
-        .single();
+        },
+      });
 
-      const created = createdData ? coerceData<Installment>(createdData) : null;
-      if (error || !created) {
-        throw error ?? new Error("Nao foi possivel criar o parcelamento.");
-      }
-
-      const payments = createInstallmentPayments(created.id, values.first_due_date, unitAmount, values.installment_count);
-      const { error: paymentsError } = await supabase.from("installment_payments").insert(payments);
-
-      if (paymentsError) {
-        throw paymentsError;
-      }
+      if (error) throw error;
 
       toast.success(`Parcelamento criado com ${values.installment_count} parcelas`);
       closeModal();
@@ -320,40 +294,20 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
       const unitAmount = values.installment_amount;
       const computedTotalAmount = calculateTotalAmount(values.installment_amount, values.installment_count);
 
-      const { error: updateError } = await supabase
-        .from("installments")
-        .update({
+      const { error: updateError } = await supabase.rpc("update_installment_with_payments", {
+        p_id: editingInstallment.id,
+        p_payload: {
           description: ensureModeDescription(values.description),
           installment_amount: unitAmount,
           installment_count: values.installment_count,
           total_amount: computedTotalAmount,
           first_due_date: values.first_due_date,
           notes: values.notes || null,
-        })
-        .eq("id", editingInstallment.id)
-        .eq("user_id", userId);
+        },
+      });
 
       if (updateError) {
         throw updateError;
-      }
-
-      const { error: deletePaymentsError } = await supabase
-        .from("installment_payments")
-        .delete()
-        .eq("installment_id", editingInstallment.id)
-        .eq("user_id", userId);
-
-      if (deletePaymentsError) {
-        throw deletePaymentsError;
-      }
-
-      const payments = createInstallmentPayments(editingInstallment.id, values.first_due_date, unitAmount, values.installment_count);
-      const { error: insertPaymentsError } = await supabase
-        .from("installment_payments")
-        .insert(payments);
-
-      if (insertPaymentsError) {
-        throw insertPaymentsError;
       }
 
       toast.success("Parcelamento atualizado");
@@ -477,7 +431,6 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
 
     setDeleting(true);
     try {
-      await supabase.from("installment_payments").delete().eq("installment_id", deleteId);
       const { error } = await supabase.rpc("delete_installment", { p_id: deleteId });
       if (error) {
         throw error;
