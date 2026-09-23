@@ -36,8 +36,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/EmptyState";
-import { FormField } from "@/components/shared/FormField";
-import { Input } from "@/components/ui/input";
+import { ReportsFilterButton, type ReportsFilters } from "@/components/business/reports/ReportsFilterButton";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 
@@ -55,8 +54,12 @@ import { useChartColors } from "@/hooks/useChartColors";
 import {
   BUSINESS_REPORT_PERIOD_OPTIONS,
   type BusinessReportsAnalytics,
-  type BusinessReportsPeriod,
 } from "@/lib/business-reports";
+
+import {
+  SALE_CHANNEL_OPTIONS,
+  SALE_PAYMENT_FILTER_OPTIONS,
+} from "@/lib/business-sales";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -168,10 +171,14 @@ export function BusinessReportsPageClient() {
 
   const [loading, setLoading] = useState(true);
 
-  const [period, setPeriod] =
-    useState<BusinessReportsPeriod>("month");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const DEFAULT_FILTERS: ReportsFilters = {
+    period: "month",
+    customStart: "",
+    customEnd: "",
+    salesChannel: "all",
+    paymentStatus: "all",
+  };
+  const [filters, setFilters] = useState<ReportsFilters>(DEFAULT_FILTERS);
 
   const [analytics, setAnalytics] = useState<BusinessReportsAnalytics>(EMPTY_ANALYTICS);
 
@@ -211,12 +218,12 @@ export function BusinessReportsPageClient() {
 
       const args = {
         p_workspace_id: workspace.workspace_id,
-        p_period: period === "custom" ? "all" : period,
+        p_period: (filters.period === "custom" ? "all" : filters.period) as "month" | "3m" | "6m" | "12m" | "all",
         p_today: toLocalDateString(),
           p_custom_start:
-            period === "custom" && customStart ? customStart : null,
+            filters.period === "custom" && filters.customStart ? filters.customStart : null,
           p_custom_end:
-            period === "custom" && customEnd ? customEnd : null,
+            filters.period === "custom" && filters.customEnd ? filters.customEnd : null,
       } satisfies ReportsArgs;
 
       const reportsRes = await supabase.rpc(
@@ -245,7 +252,7 @@ export function BusinessReportsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [period, customStart, customEnd, router, supabase]);
+  }, [filters, router, supabase]);
 
   useEffect(() => {
     void loadReports();
@@ -275,47 +282,16 @@ export function BusinessReportsPageClient() {
         description="Veja o desempenho real do negócio: faturamento, lucro, despesas, resultado, recebimentos e produtos."
       />
 
-      <div className="mb-5 flex flex-wrap gap-1.5">
-        {BUSINESS_REPORT_PERIOD_OPTIONS.map(
-          (option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() =>
-                setPeriod(option.value)
-              }
-              className={cn(
-                "rounded-xl border px-3.5 py-1.5 text-xs font-medium transition-all",
-                period === option.value
-                  ? "border-accent bg-accent/15 text-accent"
-                  : "border-border/60 bg-surface/60 text-text-secondary hover:border-border hover:text-text-primary"
-              )}
-            >
-              {option.label}
-            </button>
-          )
-        )}
-      </div>
-
-      
-        {period === "custom" && (
-          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface/60 p-4 sm:flex-row sm:items-end">
-            <FormField label="Data inicial" required>
-              <Input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-              />
-            </FormField>
-            <FormField label="Data final" required>
-              <Input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-              />
-            </FormField>
-          </div>
-        )}
+      <div className="mb-5 flex items-center gap-3">
+          <ReportsFilterButton
+            value={filters}
+            onChange={setFilters}
+            defaultValue={DEFAULT_FILTERS}
+            periodOptions={BUSINESS_REPORT_PERIOD_OPTIONS}
+            channelOptions={SALE_CHANNEL_OPTIONS}
+            paymentStatusOptions={SALE_PAYMENT_FILTER_OPTIONS}
+          />
+        </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-3">
         <StatCard
