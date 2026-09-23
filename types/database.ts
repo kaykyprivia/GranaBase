@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -2235,6 +2235,299 @@ export interface Database {
           p_category_name?: string | null;
         };
         Returns: Json;
+      };
+      attribute_my_referral: {
+        Args: { p_referral_code: string };
+        Returns: string;
+      };
+      create_income_entry: {
+        Args: {
+          p_payload: {
+            description: string;
+            amount: number;
+            category: string;
+            received_at: string;
+            payment_method: string | null;
+            notes: string | null;
+          };
+        };
+        Returns: string;
+      };
+      update_income_entry: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            description?: string;
+            amount?: number;
+            category?: string;
+            received_at?: string;
+            payment_method?: string | null;
+            notes?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      delete_income_entry: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      create_expense_entry: {
+        Args: {
+          p_payload: {
+            description: string;
+            amount: number;
+            category: string;
+            spent_at: string;
+            payment_method: string | null;
+            card_due_date: string | null;
+            notes: string | null;
+          };
+        };
+        Returns: string;
+      };
+      update_expense_entry: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            description?: string;
+            amount?: number;
+            category?: string;
+            spent_at?: string;
+            payment_method?: string | null;
+            card_due_date?: string | null;
+            notes?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      delete_expense_entry: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      create_bill: {
+        Args: {
+          p_payload: {
+            name: string;
+            amount: number;
+            due_date: string;
+            category: string;
+            status: string;
+            paid_at?: string | null;
+          };
+        };
+        Returns: string;
+      };
+      update_bill: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            name?: string;
+            amount?: number;
+            due_date?: string;
+            category?: string;
+            status?: string;
+            paid_at?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      delete_bill: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      create_financial_goal: {
+        Args: {
+          p_payload: {
+            name: string;
+            target_amount: number;
+            deadline: string | null;
+            category: string;
+            notes: string | null;
+            status: string;
+          };
+        };
+        Returns: string;
+      };
+      update_financial_goal: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            name?: string;
+            target_amount?: number;
+            deadline?: string | null;
+            category?: string;
+            notes?: string | null;
+            status?: string;
+          };
+        };
+        Returns: void;
+      };
+      delete_financial_goal: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      create_receivable: {
+        Args: {
+          p_payload: {
+            description: string;
+            amount: number;
+            expected_date: string;
+            category: string;
+            notes: string | null;
+            status: string;
+          };
+        };
+        Returns: string;
+      };
+      update_receivable: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            description?: string;
+            amount?: number;
+            expected_date?: string;
+            category?: string;
+            notes?: string | null;
+            status?: string;
+            received_at?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      delete_receivable: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      update_installment_payment: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            status: string;
+            paid_at: string | null;
+            paid_amount: number | null;
+            notes?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      delete_installment: {
+        Args: { p_id: string };
+        Returns: void;
+      };
+      get_or_create_my_referral_code: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      list_my_referrals: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          referral_id: string;
+          referred_user_id: string;
+          referred_display_name: string | null;
+          referral_code: string;
+          attributed_at: string;
+          has_active_subscription: boolean;
+          active_plan_type: string | null;
+          converted_at: string | null;
+          commission_earned: number;
+        }>;
+      };
+      get_my_referral_stats: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          total_signups: number;
+          total_bonus_grants: number;
+          last_signup_at: string | null;
+        }>;
+      };
+      list_my_referral_commissions: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          commission_id: string;
+          referred_user_id: string;
+          plan_type: string;
+          referrer_plan_at_event: string;
+          commission_rate: number;
+          base_amount: number;
+          commission_amount: number;
+          status: string;
+          available_at: string | null;
+          paid_at: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+        }>;
+      };
+      get_my_commission_summary: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          pending_total: number;
+          available_total: number;
+          paid_total: number;
+          cancelled_total: number;
+          can_withdraw: boolean;
+          minimum_withdrawal: number;
+        }>;
+      };
+      get_my_subscription: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          subscription_id: string;
+          plan: string;
+          access_level: string;
+          status: string;
+          started_at: string;
+          current_period_start: string;
+          current_period_end: string;
+          cancelled_at: string | null;
+          provider: string;
+          days_remaining: number;
+        }>;
+      };
+      list_my_subscription_payments: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          payment_id: string;
+          plan_type: string;
+          amount: number;
+          status: string;
+          mp_preapproval_id: string | null;
+          mp_payment_id: string | null;
+          environment: string;
+          created_at: string;
+          updated_at: string;
+        }>;
+      };
+      get_my_withdrawal_summary: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          available_total: number;
+          reserved_total: number;
+          paid_total: number;
+          can_withdraw: boolean;
+          minimum_withdrawal: number;
+          has_pending_request: boolean;
+        }>;
+      };
+      list_my_withdrawal_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          request_id: string;
+          amount: number;
+          pix_key: string;
+          pix_key_type: string;
+          status: string;
+          requested_at: string;
+          processing_started_at: string | null;
+          paid_at: string | null;
+          cancelled_at: string | null;
+          cancelled_reason: string | null;
+          admin_notes: string | null;
+          payment_reference: string | null;
+        }>;
+      };
+      is_super_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
       };
     };
     Enums: {};
