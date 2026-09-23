@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -194,13 +194,13 @@ export function BusinessDashboardPageClient() {
 
       const reportArgs = {
         p_workspace_id: workspace.workspace_id,
-        p_period: period,
+        p_period: (period === "custom" ? "all" : period) as "month" | "3m" | "6m" | "12m" | "all",
         p_today: today,
       } satisfies ReportsArgs;
 
       const dashboardArgs = {
         p_workspace_id: workspace.workspace_id,
-        p_period: period,
+        p_period: (period === "custom" ? "all" : period) as "month" | "3m" | "6m" | "12m" | "all",
         p_today: today,
       } satisfies DashboardArgs;
 
