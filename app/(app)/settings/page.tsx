@@ -80,7 +80,7 @@ async function findProfileRecord(
   const byId = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
   if (byId.data) return { matchField: "id", record: coerceData<ProfileRecord>(byId.data) };
 
-  const byUserId = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+  const byUserId = await supabase.from("profiles").select("*").eq("user_id" as never, userId).maybeSingle();
   if (byUserId.data) return { matchField: "user_id", record: coerceData<ProfileRecord>(byUserId.data) };
 
   return { matchField: null, record: null };
@@ -230,7 +230,7 @@ export default function SettingsPage() {
         if (error) throw error;
       }
       if (profileMatchField === "user_id") {
-        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("user_id", userId);
+        const { error } = await supabase.from("profiles").update(coerceMutation({ full_name: fullName })).eq("user_id" as never, userId);
         if (error) throw error;
       }
 
@@ -290,9 +290,9 @@ export default function SettingsPage() {
       type BillRow = { name: string; amount: number; due_date: string | null; category: string | null };
 
       const [expensesRes, incomeRes, billsRes] = await Promise.all([
-        supabase.from("expense_entries").select("description, amount, category, spent_at").eq("user_id", userId),
-        supabase.from("income_entries").select("description, amount, category, received_at").eq("user_id", userId),
-        supabase.from("bills").select("name, amount, due_date, category").eq("user_id", userId),
+        supabase.from("expense_entries").select("description, amount, category, spent_at").eq("user_id" as never, userId),
+        supabase.from("income_entries").select("description, amount, category, received_at").eq("user_id" as never, userId),
+        supabase.from("bills").select("name, amount, due_date, category").eq("user_id" as never, userId),
       ]);
 
       const expenses = (expensesRes.data ?? []) as unknown as ExpenseRow[];

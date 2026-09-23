@@ -399,7 +399,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     setUpdatingPaymentId(payment.id);
     try {
       const payload = buildInstallmentStatusUpdate(payment, nextStatus, paidAmount, undefined, paidAt, notes);
-      const { error } = await supabase.rpc("update_installment_payment" as never, { p_id: payment.id, p_payload: payload } as never);
+      const { error } = await supabase.rpc("update_installment_payment", { p_id: payment.id, p_payload: payload });
 
       if (error) {
         throw error;
@@ -478,7 +478,7 @@ export const InstallmentsPanel = forwardRef<InstallmentsPanelHandle, Installment
     setDeleting(true);
     try {
       await supabase.from("installment_payments").delete().eq("installment_id", deleteId);
-      const { error } = await supabase.rpc("delete_installment" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_installment", { p_id: deleteId });
       if (error) {
         throw error;
       }

@@ -376,13 +376,13 @@ export default function IncomePage() {
   const onSubmit = async (data: IncomeFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.rpc("update_income_entry" as never, { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } } as never);
+        const { error } = await supabase.rpc("update_income_entry", { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } });
         if (error) throw error;
         toast.success("Entrada atualizada");
       } else {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) { toast.error("Usuario nao autenticado."); return; }
-        const { error } = await supabase.rpc("create_income_entry" as never, { p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } } as never);
+        const { error } = await supabase.rpc("create_income_entry", { p_payload: { description: data.description, amount: data.amount, category: data.category, received_at: data.received_at, payment_method: data.payment_method || null, notes: data.notes || null } });
         if (error) throw new Error(getSupabaseErrorMessage(error));
         toast.success("Entrada registrada");
       }
@@ -397,7 +397,7 @@ export default function IncomePage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_income_entry" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_income_entry", { p_id: deleteId });
       if (error) throw error;
       toast.success("Entrada excluida");
       setEntries(prev => prev.filter(e => e.id !== deleteId));
@@ -424,16 +424,16 @@ export default function IncomePage() {
       setEditReceivedSaving(true);
       try {
         const newReceivedAt = withNewDate(editReceivedItem.created_at, editReceivedDate);
-        const { error } = await supabase.rpc("update_receivable" as never, {
+        const { error } = await supabase.rpc("update_receivable", {
           p_id: editReceivedItem.id,
           p_payload: {
             description: editReceivedDescription,
             amount: editReceivedAmount,
-            category: editReceivedCategory || null,
+            category: editReceivedCategory || undefined,
             received_at: newReceivedAt,
-            notes: editReceivedNotes || null,
+            notes: editReceivedNotes || undefined,
           },
-        } as never);
+        });
       if (error) throw error;
 
       toast.success("Recebimento atualizado");
@@ -450,10 +450,10 @@ export default function IncomePage() {
     if (!revertReceivedItem) return;
     setRevertingReceived(true);
     try {
-      const { error } = await supabase.rpc("update_receivable" as never, {
+      const { error } = await supabase.rpc("update_receivable", {
         p_id: revertReceivedItem.id,
         p_payload: { status: "pending" },
-      } as never);
+      });
       if (error) throw error;
 
       toast.success("Recebimento desfeito  volta para pendente");

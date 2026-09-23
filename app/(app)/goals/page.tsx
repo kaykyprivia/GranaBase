@@ -191,13 +191,13 @@ export default function GoalsPage() {
       };
 
       if (editingGoal) {
-        const { error } = await supabase.rpc("update_financial_goal" as never, { p_id: editingGoal.id, p_payload: payload } as never);
+        const { error } = await supabase.rpc("update_financial_goal", { p_id: editingGoal.id, p_payload: payload });
         if (error) {
           throw error;
         }
         toast.success("Meta atualizada");
       } else {
-        const { error } = await supabase.rpc("create_financial_goal" as never, { p_payload: payload } as never);
+        const { error } = await supabase.rpc("create_financial_goal", { p_payload: payload });
         if (error) {
           throw error;
         }
@@ -220,7 +220,7 @@ export default function GoalsPage() {
 
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_financial_goal" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_financial_goal", { p_id: deleteId });
       if (error) {
         throw error;
       }
@@ -236,7 +236,7 @@ export default function GoalsPage() {
 
   const updateGoalStatus = async (goal: FinancialGoal, nextStatus: Exclude<GoalStatus, "completed">) => {
     const resolvedStatus: GoalStatus = walletBalance >= goal.target_amount ? "completed" : nextStatus;
-    const { error } = await supabase.rpc("update_financial_goal" as never, { p_id: goal.id, p_payload: { status: resolvedStatus } } as never);
+    const { error } = await supabase.rpc("update_financial_goal", { p_id: goal.id, p_payload: { status: resolvedStatus } });
 
     if (error) {
       toast.error(nextStatus === "paused" ? "Erro ao pausar meta" : "Erro ao retomar meta");

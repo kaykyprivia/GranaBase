@@ -101,7 +101,7 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
           await supabase
             .from("profiles")
             .select("full_name")
-            .eq("user_id", user.id)
+            .eq("user_id" as never, user.id)
             .maybeSingle()
         ).data ??
         null;

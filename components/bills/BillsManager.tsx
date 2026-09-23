@@ -24,7 +24,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { FormField } from "@/components/shared/FormField";
 import { StatCard } from "@/components/shared/StatCard";
 
-const BILL_CATEGORIES = ["Aluguel", "Energia", "Agua", "Internet", "Telefone", "Cartao", "Emprestimo", "Seguro", "Mensalidade", "Outro"];
+const BILL_CATEGORIES = ["Aluguel", "Energia", "AÂgua", "Internet", "Telefone", "Cartao", "Emprestimo", "Seguro", "Mensalidade", "Outro"];
 type StatusFilter = "all" | "pending" | "overdue" | "paid";
 
 function getEffectiveStatus(bill: Bill): Bill["status"] {
@@ -89,7 +89,16 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     const activeBills = allBills.filter((b) => b.status === "pending");
 
     const seen = new Set<string>();
-    const toCreate: Array<Parameters<typeof coerceMutation>[0]> = [];
+    const toCreate: Array<{
+      user_id: string;
+      name: string;
+      amount: number;
+      due_date: string;
+      status: "pending";
+      category: string;
+      is_recurring: boolean;
+      notes: string | null;
+    }> = [];
 
     for (const bill of [...paidRecurring].sort((a, b) => b.due_date.localeCompare(a.due_date))) {
       const key = `${bill.name}|${bill.category}`;
@@ -113,7 +122,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     }
 
     if (toCreate.length > 0) {
-      await supabase.rpc("create_bill" as never, { p_payload: toCreate[0] } as never);
+      await supabase.rpc("create_bill", { p_payload: toCreate[0] });
       const { data: refreshed } = await supabase.from("bills").select("*").eq("user_id", user.id).order("due_date");
       setBills(((refreshed ?? []) as Bill[]).filter((bill) => appliesMaeFilter(user.id, mode, bill.name)));
     } else {
@@ -246,11 +255,11 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
       };
 
       if (editingBill) {
-        const { error } = await supabase.rpc("update_bill" as never, { p_id: editingBill.id, p_payload: payload } as never);
+        const { error } = await supabase.rpc("update_bill", { p_id: editingBill.id, p_payload: payload });
         if (error) throw error;
         toast.success("Conta atualizada");
       } else {
-        const { error } = await supabase.rpc("create_bill" as never, { p_payload: { ...payload, status: "pending" } } as never);
+        const { error } = await supabase.rpc("create_bill", { p_payload: { ...payload, status: "pending" } });
         if (error) throw error;
         toast.success("Conta criada");
       }
@@ -269,13 +278,13 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     try {
       const bill = bills.find((b) => b.id === id);
 
-      const { error } = await supabase.rpc("update_bill" as never, { p_id: id, p_payload: { status: "paid", paid_at: new Date().toISOString() } } as never);
+      const { error } = await supabase.rpc("update_bill", { p_id: id, p_payload: { status: "paid", paid_at: new Date().toISOString() } });
       if (error) throw error;
 
       if (bill?.is_recurring) {
         const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
         const nextDueDateStr = toLocalDateString(nextDate);
-        await supabase.rpc("create_bill" as never, { p_payload: { name: bill.name, amount: bill.amount, due_date: nextDueDateStr, category: bill.category, status: "pending" } } as never);
+        await supabase.rpc("create_bill", { p_payload: { name: bill.name, amount: bill.amount, due_date: nextDueDateStr, category: bill.category, status: "pending" } });
         toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
       } else {
         toast.success("Conta marcada como paga!");
@@ -292,7 +301,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
   const handleUnmarkPaid = async (id: string) => {
     setMarkingPaidId(id);
     try {
-      const { error } = await supabase.rpc("update_bill" as never, { p_id: id, p_payload: { status: "pending", paid_at: null } } as never);
+      const { error } = await supabase.rpc("update_bill", { p_id: id, p_payload: { status: "pending", paid_at: null } });
       if (error) throw error;
       toast.success("Conta voltou para pendente");
       await fetchBills();
@@ -307,7 +316,7 @@ export const BillsManager = forwardRef<BillsManagerHandle, BillsManagerProps>(fu
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_bill" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_bill", { p_id: deleteId });
       if (error) throw error;
       toast.success("Conta excluida");
       setBills((prev) => prev.filter((bill) => bill.id !== deleteId));

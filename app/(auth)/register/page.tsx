@@ -50,9 +50,9 @@ export default function RegisterPage() {
     if (signUpData.session) {
       if (referralCode) {
         try {
-          await supabase.rpc("attribute_my_referral" as never, {
+          await supabase.rpc("attribute_my_referral", {
             p_referral_code: referralCode,
-          } as never);
+          });
         } catch (refError) {
           console.error("Erro ao atribuir indicacao:", refError);
         }

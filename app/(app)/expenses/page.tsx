@@ -838,11 +838,11 @@ export default function ExpensesPage() {
   const onSubmit = async (data: ExpenseFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.rpc("update_expense_entry" as never, { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null, notes: data.notes || null } } as never);
+        const { error } = await supabase.rpc("update_expense_entry", { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, notes: data.notes || null } });
         if (error) throw error;
         toast.success("Gasto atualizado");
       } else {
-        const { error } = await supabase.rpc("create_expense_entry" as never, { p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "Cartão Crédito" ? (data.card_due_date || null) : null, notes: data.notes || null } } as never);
+        const { error } = await supabase.rpc("create_expense_entry", { p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, notes: data.notes || null } });
         if (error) throw error;
         toast.success("Gasto registrado");
       }
@@ -954,7 +954,7 @@ export default function ExpensesPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_expense_entry" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_expense_entry", { p_id: deleteId });
       if (error) throw error;
       toast.success("Gasto excluido");
       setEntries(prev => prev.filter(e => e.id !== deleteId));

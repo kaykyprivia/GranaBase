@@ -149,11 +149,11 @@ export default function ReceivablesPage() {
       };
 
       if (editingReceivable) {
-        const { error } = await supabase.rpc("update_receivable" as never, { p_id: editingReceivable.id, p_payload: payload } as never);
+        const { error } = await supabase.rpc("update_receivable", { p_id: editingReceivable.id, p_payload: payload });
         if (error) throw error;
         toast.success("Recebivel atualizado");
       } else {
-        const { error } = await supabase.rpc("create_receivable" as never, { p_payload: { ...payload, status: "pending" } } as never);
+        const { error } = await supabase.rpc("create_receivable", { p_payload: { ...payload, status: "pending" } });
         if (error) throw error;
         toast.success("Recebivel criado");
       }
@@ -170,7 +170,7 @@ export default function ReceivablesPage() {
   const handleMarkReceived = async (id: string) => {
     setMarkingReceivedId(id);
     try {
-      const { error } = await supabase.rpc("update_receivable" as never, { p_id: id, p_payload: { status: "received", received_at: new Date().toISOString() } } as never);
+      const { error } = await supabase.rpc("update_receivable", { p_id: id, p_payload: { status: "received", received_at: new Date().toISOString() } });
       if (error) throw error;
       toast.success("Recebivel marcado como recebido! Ja aparece em Entradas.");
       await fetchReceivables();
@@ -184,7 +184,7 @@ export default function ReceivablesPage() {
   const handleUnmarkReceived = async (id: string) => {
     setMarkingReceivedId(id);
     try {
-      const { error } = await supabase.rpc("update_receivable" as never, { p_id: id, p_payload: { status: "pending", received_at: null } } as never);
+      const { error } = await supabase.rpc("update_receivable", { p_id: id, p_payload: { status: "pending", received_at: null } });
       if (error) throw error;
       toast.success("Recebivel voltou para pendente");
       await fetchReceivables();
@@ -199,7 +199,7 @@ export default function ReceivablesPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_receivable" as never, { p_id: deleteId } as never);
+      const { error } = await supabase.rpc("delete_receivable", { p_id: deleteId });
       if (error) throw error;
       toast.success("Recebivel excluido");
       setReceivables((prev) => prev.filter((r) => r.id !== deleteId));
