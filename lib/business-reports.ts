@@ -17,7 +17,16 @@ export type BusinessReportsPeriod =
   | "3m"
   | "6m"
   | "12m"
+  | "custom"
   | "all";
+
+export type BusinessReportsFilters = {
+  period: BusinessReportsPeriod;
+  customStart?: string;
+  customEnd?: string;
+  salesChannel?: string;
+  paymentStatus?: string;
+};
 
 export const BUSINESS_REPORT_PERIOD_OPTIONS: Array<{
   value: BusinessReportsPeriod;
@@ -28,6 +37,7 @@ export const BUSINESS_REPORT_PERIOD_OPTIONS: Array<{
   { value: "6m", label: "6 meses" },
   { value: "12m", label: "12 meses" },
   { value: "all", label: "Tudo" },
+    { value: "custom", label: "Personalizado" },
 ];
 
 export type BusinessReportsDataset = {
@@ -129,38 +139,55 @@ export function getBusinessReportsDateRange(
 
 export function buildBusinessReportsAnalytics(
   dataset: BusinessReportsDataset,
-  period: BusinessReportsPeriod,
+  filters: BusinessReportsFilters,
   today = new Date()
 ): BusinessReportsAnalytics {
-  const range = getBusinessReportsDateRange(period, today);
+  const period = filters.period;
+  let range = getBusinessReportsDateRange(period, today);
+
+  // Se for "custom", sobrescreve com datas do usuário
+  if (period === "custom" && filters.customStart && filters.customEnd) {
+    range = { start: filters.customStart, end: filters.customEnd };
+  }
+
+  // Filtra dataset por canal e status de pagamento
+  let filteredDataset = dataset;
+  if (filters.salesChannel && filters.salesChannel !== "all") {
+    filteredDataset = {
+      ...filteredDataset,
+      sales: filteredDataset.sales.filter(
+        (s) => s.sales_channel === filters.salesChannel
+      ),
+    };
+  }
 
   const salesById = new Map(
-    dataset.sales.map((sale) => [sale.id, sale])
+    filteredDataset.sales.map((sale) => [sale.id, sale])
   );
 
   const itemsBySaleId = groupBy(
-    dataset.saleItems,
+    filteredDataset.saleItems,
     (item) => item.sale_id
   );
 
   const returnsBySaleId = groupBy(
-    dataset.returns,
+    filteredDataset.returns,
     (row) => row.sale_id
   );
 
   const returnItemsBySaleItemId = groupBy(
-    dataset.returnItems,
+    filteredDataset.returnItems,
     (row) => row.sale_item_id
   );
 
   const productsById = new Map(
-    dataset.products.map((product) => [
+    filteredDataset.products.map((product) => [
       product.id,
       product,
     ])
   );
 
-  const periodSales = dataset.sales.filter(
+  const periodSales = filteredDataset.sales.filter(
     (sale) =>
       sale.order_status !== "CANCELLED" &&
       isDateInRange(sale.sale_date, range)
@@ -170,7 +197,7 @@ export function buildBusinessReportsAnalytics(
     REALIZED_STATUSES.has(sale.order_status)
   );
 
-  const periodExpenses = dataset.expenses.filter((expense) =>
+  const periodExpenses = filteredDataset.expenses.filter((expense) =>
     isDateInRange(expense.spent_at, range)
   );
 
@@ -204,7 +231,7 @@ export function buildBusinessReportsAnalytics(
       ? revenue / realizedSales.length
       : 0;
 
-  const received = dataset.payments
+  const received = filteredDataset.payments
     .filter(
       (payment) =>
         payment.paid_at &&
@@ -238,7 +265,7 @@ export function buildBusinessReportsAnalytics(
     0
   );
 
-  const paidAgainstPeriodSales = dataset.payments
+  const paidAgainstPeriodSales = filteredDataset.payments
     .filter((payment) =>
       periodSaleIds.has(payment.sale_id)
     )

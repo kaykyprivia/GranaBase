@@ -36,6 +36,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/EmptyState";
+import { FormField } from "@/components/shared/FormField";
+import { Input } from "@/components/ui/input";
 import { PageIntro } from "@/components/shared/PageIntro";
 import { StatCard } from "@/components/shared/StatCard";
 
@@ -168,6 +170,8 @@ export function BusinessReportsPageClient() {
 
   const [period, setPeriod] =
     useState<BusinessReportsPeriod>("month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const [analytics, setAnalytics] = useState<BusinessReportsAnalytics>(EMPTY_ANALYTICS);
 
@@ -207,8 +211,12 @@ export function BusinessReportsPageClient() {
 
       const args = {
         p_workspace_id: workspace.workspace_id,
-        p_period: period,
+        p_period: period === "custom" ? "all" : period,
         p_today: toLocalDateString(),
+          p_custom_start:
+            period === "custom" && customStart ? customStart : null,
+          p_custom_end:
+            period === "custom" && customEnd ? customEnd : null,
       } satisfies ReportsArgs;
 
       const reportsRes = await supabase.rpc(
@@ -237,7 +245,7 @@ export function BusinessReportsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [period, router, supabase]);
+  }, [period, customStart, customEnd, router, supabase]);
 
   useEffect(() => {
     void loadReports();
@@ -289,7 +297,27 @@ export function BusinessReportsPageClient() {
         )}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-3">
+      
+        {period === "custom" && (
+          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-border/60 bg-surface/60 p-4 sm:flex-row sm:items-end">
+            <FormField label="Data inicial" required>
+              <Input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Data final" required>
+              <Input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+              />
+            </FormField>
+          </div>
+        )}
+
+        <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-3">
         <StatCard
           title="Faturamento realizado"
           value={formatCurrency(

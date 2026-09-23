@@ -2116,6 +2116,8 @@ export interface Database {
           p_workspace_id: string;
           p_period?: "month" | "3m" | "6m" | "12m" | "all";
           p_today?: string;
+            p_custom_start?: string | null;
+            p_custom_end?: string | null;
         };
         Returns: Json;
       };
