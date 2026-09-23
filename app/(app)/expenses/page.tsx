@@ -873,10 +873,8 @@ export default function ExpensesPage() {
     try {
       const unitAmount = result.data.installment_amount;
       const totalAmount = calculateInstallmentTotal(unitAmount, result.data.installment_count);
-      const { data: createdData, error } = await supabase
-        .from("installments")
-        .insert({
-          user_id: userId,
+      const { error } = await supabase.rpc("create_installment_with_payments", {
+        p_payload: {
           description: result.data.description,
           total_amount: totalAmount,
           installment_count: result.data.installment_count,
@@ -885,26 +883,9 @@ export default function ExpensesPage() {
           category: result.data.category,
           payment_method: result.data.payment_method || null,
           notes: result.data.notes || null,
-        })
-        .select()
-        .single();
-
-      const created = createdData ? coerceData<Installment>(createdData) : null;
-      if (error || !created) throw error ?? new Error("Nao foi possivel criar o parcelamento.");
-
-      const paymentsRows = Array.from({ length: result.data.installment_count }, (_, index) => {
-        const dueDate = addMonths(new Date(`${result.data.first_due_date}T00:00:00`), index);
-        return {
-          user_id: userId,
-          installment_id: created.id,
-          installment_number: index + 1,
-          due_date: toLocalDateString(dueDate),
-          amount: unitAmount,
-          status: "pending" as const,
-        };
+        },
       });
-      const { error: paymentsError } = await supabase.from("installment_payments").insert(paymentsRows);
-      if (paymentsError) throw paymentsError;
+      if (error) throw error;
 
       toast.success(`Parcelamento criado com ${result.data.installment_count} parcelas`);
       setModalOpen(false);
@@ -928,15 +909,16 @@ export default function ExpensesPage() {
 
     setCreatingExtra(true);
     try {
-      const { error } = await supabase.from("bills").insert({
-        user_id: userId,
-        name: result.data.name,
-        amount: result.data.amount,
-        due_date: result.data.due_date,
-        category: result.data.category,
-        is_recurring: true,
-        notes: result.data.notes || null,
-        status: "pending" as const,
+      const { error } = await supabase.rpc("create_bill", {
+        p_payload: {
+          name: result.data.name,
+          amount: result.data.amount,
+          due_date: result.data.due_date,
+          category: result.data.category,
+          is_recurring: true,
+          notes: result.data.notes || null,
+          status: "pending",
+        },
       });
       if (error) throw error;
 
@@ -979,16 +961,18 @@ export default function ExpensesPage() {
       const newPaidAt = withNewDate(editPaidItem.created_at, editPaidDate);
 
       if (editPaidItem.source === "bill") {
-        const { error } = await supabase.from("bills").update({
-          amount: editPaidAmount, paid_at: newPaidAt,
-        }).eq("id", editPaidItem.id);
+        const { error } = await supabase.rpc("update_bill", {
+          p_id: editPaidItem.id,
+          p_payload: { amount: editPaidAmount, paid_at: newPaidAt },
+        });
         if (error) throw error;
       } else if (editPaidItem.source === "installment") {
         const dueAmount = editPaidItem.dueAmount ?? editPaidAmount;
         const status = editPaidAmount < dueAmount ? "paid_with_discount" : "paid";
-        const { error } = await supabase.from("installment_payments").update({
-          paid_amount: editPaidAmount, paid_at: newPaidAt, status,
-        }).eq("id", editPaidItem.id);
+        const { error } = await supabase.rpc("update_installment_payment", {
+          p_id: editPaidItem.id,
+          p_payload: { paid_amount: editPaidAmount, paid_at: newPaidAt, status },
+        });
         if (error) throw error;
       }
 
@@ -1016,22 +1000,24 @@ export default function ExpensesPage() {
 
       if (markPaidItem.source === "bill") {
         const bill = bills.find((b) => b.id === markPaidItem.id);
-        const { error } = await supabase.from("bills").update({
-          status: "paid" as const, paid_at: paidAtIso, amount: markPaidAmount,
-        }).eq("id", markPaidItem.id);
+        const { error } = await supabase.rpc("update_bill", {
+          p_id: markPaidItem.id,
+          p_payload: { status: "paid", paid_at: paidAtIso, amount: markPaidAmount },
+        });
         if (error) throw error;
 
         if (bill?.is_recurring) {
           const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
-          await supabase.from("bills").insert({
-            user_id: userId,
-            name: bill.name,
-            amount: bill.amount,
-            due_date: toLocalDateString(nextDate),
-            status: "pending" as const,
-            category: bill.category,
-            is_recurring: true,
-            notes: bill.notes ?? null,
+          await supabase.rpc("create_bill", {
+            p_payload: {
+              name: bill.name,
+              amount: bill.amount,
+              due_date: toLocalDateString(nextDate),
+              status: "pending",
+              category: bill.category,
+              is_recurring: true,
+              notes: bill.notes ?? null,
+            },
           });
           toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
         } else {
@@ -1040,9 +1026,10 @@ export default function ExpensesPage() {
       } else if (markPaidItem.source === "installment") {
         const dueAmount = markPaidItem.dueAmount ?? markPaidAmount;
         const status = markPaidAmount < dueAmount ? "paid_with_discount" : "paid";
-        const { error } = await supabase.from("installment_payments").update({
-          status, paid_amount: markPaidAmount, paid_at: paidAtIso,
-        }).eq("id", markPaidItem.id);
+        const { error } = await supabase.rpc("update_installment_payment", {
+          p_id: markPaidItem.id,
+          p_payload: { status, paid_amount: markPaidAmount, paid_at: paidAtIso },
+        });
         if (error) throw error;
         toast.success("Parcela paga!");
       } else if (markPaidItem.source === "consortium") {
@@ -1102,23 +1089,38 @@ export default function ExpensesPage() {
     setEditPendingSaving(true);
     try {
       if (editPendingItem.source === "bill") {
-        const { error } = await supabase.from("bills").update({
-          name: editPendingName, amount: editPendingAmount, due_date: editPendingDueDate,
-          category: editPendingCategory, notes: editPendingNotes || null,
-        }).eq("id", editPendingItem.id);
+        const { error } = await supabase.rpc("update_bill", {
+          p_id: editPendingItem.id,
+          p_payload: {
+            name: editPendingName,
+            amount: editPendingAmount,
+            due_date: editPendingDueDate,
+            category: editPendingCategory,
+            notes: editPendingNotes || null,
+          },
+        });
         if (error) throw error;
       } else if (editPendingItem.source === "installment") {
         const payment = payments.find((p) => p.id === editPendingItem.id);
-        const { error } = await supabase.from("installment_payments").update({
-          amount: editPendingAmount, due_date: editPendingDueDate,
-        }).eq("id", editPendingItem.id);
+        const { error } = await supabase.rpc("update_installment_payment", {
+          p_id: editPendingItem.id,
+          p_payload: {
+            amount: editPendingAmount,
+            due_date: editPendingDueDate,
+          },
+        });
         if (error) throw error;
 
         if (payment) {
-          const { error: installmentError } = await supabase.from("installments").update({
-            description: editPendingName, category: editPendingCategory,
-            payment_method: editPendingPaymentMethod || null, notes: editPendingNotes || null,
-          }).eq("id", payment.installment_id);
+          const { error: installmentError } = await supabase.rpc("update_installment", {
+            p_id: payment.installment_id,
+            p_payload: {
+              description: editPendingName,
+              category: editPendingCategory,
+              payment_method: editPendingPaymentMethod || null,
+              notes: editPendingNotes || null,
+            },
+          });
           if (installmentError) throw installmentError;
         }
       } else if (editPendingItem.source === "consortium") {
@@ -1166,14 +1168,13 @@ export default function ExpensesPage() {
     setDeletingPending(true);
     try {
       if (deletePendingItem.source === "bill") {
-        const { error } = await supabase.from("bills").delete().eq("id", deletePendingItem.id);
+        const { error } = await supabase.rpc("delete_bill", { p_id: deletePendingItem.id });
         if (error) throw error;
         toast.success("Conta excluida");
       } else if (deletePendingItem.source === "installment") {
         const payment = payments.find((p) => p.id === deletePendingItem.id);
         if (payment) {
-          await supabase.from("installment_payments").delete().eq("installment_id", payment.installment_id);
-          const { error } = await supabase.from("installments").delete().eq("id", payment.installment_id);
+          const { error } = await supabase.rpc("delete_installment", { p_id: payment.installment_id });
           if (error) throw error;
         }
         toast.success("Parcelamento excluido");
@@ -1205,14 +1206,16 @@ export default function ExpensesPage() {
     setReverting(true);
     try {
       if (revertItem.source === "bill") {
-        const { error } = await supabase.from("bills").update({
-          status: "pending", paid_at: null,
-        }).eq("id", revertItem.id);
+        const { error } = await supabase.rpc("update_bill", {
+          p_id: revertItem.id,
+          p_payload: { status: "pending", paid_at: null },
+        });
         if (error) throw error;
       } else if (revertItem.source === "installment") {
-        const { error } = await supabase.from("installment_payments").update({
-          status: "pending", paid_at: null, paid_amount: null,
-        }).eq("id", revertItem.id);
+        const { error } = await supabase.rpc("update_installment_payment", {
+          p_id: revertItem.id,
+          p_payload: { status: "pending", paid_at: null, paid_amount: null },
+        });
         if (error) throw error;
       }
 
