@@ -2529,6 +2529,37 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      create_installment_with_payments: {
+        Args: {
+          p_payload: {
+            description: string;
+            total_amount: number;
+            installment_count: number;
+            installment_amount: number;
+            first_due_date: string;
+            category?: string | null;
+            payment_method?: string | null;
+            notes?: string | null;
+          };
+        };
+        Returns: string;
+      };
+      update_installment_with_payments: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            description?: string;
+            total_amount?: number;
+            installment_count: number;
+            installment_amount: number;
+            first_due_date: string;
+            category?: string | null;
+            payment_method?: string | null;
+            notes?: string | null;
+          };
+        };
+        Returns: void;
+      };
     };
     Enums: {};
     CompositeTypes: {};
