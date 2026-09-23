@@ -44,7 +44,7 @@ const statusOptions: Array<{ value: "all" | BusinessPurchaseOrderStatus; label: 
 
 const periodOptions: Array<{ value: DateRangePreset; label: string }> = [
   { value: "month", label: "Este mês" },
-  { value: "30d", label: "Últimos 30 dias" },
+  { value: "30d", label: "Ultimos 30 dias" },
   { value: "year", label: "Este ano" },
   { value: "custom", label: "Personalizado" },
 ];

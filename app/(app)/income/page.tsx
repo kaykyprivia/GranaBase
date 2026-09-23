@@ -589,9 +589,9 @@ export default function IncomePage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="3">Ašltimos 3 meses</SelectItem>
-                <SelectItem value="6">Ašltimos 6 meses</SelectItem>
-                <SelectItem value="12">Ašltimos 12 meses</SelectItem>
+                <SelectItem value="3">Ultimos 3 meses</SelectItem>
+                <SelectItem value="6">Ultimos 6 meses</SelectItem>
+                <SelectItem value="12">Ultimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
 

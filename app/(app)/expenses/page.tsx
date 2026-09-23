@@ -1305,9 +1305,9 @@ export default function ExpensesPage() {
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="3">ULTIMOS 3 meses</SelectItem>
-                <SelectItem value="6">ULTIMOS 6 meses</SelectItem>
-                <SelectItem value="12">ULTIMOS 12 meses</SelectItem>
+                <SelectItem value="3">Ultimos 3 meses</SelectItem>
+                <SelectItem value="6">Ultimos 6 meses</SelectItem>
+                <SelectItem value="12">Ultimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
 
