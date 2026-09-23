@@ -100,7 +100,6 @@ export default function SettingsPage() {
   const [endingSessions, setEndingSessions] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [profileMatchField, setProfileMatchField] = useState<ProfileMatchField>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
   const [initialProfileForm, setInitialProfileForm] = useState<ProfileFormState>(DEFAULT_PROFILE_FORM);
   const [preferenceForm, setPreferenceForm] = useState<PreferenceFormState>(DEFAULT_PREFERENCE_FORM);
@@ -161,7 +160,6 @@ export default function SettingsPage() {
       };
 
       setUserId(user.id);
-      setProfileMatchField(profileLookup.matchField);
       setPlan(
         normalizePlan(
           settingsRow?.plan ??
@@ -225,14 +223,8 @@ export default function SettingsPage() {
       });
       if (authError) throw authError;
 
-      if (profileMatchField === "id") {
-        const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", userId);
-        if (error) throw error;
-      }
-      if (profileMatchField === "user_id") {
-        const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("user_id" as never, userId);
-        if (error) throw error;
-      }
+      const { error: profileError } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", userId);
+      if (profileError) throw profileError;
 
       await updateUserSettings({ phone: profileForm.phone.trim() || null, avatar_url: profileForm.avatarUrl.trim() || null });
       setInitialProfileForm(profileForm);

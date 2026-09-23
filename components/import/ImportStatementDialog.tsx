@@ -145,7 +145,6 @@ export function ImportStatementDialog({ open, onOpenChange, kind, userId, onImpo
       const rows = selectedItems.map((item) =>
         kind === "expense"
           ? {
-              user_id: userId,
               description: item.transaction.description,
               amount: item.transaction.amount,
               category: "Outro",
@@ -154,7 +153,6 @@ export function ImportStatementDialog({ open, onOpenChange, kind, userId, onImpo
               notes: null,
             }
           : {
-              user_id: userId,
               description: item.transaction.description,
               amount: item.transaction.amount,
               category: "Outro",
@@ -164,11 +162,11 @@ export function ImportStatementDialog({ open, onOpenChange, kind, userId, onImpo
             }
       );
 
-      const insertResult =
-        kind === "expense"
-          ? await supabase.from("expense_entries").insert(rows as never)
-          : await supabase.from("income_entries").insert(rows as never);
-      if (insertResult.error) throw insertResult.error;
+      const { error } = await supabase.rpc("bulk_import_entries", {
+        p_kind: kind,
+        p_rows: rows,
+      });
+      if (error) throw error;
 
       toast.success(`${rows.length} transaç${rows.length === 1 ? "ão" : "ões"} importada${rows.length === 1 ? "" : "s"}`);
       onImported();
