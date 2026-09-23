@@ -8,7 +8,6 @@ import { BarChart, Bar, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, 
 import { Calculator, PiggyBank, Pencil, Percent, Plus, TrendingDown, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { coerceMutation } from "@/lib/supabase/casts";
 import {
   getMonthOptions,
   INVESTMENT_TYPES,
@@ -686,7 +685,7 @@ export default function InvestmentsPage() {
   const onSubmit = async (data: InvestmentFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.rpc("update_investment", coerceMutation({
+        const { error } = await supabase.rpc("update_investment", {
           p_investment_id: editingEntry.id,
           p_name: data.name,
           p_amount: data.amount,
@@ -695,7 +694,7 @@ export default function InvestmentsPage() {
           p_ticker: data.ticker?.trim().toUpperCase() || null,
           p_quantity: data.quantity ?? null,
           p_notes: data.notes || null,
-        }));
+        });
 
         if (error) throw error;
         toast.success("Investimento atualizado");
@@ -724,7 +723,7 @@ export default function InvestmentsPage() {
 
           const newAmount = roundMarketMoney(accruedPrincipal + data.amount);
 
-          const { error } = await supabase.rpc("update_investment", coerceMutation({
+          const { error } = await supabase.rpc("update_investment", {
             p_investment_id: existingMatch.id,
             p_name: existingMatch.name,
             p_amount: newAmount,
@@ -733,12 +732,12 @@ export default function InvestmentsPage() {
             p_ticker: existingMatch.ticker,
             p_quantity: existingMatch.quantity,
             p_notes: data.notes || existingMatch.notes,
-          }));
+          });
 
           if (error) throw error;
           toast.success(`Aporte somado a "${existingMatch.name}". Novo total: ${formatCurrency(newAmount)}`);
         } else {
-          const { error } = await supabase.rpc("create_investment", coerceMutation({
+          const { error } = await supabase.rpc("create_investment", {
             p_name: data.name,
             p_amount: data.amount,
             p_investment_type: data.investment_type,
@@ -746,7 +745,7 @@ export default function InvestmentsPage() {
             p_ticker: data.ticker?.trim().toUpperCase() || null,
             p_quantity: data.quantity ?? null,
             p_notes: data.notes || null,
-          }));
+          });
 
           if (error) throw error;
           toast.success("Investimento registrado");
@@ -765,9 +764,9 @@ export default function InvestmentsPage() {
 
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc("delete_investment", coerceMutation({
+      const { error } = await supabase.rpc("delete_investment", {
         p_investment_id: deleteId,
-      }));
+      });
       if (error) throw error;
 
       setEntries((current) => current.filter((entry) => entry.id !== deleteId));
@@ -785,10 +784,10 @@ export default function InvestmentsPage() {
 
     setSelling(true);
     try {
-      const { error } = await supabase.rpc("sell_investment", coerceMutation({
+      const { error } = await supabase.rpc("sell_investment", {
         p_investment_id: sellingEntry.id,
         p_sold_amount: null,
-      }));
+      });
       if (error) throw error;
 
       setEntries((current) => current.filter((entry) => entry.id !== sellingEntry.id));
