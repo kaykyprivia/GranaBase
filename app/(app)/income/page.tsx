@@ -9,7 +9,7 @@ import { PageIntro } from "@/components/shared/PageIntro";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ImportStatementDialog } from "@/components/import/ImportStatementDialog";
-import { coerceData, coerceMutation } from "@/lib/supabase/casts";
+import { coerceData } from "@/lib/supabase/casts";
 import { cn, formatCurrency, formatDate, formatTime, toLocalDateString } from "@/lib/utils";
 import { useCurrency } from "@/lib/hooks/useCurrency";
 import { useChartColors } from "@/hooks/useChartColors";
@@ -424,14 +424,16 @@ export default function IncomePage() {
       setEditReceivedSaving(true);
       try {
         const newReceivedAt = withNewDate(editReceivedItem.created_at, editReceivedDate);
-        const { error } = await supabase.from("receivables").update(coerceMutation({
-          description: editReceivedDescription,
-          amount: editReceivedAmount,
-          category: editReceivedCategory || null,
-          payment_method: editReceivedPaymentMethod || null,
-          received_at: newReceivedAt,
-          notes: editReceivedNotes || null,
-        })).eq("id", editReceivedItem.id);
+        const { error } = await supabase.rpc("update_receivable" as never, {
+          p_id: editReceivedItem.id,
+          p_payload: {
+            description: editReceivedDescription,
+            amount: editReceivedAmount,
+            category: editReceivedCategory || null,
+            received_at: newReceivedAt,
+            notes: editReceivedNotes || null,
+          },
+        } as never);
       if (error) throw error;
 
       toast.success("Recebimento atualizado");
@@ -448,9 +450,10 @@ export default function IncomePage() {
     if (!revertReceivedItem) return;
     setRevertingReceived(true);
     try {
-      const { error } = await supabase.from("receivables").update(coerceMutation({
-        status: "pending", received_at: null,
-      })).eq("id", revertReceivedItem.id);
+      const { error } = await supabase.rpc("update_receivable" as never, {
+        p_id: revertReceivedItem.id,
+        p_payload: { status: "pending" },
+      } as never);
       if (error) throw error;
 
       toast.success("Recebimento desfeito  volta para pendente");
