@@ -2578,6 +2578,21 @@ export interface Database {
         };
         Returns: void;
       };
+      bulk_import_entries: {
+        Args: {
+          p_kind: string;
+          p_rows: Array<{
+            description: string;
+            amount: number;
+            category: string;
+            received_at?: string;
+            spent_at?: string;
+            payment_method?: string | null;
+            notes?: string | null;
+          }>;
+        };
+        Returns: number;
+      };
     };
     Enums: {};
     CompositeTypes: {};
