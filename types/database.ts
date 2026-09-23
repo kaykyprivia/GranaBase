@@ -2402,9 +2402,11 @@ export interface Database {
         Args: {
           p_id: string;
           p_payload: {
-            status: string;
-            paid_at: string | null;
-            paid_amount: number | null;
+            status?: string;
+            paid_at?: string | null;
+            paid_amount?: number | null;
+            amount?: number | null;
+            due_date?: string | null;
             notes?: string | null;
           };
         };
@@ -2553,6 +2555,22 @@ export interface Database {
             installment_count: number;
             installment_amount: number;
             first_due_date: string;
+            category?: string | null;
+            payment_method?: string | null;
+            notes?: string | null;
+          };
+        };
+        Returns: void;
+      };
+      update_installment: {
+        Args: {
+          p_id: string;
+          p_payload: {
+            description?: string;
+            total_amount?: number;
+            installment_count?: number;
+            installment_amount?: number;
+            first_due_date?: string;
             category?: string | null;
             payment_method?: string | null;
             notes?: string | null;
