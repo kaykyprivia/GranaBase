@@ -193,7 +193,7 @@ describe("business reports", () => {
         expenses: [],
         products: [makeProduct()],
       },
-      "month",
+      { period: "month" },
       today
     );
 
@@ -224,7 +224,7 @@ describe("business reports", () => {
         expenses: [makeExpense()],
         products: [makeProduct()],
       },
-      "month",
+      { period: "month" },
       today
     );
 
@@ -261,7 +261,7 @@ describe("business reports", () => {
         expenses: [],
         products: [makeProduct()],
       },
-      "month",
+      { period: "month" },
       today
     );
 
@@ -284,7 +284,7 @@ describe("business reports", () => {
         expenses: [],
         products: [makeProduct()],
       },
-      "month",
+      { period: "month" },
       today
     );
 
@@ -323,7 +323,7 @@ describe("business reports", () => {
         ],
         products: [],
       },
-      "month",
+      { period: "month" },
       today
     );
 
