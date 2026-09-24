@@ -15,7 +15,6 @@ import {
   DEFAULT_PROFILE_FORM,
   DEFAULT_PREFERENCE_FORM,
   DEFAULT_FINANCIAL_FORM,
-  type PlanType,
   type ProfileFormState,
   type PreferenceFormState,
   type FinancialFormState,
@@ -32,6 +31,17 @@ import type {
   UserSettings,
 } from "@/types/database";
 
+type Subscription = {
+  plan: string;
+  status: string;
+};
+
+const PLAN_LABELS: Record<string, string> = {
+  monthly: "Plano Mensal",
+  semiannual: "Plano Semestral",
+  annual: "Plano Anual",
+};
+
 type ProfileMatchField = "id" | "user_id" | null;
 
 interface ProfileRecord {
@@ -44,10 +54,6 @@ interface ProfileRecord {
 interface ProfileLookupResult {
   matchField: ProfileMatchField;
   record: ProfileRecord | null;
-}
-
-function normalizePlan(rawPlan: unknown): PlanType {
-  return typeof rawPlan === "string" && rawPlan.toLowerCase() === "pro" ? "pro" : "free";
 }
 
 function buildEmailFallback(email: string) {
@@ -106,7 +112,8 @@ export default function SettingsPage() {
   const [initialPreferenceForm, setInitialPreferenceForm] = useState<PreferenceFormState>(DEFAULT_PREFERENCE_FORM);
   const [financialForm, setFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
   const [initialFinancialForm, setInitialFinancialForm] = useState<FinancialFormState>(DEFAULT_FINANCIAL_FORM);
-  const [plan, setPlan] = useState<PlanType>("free");
+  const [planLabel, setPlanLabel] = useState("Plano Free");
+  const [planTone, setPlanTone] = useState<"free" | "pro">("free");
   const [lastAccess, setLastAccess] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
@@ -116,9 +123,10 @@ export default function SettingsPage() {
       if (userError) throw userError;
       if (!user) { router.push("/login"); return; }
 
-      const [profileLookup, settingsResponse] = await Promise.all([
+      const [profileLookup, settingsResponse, subscriptionResponse] = await Promise.all([
         findProfileRecord(supabase, user.id),
         supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase.rpc("get_my_subscription"),
       ]);
 
       const settingsRow = settingsResponse.error
@@ -160,14 +168,15 @@ export default function SettingsPage() {
       };
 
       setUserId(user.id);
-      setPlan(
-        normalizePlan(
-          settingsRow?.plan ??
-            user.user_metadata?.plan ??
-            user.user_metadata?.subscription_tier ??
-            user.app_metadata?.plan
-        )
-      );
+      const subData = coerceData<Subscription[] | null>(subscriptionResponse.data ?? null);
+      const activeSub = subData?.find((s) => s.status === "active") ?? null;
+      if (activeSub && PLAN_LABELS[activeSub.plan]) {
+        setPlanLabel(PLAN_LABELS[activeSub.plan]);
+        setPlanTone("pro");
+      } else {
+        setPlanLabel("Plano Free");
+        setPlanTone("free");
+      }
       setLastAccess(user.last_sign_in_at ?? null);
       setProfileForm(nextProfileForm);
       setInitialProfileForm(nextProfileForm);
@@ -439,8 +448,8 @@ export default function SettingsPage() {
               <>
                 <div className="flex flex-wrap items-center gap-2 mb-0.5">
                   <p className="text-base font-semibold text-text-primary">{displayName}</p>
-                  <Badge variant={plan === "pro" ? "warning" : "secondary"}>
-                    {plan === "pro" ? "Pro" : "Free"}
+                  <Badge variant={planTone === "pro" ? "warning" : "secondary"}>
+                    {planTone === "pro" ? "Pro" : "Free"}
                   </Badge>
                 </div>
                 <p className="text-sm text-text-secondary">{profileForm.email || "—"}</p>
@@ -507,7 +516,8 @@ export default function SettingsPage() {
           />
           <AccountSettings
             loading={loading}
-            plan={plan}
+            planLabel={planLabel}
+            planTone={planTone}
             email={profileForm.email}
             deletingAccount={deletingAccount}
             onDeleteAccount={handleDeleteAccount}

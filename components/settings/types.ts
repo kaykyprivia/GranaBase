@@ -1,7 +1,6 @@
 export type ThemePreference = "dark" | "light";
 export type CurrencyCode = "BRL" | "USD";
 export type WeekStart = "monday" | "sunday";
-export type PlanType = "free" | "pro";
 
 export interface ProfileFormState {
   fullName: string;

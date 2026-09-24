@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useState } from "react";
-import type { PlanType } from "@/components/settings/types";
 
 interface AccountSettingsProps {
   loading: boolean;
-  plan: PlanType;
+  planLabel: string;
+  planTone: "free" | "pro";
   email: string;
   deletingAccount: boolean;
   onDeleteAccount: () => Promise<void>;
@@ -19,7 +19,8 @@ interface AccountSettingsProps {
 
 export function AccountSettings({
   loading,
-  plan,
+  planLabel,
+  planTone,
   email,
   deletingAccount,
   onDeleteAccount,
@@ -51,8 +52,8 @@ export function AccountSettings({
                   Plano atual
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant={plan === "pro" ? "warning" : "secondary"}>
-                    {plan === "pro" ? "Plano Pro" : "Plano Free"}
+                  <Badge variant={planTone === "pro" ? "warning" : "secondary"}>
+                    {planLabel}
                   </Badge>
                   <p className="text-sm text-text-secondary">{email || "Conta principal do GranaBase"}</p>
                 </div>
