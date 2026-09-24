@@ -1007,19 +1007,30 @@ export default function ExpensesPage() {
         if (error) throw error;
 
         if (bill?.is_recurring) {
-          const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
-          await supabase.rpc("create_bill", {
-            p_payload: {
-              name: bill.name,
-              amount: bill.amount,
-              due_date: toLocalDateString(nextDate),
-              status: "pending",
-              category: bill.category,
-              is_recurring: true,
-              notes: bill.notes ?? null,
-            },
-          });
-          toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
+          const { data: existingNext } = await supabase
+            .from("bills")
+            .select("id")
+            .eq("generated_from_bill_id", bill.id)
+            .maybeSingle();
+
+          if (!existingNext) {
+            const nextDate = addMonths(new Date(bill.due_date + "T00:00:00"), 1);
+            await supabase.rpc("create_bill", {
+              p_payload: {
+                name: bill.name,
+                amount: bill.amount,
+                due_date: toLocalDateString(nextDate),
+                status: "pending",
+                category: bill.category,
+                is_recurring: true,
+                notes: bill.notes ?? null,
+                generated_from_bill_id: bill.id,
+              },
+            });
+            toast.success("Conta paga! Proximo mes ja gerado automaticamente.");
+          } else {
+            toast.success("Conta paga!");
+          }
         } else {
           toast.success("Conta marcada como paga!");
         }
@@ -1206,6 +1217,17 @@ export default function ExpensesPage() {
     setReverting(true);
     try {
       if (revertItem.source === "bill") {
+        const { data: nextBill } = await supabase
+          .from("bills")
+          .select("id")
+          .eq("generated_from_bill_id", revertItem.id)
+          .maybeSingle();
+
+        if (nextBill) {
+          const { error: delError } = await supabase.rpc("delete_bill", { p_id: nextBill.id });
+          if (delError) throw delError;
+        }
+
         const { error } = await supabase.rpc("update_bill", {
           p_id: revertItem.id,
           p_payload: { status: "pending", paid_at: null },

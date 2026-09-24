@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -427,6 +427,7 @@ export interface Database {
           paid_at: string | null;
           notes: string | null;
           created_at: string;
+          generated_from_bill_id: string | null;
         };
         Insert: {
           id?: string;
@@ -440,6 +441,7 @@ export interface Database {
           paid_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          generated_from_bill_id?: string | null;
         };
         Update: {
           id?: string;
@@ -453,6 +455,7 @@ export interface Database {
           paid_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          generated_from_bill_id?: string | null;
         };
         Relationships: [
           {
@@ -2311,8 +2314,11 @@ export interface Database {
             amount: number;
             due_date: string;
             category: string;
-            status: string;
+            status?: string;
+            is_recurring?: boolean;
             paid_at?: string | null;
+            notes?: string | null;
+            generated_from_bill_id?: string | null;
           };
         };
         Returns: string;
