@@ -15,8 +15,6 @@ interface SidebarUserState {
   email: string;
   displayName: string;
   initials: string;
-  planLabel: string;
-  planTone: "free" | "pro";
 }
 
 function toTitleCase(value: string) {
@@ -56,12 +54,6 @@ function getInitials(name: string) {
   }
 
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function getPlanState(rawPlan?: string | null) {
-  return rawPlan?.toLowerCase() === "pro"
-    ? { planLabel: "Plano Pro", planTone: "pro" as const }
-    : { planLabel: "Plano Free", planTone: "free" as const };
 }
 
 export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
@@ -115,18 +107,11 @@ export function SidebarUserPanel({ onLogout }: SidebarUserPanelProps) {
         user.user_metadata?.full_name ?? user.user_metadata?.name ?? null
       );
       const initials = getInitials(displayName);
-      const plan = getPlanState(
-        user.user_metadata?.plan ??
-          user.user_metadata?.subscription_tier ??
-          user.app_metadata?.plan ??
-          null
-      );
 
       setUserData({
         email,
         displayName,
         initials,
-        ...plan,
       });
       setLoading(false);
     };
