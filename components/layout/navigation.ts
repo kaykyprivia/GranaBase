@@ -79,6 +79,8 @@ export const subscriptionNavItems: NavigationItem[] = [
 ];
 
 export const adminNavItems: NavigationItem[] = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/withdrawals", label: "Saques", icon: HandCoins },
 ];
 

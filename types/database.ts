@@ -2599,6 +2599,38 @@ export interface Database {
         };
         Returns: number;
       };
+      admin_list_users: {
+        Args: {
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Array<{
+          user_id: string;
+          email: string;
+          created_at: string;
+          roles: string[];
+          has_active_subscription: boolean;
+          active_subscription_plan: string | null;
+        }>;
+      };
+      admin_get_dashboard_stats: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          total_users: number;
+          total_super_admins: number;
+          total_influencers: number;
+          total_active_subscriptions: number;
+          subscriptions_monthly: number;
+          subscriptions_semiannual: number;
+          subscriptions_annual: number;
+          total_free_personal_active: number;
+          total_free_business_active: number;
+          total_commissions_pending: number;
+          total_commissions_available: number;
+          total_commissions_paid: number;
+          total_referrals: number;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};
