@@ -201,7 +201,7 @@ function AssetCard({
             <p className="mt-1 break-words text-[10px] text-text-secondary">{entry.notes}</p>
           )}
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 pr-20 text-right">
           <p className="text-sm font-bold text-profit">{formatCurrency(entry.amount)}</p>
           <p className="mt-0.5 text-[10px] text-text-secondary">{pct.toFixed(1)}% carteira</p>
           {gainLoss && <GainLossBadge gainLoss={gainLoss} />}
