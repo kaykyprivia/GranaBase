@@ -2631,6 +2631,22 @@ export interface Database {
           total_referrals: number;
         }>;
       };
+      admin_list_audit_log: {
+        Args: {
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Array<{
+          id: string;
+          admin_user_id: string;
+          admin_email: string | null;
+          action: string;
+          target_type: string | null;
+          target_id: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};

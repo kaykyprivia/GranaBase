@@ -4,6 +4,7 @@ import {
   Boxes,
   BriefcaseBusiness,
   Crown,
+  FileText,
   Gift,
   HandCoins,
   Heart,
@@ -82,6 +83,7 @@ export const adminNavItems: NavigationItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/withdrawals", label: "Saques", icon: HandCoins },
+  { href: "/admin/audit", label: "Auditoria", icon: FileText },
 ];
 
 export function getNavigationGroups(
