@@ -155,9 +155,13 @@ export default function RegisterPage() {
       <div className="mt-8 pt-6 border-t border-border text-center">
         <p className="text-xs text-text-secondary">
           Ao criar sua conta, voce concorda com os{" "}
-          <span className="text-accent cursor-pointer hover:underline">Termos de uso</span>
+          <Link href="/terms" target="_blank" className="text-accent hover:underline">
+            Termos de uso
+          </Link>
           {" "}e{" "}
-          <span className="text-accent cursor-pointer hover:underline">Politica de privacidade</span>
+          <Link href="/privacy" target="_blank" className="text-accent hover:underline">
+            Politica de privacidade
+          </Link>
         </p>
       </div>
     </div>
