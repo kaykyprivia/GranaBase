@@ -2718,6 +2718,27 @@ export interface Database {
           can_activate: boolean;
         }>;
       };
+      submit_support_request: {
+        Args: {
+          p_kind: string;
+          p_subject: string;
+          p_message: string;
+        };
+        Returns: string;
+      };
+      list_my_support_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          id: string;
+          kind: string;
+          subject: string;
+          message: string;
+          status: string;
+          admin_notes: string | null;
+          resolved_at: string | null;
+          created_at: string;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};

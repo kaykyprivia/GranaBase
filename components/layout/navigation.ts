@@ -9,6 +9,7 @@ import {
   HandCoins,
   Heart,
   LayoutDashboard,
+  MessageSquare,
   Landmark,
   PackageCheck,
   PiggyBank,
@@ -79,6 +80,7 @@ export const subscriptionNavItems: NavigationItem[] = [
   { href: "/plans", label: "Planos", icon: Crown },
   { href: "/referrals", label: "Indique e Ganhe", icon: Gift },
   { href: "/withdrawals", label: "Saques", icon: HandCoins },
+  { href: "/support", label: "Suporte", icon: MessageSquare },
 ];
 
 export const adminNavItems: NavigationItem[] = [
