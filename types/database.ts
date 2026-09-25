@@ -2647,6 +2647,54 @@ export interface Database {
           created_at: string;
         }>;
       };
+      set_user_as_influencer: {
+        Args: {
+          p_user_id: string;
+          p_custom_rate: number;
+          p_notes?: string | null;
+        };
+        Returns: void;
+      };
+      admin_get_influencer_stats: {
+        Args: {
+          p_influencer_user_id: string;
+        };
+        Returns: Array<{
+          user_id: string;
+          is_active: boolean;
+          custom_commission_rate: number;
+          created_at: string;
+          total_referrals: number;
+          total_paid_referrals: number;
+          total_commission_generated: number;
+          total_commission_paid: number;
+          total_commission_pending: number;
+        }>;
+      };
+      admin_list_influencers: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          user_id: string;
+          is_active: boolean;
+          custom_commission_rate: number;
+          notes: string | null;
+          created_at: string;
+          total_referrals: number;
+          total_commission_generated: number;
+        }>;
+      };
+      admin_get_referral_overview: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          total_referrals: number;
+          total_referrers: number;
+          total_converted: number;
+          total_commission_generated: number;
+          total_commission_paid: number;
+          total_commission_pending: number;
+          total_commission_cancelled: number;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};
