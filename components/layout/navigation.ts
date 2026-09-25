@@ -15,6 +15,7 @@ import {
   PlusCircle,
   ReceiptText,
   ShieldCheck,
+  Sparkles,
   ShoppingCart,
   Target,
   TrendingDown,
@@ -73,6 +74,7 @@ export const businessNavItems: NavigationItem[] = [
 ];
 
 export const subscriptionNavItems: NavigationItem[] = [
+  { href: "/onboarding", label: "Comecar", icon: Sparkles },
   { href: "/my-plan", label: "Meu Plano", icon: Wallet },
   { href: "/plans", label: "Planos", icon: Crown },
   { href: "/referrals", label: "Indique e Ganhe", icon: Gift },

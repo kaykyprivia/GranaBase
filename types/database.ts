@@ -2695,6 +2695,29 @@ export interface Database {
           total_commission_cancelled: number;
         }>;
       };
+      activate_free_product: {
+        Args: {
+          p_product: "personal" | "business";
+        };
+        Returns: Array<{
+          grant_id: string;
+          product: string;
+          starts_at: string;
+          ends_at: string;
+          already_activated: boolean;
+        }>;
+      };
+      get_my_free_activation_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          product: "personal" | "business";
+          activated: boolean;
+          activation_starts_at: string | null;
+          activation_ends_at: string | null;
+          is_currently_active: boolean;
+          can_activate: boolean;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};
