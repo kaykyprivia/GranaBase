@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getMercadoPagoEnvironment } from "@/lib/mercado-pago/client";
+import { verifyMPWebhookSignature } from "@/lib/mercado-pago/signature";
 
 /**
  * POST /api/mp/webhook
@@ -42,6 +43,29 @@ export async function POST(request: NextRequest) {
     const eventType = body.type ?? "unknown";
     const action = body.action ?? null;
     const resourceId = body.data?.id ?? null;
+
+    // 1b. Valida assinatura (se secret estiver configurado)
+    const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET ?? null;
+    if (webhookSecret) {
+      const verification = verifyMPWebhookSignature({
+        signatureHeader: request.headers.get("x-signature"),
+        requestIdHeader: request.headers.get("x-request-id"),
+        resourceId,
+        secret: webhookSecret,
+      });
+
+      if (!verification.valid) {
+        console.warn("Webhook rejeitado:", verification.reason);
+        return NextResponse.json(
+          { error: "invalid_signature", reason: verification.reason },
+          { status: 401 }
+        );
+      }
+    } else {
+      console.warn(
+        "MERCADO_PAGO_WEBHOOK_SECRET nao configurado - pulando validacao"
+      );
+    }
 
     // 2. Valida Supabase configurado
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
