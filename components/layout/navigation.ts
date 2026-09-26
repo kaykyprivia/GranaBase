@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  Webhook,
 } from "lucide-react";
 
 export type NavigationItem = {
@@ -89,6 +90,7 @@ export const adminNavItems: NavigationItem[] = [
   { href: "/admin/influencers", label: "Parceiros", icon: Crown },
   { href: "/admin/withdrawals", label: "Saques", icon: HandCoins },
   { href: "/admin/audit", label: "Auditoria", icon: FileText },
+  { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
 ];
 
 export function getNavigationGroups(

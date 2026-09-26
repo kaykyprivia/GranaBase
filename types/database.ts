@@ -2739,6 +2739,37 @@ export interface Database {
           created_at: string;
         }>;
       };
+      admin_list_webhook_events: {
+        Args: {
+          p_limit?: number;
+          p_offset?: number;
+          p_only_failed?: boolean;
+        };
+        Returns: Array<{
+          id: string;
+          provider: string;
+          event_id: string;
+          event_type: string;
+          action: string | null;
+          resource_id: string | null;
+          processed: boolean;
+          processed_at: string | null;
+          error_message: string | null;
+          environment: string;
+          created_at: string;
+        }>;
+      };
+      admin_get_webhook_stats: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          total: number;
+          processed: number;
+          failed: number;
+          pending: number;
+          last_24h: number;
+          last_7d: number;
+        }>;
+      };
     };
     Enums: {};
     CompositeTypes: {};
