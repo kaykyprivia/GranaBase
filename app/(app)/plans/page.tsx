@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { MercadoPagoCardModal } from "@/components/payments/MercadoPagoCardModal";
 
 type PlanType = "monthly" | "semiannual" | "annual";
 
@@ -118,6 +119,8 @@ export default function PlansPage() {
   const [subscribingTo, setSubscribingTo] = useState<string | null>(null);
   const [currentSubscription, setCurrentSubscription] =
     useState<SubscriptionInfo>(null);
+  const [modalPlan, setModalPlan] = useState<PlanType | null>(null);
+  const publicKey = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY_TEST ?? "";
 
   const loadSubscription = useCallback(async () => {
     setLoading(true);
@@ -137,34 +140,12 @@ export default function PlansPage() {
     void loadSubscription();
   }, [loadSubscription]);
 
-  async function handleSubscribe(planType: PlanType) {
-    setSubscribingTo(planType);
-    try {
-      const response = await fetch("/api/mp/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Falha ao iniciar assinatura");
-      }
-
-      if (result.initPoint) {
-        toast.success("Redirecionando para o Mercado Pago...");
-        window.location.href = result.initPoint;
-      } else {
-        throw new Error("URL de pagamento nao retornada");
-      }
-    } catch (error) {
-      console.error("Erro ao assinar:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao iniciar assinatura"
-      );
-      setSubscribingTo(null);
+  function handleSubscribe(planType: PlanType) {
+    if (!publicKey) {
+      toast.error("Mercado Pago nao configurado. Contate o suporte.");
+      return;
     }
+    setModalPlan(planType);
   }
 
   const isSubscribed = Boolean(currentSubscription);
@@ -358,6 +339,23 @@ export default function PlansPage() {
             </div>
           </div>
         </>
+      )}
+
+      {modalPlan && (
+        <MercadoPagoCardModal
+          open={true}
+          planType={modalPlan}
+          publicKey={publicKey}
+          onClose={() => {
+            setModalPlan(null);
+            setSubscribingTo(null);
+          }}
+          onSuccess={(initPoint) => {
+            setModalPlan(null);
+            setSubscribingTo(null);
+            window.location.href = initPoint;
+          }}
+        />
       )}
     </div>
   );

@@ -3,16 +3,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getMercadoPagoResources } from "@/lib/mercado-pago/client";
 
-/**
- * POST /api/mp/create-checkout
- *
- * Body: { planType: "monthly" | "semiannual" | "annual" }
- *
- * Aceita autenticacao por:
- * - Header Authorization: Bearer <token>
- * - Cookies de sessao Supabase (navegador)
- */
-
 export const dynamic = "force-dynamic";
 
 type PlanType = "monthly" | "semiannual" | "annual";
@@ -42,16 +32,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Tenta pegar user via cookie (SSR client)
     const cookieStore = await cookies();
     const supabaseSSR = createServerClient(supabaseUrl, anonKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll() {
-          // read-only neste contexto
-        },
+        setAll() {},
       },
     });
 
@@ -66,11 +53,10 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = userData.user.id;
-    const userEmail = userData.user.email;
 
-    // 2. Parseia body
     const body = await request.json();
     const planType = body?.planType as PlanType;
+    const cardTokenId = body?.cardTokenId as string | undefined;
 
     if (!planType || !PLAN_PRICES[planType]) {
       return NextResponse.json(
@@ -79,10 +65,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Cria preapproval no MP
-    const { preApproval, environment } = getMercadoPagoResources();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://granabase.vercel.app";
+    if (!cardTokenId) {
+      return NextResponse.json(
+        { error: "card_token_id obrigatorio" },
+        { status: 400 }
+      );
+    }
 
+    const { preApproval, environment } = getMercadoPagoResources();
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://granabase.vercel.app";
 
     const preapprovalResult = await preApproval.create({
       body: {
@@ -90,9 +82,11 @@ export async function POST(request: NextRequest) {
         external_reference: userId,
         payer_email:
           environment === "sandbox"
-            ? userEmail
-            : userEmail ?? undefined,
-        back_url: `${baseUrl}/dashboard`,
+            ? process.env.MERCADO_PAGO_TEST_BUYER_EMAIL ?? undefined
+            : userData.user.email ?? undefined,
+        card_token_id: cardTokenId,
+        back_url: `${baseUrl}/my-plan`,
+        status: "authorized",
         auto_recurring: {
           frequency:
             planType === "monthly" ? 1 : planType === "semiannual" ? 6 : 12,
@@ -100,7 +94,6 @@ export async function POST(request: NextRequest) {
           transaction_amount: PLAN_PRICES[planType],
           currency_id: "BRL",
         },
-        status: "pending",
       },
     });
 
@@ -111,7 +104,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Registra no banco via service_role
     const { createClient } = await import("@supabase/supabase-js");
     const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
@@ -145,9 +137,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Erro em create-checkout:", error);
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    );
+    const msg =
+      error instanceof Error ? error.message : "Erro interno do servidor";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
