@@ -59,6 +59,14 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     try {
+      // 1. SUPER_ADMIN sempre tem acesso total (bypass)
+      const adminRes = await supabase.rpc("is_super_admin");
+      if (adminRes.data === true) {
+        setHasAccess(true);
+        return;
+      }
+
+      // 2. Checa entitlement normal
       const [entRes, statusRes] = await Promise.all([
         supabase.rpc("has_entitlement", { p_product: product }),
         supabase.rpc("get_my_free_activation_status"),
