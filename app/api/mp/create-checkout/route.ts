@@ -80,7 +80,10 @@ export async function POST(request: NextRequest) {
       body: {
         reason: PLAN_TITLES[planType],
         external_reference: userId,
-        payer_email: userData.user.email ?? undefined,
+        payer_email:
+          environment === "sandbox"
+            ? "test@testuser.com"
+            : userData.user.email ?? undefined,
         card_token_id: cardTokenId,
         back_url: `${baseUrl}/my-plan`,
         status: "authorized",
