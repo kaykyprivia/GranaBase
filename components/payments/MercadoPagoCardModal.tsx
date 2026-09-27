@@ -24,6 +24,12 @@ const PLAN_LABELS: Record<PlanType, string> = {
   annual: "Plano Anual",
 };
 
+const PLAN_AMOUNTS: Record<PlanType, number> = {
+  monthly: 19.9,
+  semiannual: 65.67,
+  annual: 167.16,
+};
+
 export function MercadoPagoCardModal({
   open,
   planType,
@@ -59,46 +65,39 @@ export function MercadoPagoCardModal({
 
         <div className="max-h-[70vh] overflow-y-auto p-4">
           <CardPayment
-            initialization={{ amount: 0 }}
+            initialization={{ amount: PLAN_AMOUNTS[planType] }}
             customization={{
-              paymentMethods: {
-                maxInstallments: 1,
-              },
+              paymentMethods: { maxInstallments: 1 },
             }}
-            onSubmit={async (formData) => {
+            onSubmit={async (param: { token: string }) => {
+              const token = param.token;
+              if (!token) {
+                toast.error("Token do cartao nao gerado");
+                return;
+              }
               setProcessing(true);
               try {
                 const res = await fetch("/api/mp/create-checkout", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    planType,
-                    cardTokenId: formData.token,
-                  }),
+                  body: JSON.stringify({ planType, cardTokenId: token }),
                 });
-
                 const result = await res.json();
-
                 if (!res.ok || !result.success) {
-                  throw new Error(
-                    result.error || "Erro ao processar pagamento"
-                  );
+                  throw new Error(result.error || "Erro ao processar");
                 }
-
                 toast.success("Assinatura criada! Redirecionando...");
                 onSuccess(result.initPoint);
               } catch (err) {
-                console.error("Erro no pagamento:", err);
-                toast.error(
-                  err instanceof Error ? err.message : "Erro no pagamento"
-                );
+                console.error(err);
+                toast.error(err instanceof Error ? err.message : "Erro");
                 setProcessing(false);
                 throw err;
               }
             }}
-            onError={(error) => {
-              console.error("CardPayment error:", error);
-              toast.error("Erro no formulario de cartao");
+            onError={(err: unknown) => {
+              console.error("CardPayment error:", err);
+              toast.error("Erro no formulario");
             }}
           />
         </div>
