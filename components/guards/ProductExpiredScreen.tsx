@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { Lock, Sparkles, ArrowRight } from "lucide-react";
+import { Lock, Sparkles, ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProductExpiredScreenProps {
@@ -22,6 +22,8 @@ export function ProductExpiredScreen({
   productLabel,
   endsAt,
 }: ProductExpiredScreenProps) {
+  const hasExpired = Boolean(endsAt);
+
   return (
     <div className="page-container animate-fade-in">
       <div className="mx-auto max-w-lg py-12 text-center">
@@ -30,31 +32,33 @@ export function ProductExpiredScreen({
         </div>
 
         <h1 className="text-2xl font-bold text-text-primary">
-          Seu periodo de {productLabel} encerrou
+          {hasExpired
+            ? `Seu periodo de ${productLabel} encerrou`
+            : `Ative o ${productLabel} para comecar`}
         </h1>
 
         <p className="mt-3 text-sm text-text-secondary">
-          {endsAt
-            ? `O periodo gratuito terminou em ${formatDate(endsAt)}.`
-            : "O periodo gratuito terminou."}{" "}
-          Seus dados foram preservados — assine para continuar de onde parou.
+          {hasExpired
+            ? `O periodo gratuito terminou em ${formatDate(endsAt)}. Seus dados foram preservados — assine ou ative novamente para continuar.`
+            : `Voce ainda nao ativou o ${productLabel}. Ative 7 dias gratis para testar todos os recursos, ou assine um plano pago.`}
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link href="/plans">
+          <Link href="/onboarding">
             <Button type="button" className="w-full gap-2 sm:w-auto">
-              <Sparkles className="h-4 w-4" />
-              Ver planos
-              <ArrowRight className="h-4 w-4" />
+              <Play className="h-4 w-4" />
+              Ativar 7 dias gratis
             </Button>
           </Link>
-          <Link href="/onboarding">
+          <Link href="/plans">
             <Button
               type="button"
               variant="outline"
-              className="w-full sm:w-auto"
+              className="w-full gap-2 sm:w-auto"
             >
-              Voltar ao inicio
+              <Sparkles className="h-4 w-4" />
+              Ver planos pagos
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>

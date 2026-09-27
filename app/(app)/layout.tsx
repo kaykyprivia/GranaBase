@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { WalletContributionProvider } from "@/components/wallet/WalletContributionProvider";
+import { RouteGuard } from "@/components/guards/RouteGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col min-h-screen lg:ml-64">
           <Header />
           <main className="flex-1 overflow-x-hidden">
-            {children}
+            <RouteGuard>{children}</RouteGuard>
           </main>
         </div>
       </div>
