@@ -56,18 +56,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const planType = body?.planType as PlanType;
-    const cardTokenId = body?.cardTokenId as string | undefined;
 
     if (!planType || !PLAN_PRICES[planType]) {
       return NextResponse.json(
         { error: "Plano invalido" },
-        { status: 400 }
-      );
-    }
-
-    if (!cardTokenId) {
-      return NextResponse.json(
-        { error: "card_token_id obrigatorio" },
         { status: 400 }
       );
     }
@@ -80,13 +72,9 @@ export async function POST(request: NextRequest) {
       body: {
         reason: PLAN_TITLES[planType],
         external_reference: userId,
-        payer_email:
-          environment === "sandbox"
-            ? "test@testuser.com"
-            : userData.user.email ?? undefined,
-        card_token_id: cardTokenId,
+        payer_email: userData.user.email ?? undefined,
         back_url: `${baseUrl}/my-plan`,
-        status: "authorized",
+        status: "pending",
         auto_recurring: {
           frequency:
             planType === "monthly" ? 1 : planType === "semiannual" ? 6 : 12,
