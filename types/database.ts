@@ -2788,6 +2788,29 @@ export interface Database {
         };
         Returns: void;
       };
+      update_consortium_payment: {
+        Args: {
+          p_payment_id: string;
+          p_amount: number;
+          p_due_date: string;
+          p_notes?: string | null;
+        };
+        Returns: void;
+      };
+      update_consortium: {
+        Args: {
+          p_consortium_id: string;
+          p_name: string;
+          p_current_installment_amount: number;
+        };
+        Returns: void;
+      };
+      delete_consortium: {
+        Args: {
+          p_consortium_id: string;
+        };
+        Returns: void;
+      };
     };
     Enums: {};
     CompositeTypes: {};

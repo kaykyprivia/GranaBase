@@ -1140,27 +1140,22 @@ export default function ExpensesPage() {
         );
         if (!payment) throw new Error("Parcela do cons\u00f3rcio n\u00e3o encontrada");
 
-        const { error } = await supabase
-          .from("consortium_payments")
-          .update(
-            {
-              amount: editPendingAmount,
-              due_date: editPendingDueDate,
-              notes: editPendingNotes || null,
-            }
-          )
-          .eq("id", editPendingItem.id);
+        const { error } = await supabase.rpc("update_consortium_payment", {
+          p_payment_id: editPendingItem.id,
+          p_amount: editPendingAmount,
+          p_due_date: editPendingDueDate,
+          p_notes: editPendingNotes || null,
+        });
         if (error) throw error;
 
-        const { error: consortiumError } = await supabase
-          .from("consortiums")
-          .update(
-            {
-              name: editPendingName,
-              current_installment_amount: editPendingAmount,
-            }
-          )
-          .eq("id", payment.consortium_id);
+        const { error: consortiumError } = await supabase.rpc(
+          "update_consortium",
+          {
+            p_consortium_id: payment.consortium_id,
+            p_name: editPendingName,
+            p_current_installment_amount: editPendingAmount,
+          }
+        );
         if (consortiumError) throw consortiumError;
       }
 
@@ -1195,10 +1190,9 @@ export default function ExpensesPage() {
         );
         if (!payment) throw new Error("Parcela do consorcio nao encontrada");
 
-        const { error } = await supabase
-          .from("consortiums")
-          .delete()
-          .eq("id", payment.consortium_id);
+        const { error } = await supabase.rpc("delete_consortium", {
+          p_consortium_id: payment.consortium_id,
+        });
         if (error) throw error;
         toast.success("Consorcio excluido");
       }
