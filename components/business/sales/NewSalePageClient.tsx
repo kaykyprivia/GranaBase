@@ -23,7 +23,6 @@ export function NewSalePageClient() {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [userId, setUserId] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [products, setProducts] = useState<BusinessInventorySummary[]>([]);
   const [customers, setCustomers] = useState<BusinessCustomer[]>([]);
@@ -39,7 +38,6 @@ export function NewSalePageClient() {
         router.push("/login");
         return;
       }
-      setUserId(user.id);
 
       const workspaceRes = await supabase.rpc("get_or_create_business_workspace", { p_name: "Meu Negocio" });
       if (workspaceRes.error) throw workspaceRes.error;
@@ -134,18 +132,14 @@ export function NewSalePageClient() {
       let customerId = draft.customerId || null;
       const quickCustomerName = draft.quickCustomerName?.trim();
       if (!customerId && quickCustomerName) {
-        const customerRes = await supabase
-          .from("business_customers")
-          .insert({
-            user_id: userId,
-            workspace_id: workspaceId,
-            name: quickCustomerName,
-            whatsapp: draft.quickCustomerWhatsapp?.trim() || null,
-          })
-          .select("*")
-          .single();
+        const customerRes = await supabase.rpc("create_business_customer", {
+          p_workspace_id: workspaceId,
+          p_name: quickCustomerName,
+          p_whatsapp: draft.quickCustomerWhatsapp?.trim() || null,
+          p_notes: null,
+        });
         if (customerRes.error) throw customerRes.error;
-        customerId = coerceData<BusinessCustomer>(customerRes.data).id;
+        customerId = customerRes.data as string;
       }
 
       const args = {

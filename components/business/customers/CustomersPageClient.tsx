@@ -382,11 +382,12 @@ export function CustomersPageClient() {
       };
 
       if (editingCustomer) {
-        const { error } = await supabase
-          .from("business_customers")
-          .update(payload)
-          .eq("id", editingCustomer.id)
-          .eq("workspace_id", workspaceId);
+        const { error } = await supabase.rpc("update_business_customer", {
+          p_customer_id: editingCustomer.id,
+          p_name: payload.name,
+          p_whatsapp: payload.whatsapp,
+          p_notes: payload.notes,
+        });
 
         if (error) {
           throw error;
@@ -394,15 +395,12 @@ export function CustomersPageClient() {
 
         toast.success("Cliente atualizado.");
       } else {
-        const { error } = await supabase
-          .from("business_customers")
-          .insert(
-            {
-              user_id: userId,
-              workspace_id: workspaceId,
-              ...payload,
-            }
-          );
+        const { error } = await supabase.rpc("create_business_customer", {
+          p_workspace_id: workspaceId,
+          p_name: payload.name,
+          p_whatsapp: payload.whatsapp,
+          p_notes: payload.notes,
+        });
 
         if (error) {
           throw error;

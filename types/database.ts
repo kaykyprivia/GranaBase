@@ -2770,6 +2770,24 @@ export interface Database {
           last_7d: number;
         }>;
       };
+      create_business_customer: {
+        Args: {
+          p_workspace_id: string;
+          p_name: string;
+          p_whatsapp?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      update_business_customer: {
+        Args: {
+          p_customer_id: string;
+          p_name: string;
+          p_whatsapp?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: void;
+      };
     };
     Enums: {};
     CompositeTypes: {};
