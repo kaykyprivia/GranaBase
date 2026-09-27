@@ -539,23 +539,14 @@ async function createAndReceiveProduct(
 }
 
 async function insertCustomer(client: SupabaseClient, workspaceId: string, name: string) {
-  const { data: userData, error: userError } = await client.auth.getUser();
-  expect(userError, userError?.message).toBeNull();
-  const userId = userData.user?.id;
-  expect(userId).toBeTruthy();
-
-  const { data, error } = await client
-    .from("business_customers")
-    .insert({
-      user_id: userId!,
-      workspace_id: workspaceId,
-      name,
-      notes: "__E2E__ disposable",
-    })
-    .select("id")
-    .single();
+  const { data, error } = await client.rpc("create_business_customer", {
+    p_workspace_id: workspaceId,
+    p_name: name,
+    p_whatsapp: null,
+    p_notes: "__E2E__ disposable",
+  });
   expect(error, error?.message).toBeNull();
-  return data as { id: string };
+  return { id: data as string };
 }
 
 async function cleanupOldE2EUsers(admin: SupabaseClient) {
