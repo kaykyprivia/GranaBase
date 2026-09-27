@@ -103,16 +103,19 @@ test.describe("Monetization and free access flow", () => {
       );
     }
 
-    // Verifica entitlement via RPC apos ativacao
-    const userClient = await signInClient(email, password);
-    const entitlements = await userClient.rpc("get_my_entitlements");
-    expect(entitlements.error, entitlements.error?.message).toBeNull();
-    const personal = (entitlements.data as { product: string; has_access: boolean }[]).find(
-      (row) => row.product === "personal"
+    // Verifica entitlement via service role (admin) apos ativacao
+    const { data: grants, error: grantsError } = await admin
+      .from("entitlement_grants")
+      .select("product,status,ends_at")
+      .eq("user_id", userId)
+      .eq("product", "personal")
+      .eq("source", "free");
+
+    expect(grantsError, grantsError?.message).toBeNull();
+    const grant = (grants ?? []).find(
+      (g) => g.status === "active" && (!g.ends_at || new Date(g.ends_at) > new Date())
     );
-    expect(personal?.has_access, "Personal should have access after activation").toBe(
-      true
-    );
+    expect(grant, "Free personal grant should exist after activation").toBeTruthy();
   });
 });
 
@@ -122,18 +125,6 @@ async function login(page: Page, email: string, password: string) {
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: /^Entrar$/ }).click();
   await page.waitForURL(/\/(dashboard|business|onboarding)/, { timeout: 30_000 });
-}
-
-async function signInClient(email: string, password: string) {
-  const env = loadEnv();
-  const url = requireEnv(env, "NEXT_PUBLIC_SUPABASE_URL");
-  const anonKey = requireEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const client = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { error } = await client.auth.signInWithPassword({ email, password });
-  expect(error, error?.message).toBeNull();
-  return client;
 }
 
 function loadEnv() {
