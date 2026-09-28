@@ -80,7 +80,7 @@ export default function MissionsPage() {
         ? window.location.origin
         : "https://granabase.vercel.app";
 
-    // Busca codigo de referral do user (ou gera se nao tiver)
+    // Busca codigo de referral do user
     let referralCode: string | null = null;
     try {
       const { data } = await supabase.rpc("get_or_create_my_referral_code");
@@ -95,6 +95,9 @@ export default function MissionsPage() {
 
     const shareText = `Estou usando o GranaBase para organizar minhas financas. Da uma olhada: ${shareUrl}`;
 
+    // ?? IMPORTANTE: so chama claimReward se o share realmente aconteceu
+    let shareCompleted = false;
+
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({
@@ -102,27 +105,35 @@ export default function MissionsPage() {
           text: "Controle financeiro para renda variavel",
           url: shareUrl,
         });
+        // Chegou aqui = share completou
+        shareCompleted = true;
       } else {
+        // Fallback: copiar link
         await navigator.clipboard.writeText(shareText);
         toast.success("Link copiado! Cole onde quiser compartilhar.");
+        shareCompleted = true;
       }
     } catch (err) {
-      // User cancelou o share nativo — nao e erro
+      // User cancelou o share nativo ? nao concede recompensa
       if (err instanceof Error && err.name === "AbortError") {
         return;
       }
+      // Outro erro: tenta fallback com clipboard
       console.warn("Erro no compartilhamento:", err);
-      // Fallback: copiar
       try {
         await navigator.clipboard.writeText(shareText);
         toast.success("Link copiado!");
+        shareCompleted = true;
       } catch {
         toast.error("Nao foi possivel compartilhar");
+        return;
       }
     }
 
-    // Agora resgata a recompensa
-    await claimReward("share_weekly", { silent: true });
+    // So resgata a recompensa se o share realmente aconteceu
+    if (shareCompleted) {
+      await claimReward("share_weekly", { silent: true });
+    }
   }
 
   async function claimReward(
