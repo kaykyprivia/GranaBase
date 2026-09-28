@@ -80,9 +80,15 @@ export const subscriptionNavItems: NavigationItem[] = [
   { href: "/onboarding", label: "Comecar", icon: Sparkles },
   { href: "/my-plan", label: "Meu Plano", icon: Wallet },
   { href: "/plans", label: "Planos", icon: Crown },
-  { href: "/referrals", label: "Indique e Ganhe", icon: Gift },
-  { href: "/missions", label: "Tarefas", icon: Award },
-  { href: "/withdrawals", label: "Saques", icon: HandCoins },
+  {
+    href: "/referrals",
+    label: "Indique e Ganhe",
+    icon: Gift,
+    children: [
+      { href: "/withdrawals", label: "Saques", icon: HandCoins },
+      { href: "/missions", label: "Tarefas", icon: Award },
+    ],
+  },
   { href: "/support", label: "Suporte", icon: MessageSquare },
 ];
 
