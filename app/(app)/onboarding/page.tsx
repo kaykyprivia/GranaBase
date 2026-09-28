@@ -8,7 +8,9 @@ import {
   Loader2,
   PiggyBank,
   Sparkles,
+  Gift,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,13 +19,14 @@ import { cn } from "@/lib/utils";
 
 type Product = "personal" | "business";
 
-type FreeStatus = {
+type AccessStatus = {
   product: Product;
-  activated: boolean;
-  activation_starts_at: string | null;
-  activation_ends_at: string | null;
-  is_currently_active: boolean;
-  can_activate: boolean;
+  has_access: boolean;
+  access_until: string | null;
+  days_remaining: number | null;
+  source: string | null;
+  has_free_activated: boolean;
+  can_activate_free: boolean;
 };
 
 const PRODUCT_INFO: Record<
@@ -53,30 +56,23 @@ function formatDate(date: string | null): string {
   });
 }
 
-function daysRemaining(endsAt: string | null): number | null {
-  if (!endsAt) return null;
-  const diff = new Date(endsAt).getTime() - Date.now();
-  if (diff <= 0) return 0;
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
 export default function OnboardingPage() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
   const [activating, setActivating] = useState<Product | null>(null);
-  const [statuses, setStatuses] = useState<FreeStatus[]>([]);
+  const [statuses, setStatuses] = useState<AccessStatus[]>([]);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc(
-        "get_my_free_activation_status"
+        "get_my_product_access_status"
       );
       if (error) throw error;
-      setStatuses((data as FreeStatus[] | null) ?? []);
+      setStatuses((data as AccessStatus[] | null) ?? []);
     } catch (error) {
-      console.error("Erro ao carregar status free:", error);
+      console.error("Erro ao carregar status:", error);
       const msg =
         error instanceof Error ? error.message : "Erro ao carregar status";
       toast.error(msg);
@@ -97,7 +93,9 @@ export default function OnboardingPage() {
       });
       if (error) throw error;
 
-      toast.success(`Periodo gratuito de ${PRODUCT_INFO[product].label} ativado`);
+      toast.success(
+        `Periodo gratuito de ${PRODUCT_INFO[product].label} ativado`
+      );
       await loadStatus();
     } catch (error) {
       console.error("Erro ao ativar:", error);
@@ -121,8 +119,8 @@ export default function OnboardingPage() {
               Comece agora
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
-              Ative 7 dias gratuitos em cada produto. Voce escolhe quais
-              quer testar.
+              Ative 7 dias gratuitos em cada produto. Voce escolhe quais quer
+              testar.
             </p>
           </div>
         </div>
@@ -134,43 +132,92 @@ export default function OnboardingPage() {
           <Skeleton className="h-56 rounded-xl" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {statuses.map((status) => (
-            <ProductCard
-              key={status.product}
-              status={status}
-              activating={activating === status.product}
-              onActivate={() => void handleActivate(status.product)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {statuses.map((status) => (
+              <ProductCard
+                key={status.product}
+                status={status}
+                activating={activating === status.product}
+                onActivate={() => void handleActivate(status.product)}
+              />
+            ))}
+          </div>
+
+          {/* CTA Indique e Ganhe */}
+          <div className="mt-6 rounded-xl border border-profit/30 bg-profit/5 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-profit/15">
+                  <Gift className="h-5 w-5 text-profit" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">
+                    Precisa de mais dias gratis?
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    Indique amigos e ganhe dias bonus + comissao por indicacao.
+                  </p>
+                </div>
+              </div>
+              <Link href="/referrals">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Gift className="h-4 w-4" />
+                  Indique e Ganhe
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
+
+const SOURCE_LABELS: Record<string, string> = {
+  free: "Periodo gratuito",
+  referral: "Bonus por indicacao",
+  bonus: "Bonus",
+  admin: "Bonus (admin)",
+  subscription: "Assinatura",
+  super_admin: "Super Admin",
+};
 
 function ProductCard({
   status,
   activating,
   onActivate,
 }: {
-  status: FreeStatus;
+  status: AccessStatus;
   activating: boolean;
   onActivate: () => void;
 }) {
   const info = PRODUCT_INFO[status.product];
   const Icon = info.icon;
-  const remaining = daysRemaining(status.activation_ends_at);
+  const remaining = status.days_remaining;
+
+  // Estados:
+  // 1. Tem acesso (free ativo, bonus, assinatura, etc)
+  // 2. Nunca ativou — pode ativar free
+  // 3. Ativou mas expirou — so paga ou ganha bonus
+  const isActive = status.has_access;
+  const canActivate = status.can_activate_free;
+  const hasExpired =
+    !isActive && status.has_free_activated && !status.can_activate_free;
 
   let badge: React.ReactNode = null;
-  if (status.is_currently_active) {
+  if (isActive) {
+    const sourceLabel = status.source
+      ? SOURCE_LABELS[status.source] ?? status.source
+      : "Ativo";
     badge = (
       <span className="inline-flex items-center gap-1 rounded-full border border-profit/30 bg-profit/10 px-2.5 py-0.5 text-xs font-medium text-profit">
         <CheckCircle2 className="h-3 w-3" />
-        Ativo {remaining !== null ? `· ${remaining}d restantes` : ""}
+        {sourceLabel}
+        {remaining !== null && remaining > 0 ? ` · ${remaining}d` : ""}
       </span>
     );
-  } else if (status.activated) {
+  } else if (hasExpired) {
     badge = (
       <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
         <Clock className="h-3 w-3" />
@@ -189,9 +236,9 @@ function ProductCard({
     <div
       className={cn(
         "flex flex-col rounded-xl border bg-surface p-6",
-        status.is_currently_active
+        isActive
           ? "border-profit/40"
-          : status.activated
+          : hasExpired
           ? "border-warning/30"
           : "border-border/60"
       )}
@@ -208,16 +255,14 @@ function ProductCard({
         {info.description}
       </p>
 
-      {status.activation_starts_at && (
+      {status.access_until && isActive && (
         <p className="mt-3 text-xs text-text-muted">
-          Inicio: {formatDate(status.activation_starts_at)}
-          {status.activation_ends_at &&
-            ` · Fim: ${formatDate(status.activation_ends_at)}`}
+          Ativo ate {formatDate(status.access_until)}
         </p>
       )}
 
       <div className="mt-4">
-        {status.can_activate ? (
+        {canActivate ? (
           <Button
             type="button"
             className="w-full gap-2"
@@ -231,14 +276,17 @@ function ProductCard({
             )}
             Ativar 7 dias gratis
           </Button>
-        ) : status.is_currently_active ? (
+        ) : isActive ? (
           <Button type="button" variant="outline" className="w-full" disabled>
             Ativo agora
           </Button>
         ) : (
-          <Button type="button" variant="outline" className="w-full" disabled>
-            Periodo encerrado
-          </Button>
+          <Link href="/plans" className="block">
+            <Button type="button" variant="outline" className="w-full gap-2">
+              <Sparkles className="h-4 w-4" />
+              Ver planos
+            </Button>
+          </Link>
         )}
       </div>
     </div>

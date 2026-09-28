@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -40,6 +40,15 @@ const PRODUCT_LABELS: Record<Product, string> = {
   business: "Negocio",
 };
 
+type AccessState = {
+  hasAccess: boolean;
+  endsAt: string | null;
+  daysRemaining: number | null;
+  source: string | null;
+  hasFreeActivated: boolean;
+  canActivateFree: boolean;
+};
+
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const supabase = createClient();
@@ -47,13 +56,18 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const product = detectProduct(pathname);
 
   const [loading, setLoading] = useState(product !== null);
-  const [hasAccess, setHasAccess] = useState(true);
-  const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [access, setAccess] = useState<AccessState>({
+    hasAccess: true,
+    endsAt: null,
+    daysRemaining: null,
+    source: null,
+    hasFreeActivated: false,
+    canActivateFree: true,
+  });
 
   const checkAccess = useCallback(async () => {
     if (!product) {
       setLoading(false);
-      setHasAccess(true);
       return;
     }
 
@@ -62,25 +76,48 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       // 1. SUPER_ADMIN sempre tem acesso total (bypass)
       const adminRes = await supabase.rpc("is_super_admin");
       if (adminRes.data === true) {
-        setHasAccess(true);
+        setAccess({
+          hasAccess: true,
+          endsAt: null,
+          daysRemaining: null,
+          source: "super_admin",
+          hasFreeActivated: false,
+          canActivateFree: false,
+        });
         return;
       }
 
-      // 2. Checa entitlement normal
-      const [entRes, statusRes] = await Promise.all([
-        supabase.rpc("has_entitlement", { p_product: product }),
-        supabase.rpc("get_my_free_activation_status"),
-      ]);
+      // 2. Checa status consolidado (todos os grants)
+      const statusRes = await supabase.rpc("get_my_product_access_status");
 
-      setHasAccess(entRes.data === true);
-
-      if (!entRes.data && statusRes.data) {
+      if (statusRes.data) {
         const row = statusRes.data.find((r) => r.product === product);
-        setEndsAt(row?.activation_ends_at ?? null);
+        if (row) {
+          setAccess({
+            hasAccess: row.has_access,
+            endsAt: row.access_until,
+            daysRemaining: row.days_remaining,
+            source: row.source,
+            hasFreeActivated: row.has_free_activated,
+            canActivateFree: row.can_activate_free,
+          });
+          return;
+        }
       }
+
+      // Fallback: sem acesso
+      setAccess({
+        hasAccess: false,
+        endsAt: null,
+        daysRemaining: null,
+        source: null,
+        hasFreeActivated: false,
+        canActivateFree: true,
+      });
     } catch (error) {
       console.error("Erro ao verificar acesso:", error);
-      setHasAccess(true); // fail-open
+      // fail-open para nao travar a UI por erro de rede
+      setAccess((prev) => ({ ...prev, hasAccess: true }));
     } finally {
       setLoading(false);
     }
@@ -102,11 +139,14 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!hasAccess) {
+  if (!access.hasAccess) {
     return (
       <ProductExpiredScreen
         productLabel={PRODUCT_LABELS[product]}
-        endsAt={endsAt}
+        endsAt={access.endsAt}
+        daysRemaining={access.daysRemaining}
+        hasFreeActivated={access.hasFreeActivated}
+        canActivateFree={access.canActivateFree}
       />
     );
   }
