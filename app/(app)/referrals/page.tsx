@@ -1,8 +1,10 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  Award,
   Check,
   Copy,
   Gift,
@@ -174,6 +176,30 @@ export default function ReferralsPage() {
           </div>
         </div>
       </div>
+
+      {/* Card CTA ? Tarefas */}
+      <Link href="/missions" className="group mb-6 block">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/30 bg-gradient-to-br from-accent/10 to-accent/5 p-5 transition-all hover:border-accent/60 hover:from-accent/15">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/20">
+              <Award className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">
+                Ganhe dias gratis completando tarefas
+              </p>
+              <p className="text-xs text-text-secondary">
+                Use o app por 7 dias seguidos e ganhe +3 dias de acesso. Compartilhe
+                o GranaBase toda semana e ganhe +1 dia por vez.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-sm font-medium text-accent">
+            Ver tarefas
+            <Sparkles className="h-4 w-4" />
+          </div>
+        </div>
+      </Link>
 
       {loading ? (
         <div className="space-y-4">

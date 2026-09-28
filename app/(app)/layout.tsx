@@ -2,12 +2,14 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { WalletContributionProvider } from "@/components/wallet/WalletContributionProvider";
 import { RouteGuard } from "@/components/guards/RouteGuard";
+import { DailyVisitTracker } from "@/components/missions/DailyVisitTracker";
 
 export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <WalletContributionProvider>
+      <DailyVisitTracker />
       <div className="min-h-screen bg-background">
         <Sidebar />
         <div className="flex flex-col min-h-screen lg:ml-64">

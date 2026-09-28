@@ -6,6 +6,7 @@ import {
   Crown,
   FileText,
   Gift,
+  Award,
   HandCoins,
   Heart,
   LayoutDashboard,
@@ -80,6 +81,7 @@ export const subscriptionNavItems: NavigationItem[] = [
   { href: "/my-plan", label: "Meu Plano", icon: Wallet },
   { href: "/plans", label: "Planos", icon: Crown },
   { href: "/referrals", label: "Indique e Ganhe", icon: Gift },
+  { href: "/missions", label: "Tarefas", icon: Award },
   { href: "/withdrawals", label: "Saques", icon: HandCoins },
   { href: "/support", label: "Suporte", icon: MessageSquare },
 ];
