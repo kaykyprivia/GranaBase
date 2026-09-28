@@ -2718,6 +2718,18 @@ export interface Database {
           can_activate: boolean;
         }>;
       };
+      get_my_product_access_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          product: "personal" | "business";
+          has_access: boolean;
+          access_until: string | null;
+          days_remaining: number | null;
+          source: string | null;
+          has_free_activated: boolean;
+          can_activate_free: boolean;
+        }>;
+      };
       submit_support_request: {
         Args: {
           p_kind: string;
