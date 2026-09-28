@@ -2730,6 +2730,37 @@ export interface Database {
           can_activate_free: boolean;
         }>;
       };
+      record_daily_visit: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
+      get_my_missions: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          mission_key: string;
+          title: string;
+          description: string;
+          reward_days: number;
+          frequency: string;
+          status: string;
+          progress: number;
+          target: number;
+          completed_at: string | null;
+          rewarded_at: string | null;
+          can_claim: boolean;
+          extra: Record<string, unknown>;
+        }>;
+      };
+      claim_mission_reward: {
+        Args: {
+          p_mission_key: string;
+        };
+        Returns: Array<{
+          success: boolean;
+          reward_days: number;
+          message: string;
+        }>;
+      };
       submit_support_request: {
         Args: {
           p_kind: string;
