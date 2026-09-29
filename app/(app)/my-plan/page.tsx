@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
+import { AccessSummaryCard } from "@/components/access/AccessSummaryCard";
 
 type Subscription = {
   subscription_id: string;
@@ -262,6 +263,9 @@ export default function MyPlanPage() {
               </div>
             </div>
           </div>
+
+          {/* Resumo de acesso */}
+          <AccessSummaryCard variant="full" />
 
           {/* 2. Beneficios ativos */}
           <div className="rounded-xl border border-border/60 bg-surface p-5">

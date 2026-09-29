@@ -2761,6 +2761,23 @@ export interface Database {
           message: string;
         }>;
       };
+      get_my_access_summary: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          access_until: string | null;
+          days_remaining: number;
+          total_bonus_days: number;
+          breakdown: Array<{
+            product: "personal" | "business";
+            source: string;
+            starts_at: string;
+            ends_at: string | null;
+            days: number;
+            reason: string;
+            granted_at: string;
+          }>;
+        }>;
+      };
       submit_support_request: {
         Args: {
           p_kind: string;

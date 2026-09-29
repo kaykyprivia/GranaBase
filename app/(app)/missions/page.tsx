@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { AccessSummaryCard } from "@/components/access/AccessSummaryCard";
 
 type Mission = {
   mission_key: string;
@@ -211,6 +212,9 @@ export default function MissionsPage() {
           ))}
         </div>
       )}
+
+      {/* Resumo de acesso */}
+      <AccessSummaryCard variant="full" className="mt-8" />
 
       {/* Rodape explicativo */}
       <div className="mt-8 rounded-xl border border-border/60 bg-surface p-4">

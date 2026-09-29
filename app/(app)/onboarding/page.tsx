@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { AccessSummaryCard } from "@/components/access/AccessSummaryCard";
 
 type Product = "personal" | "business";
 
@@ -143,6 +144,9 @@ export default function OnboardingPage() {
               />
             ))}
           </div>
+
+          {/* Resumo de acesso */}
+          <AccessSummaryCard variant="compact" className="mt-6" />
 
           {/* CTA Indique e Ganhe */}
           <div className="mt-6 rounded-xl border border-profit/30 bg-profit/5 p-4">
