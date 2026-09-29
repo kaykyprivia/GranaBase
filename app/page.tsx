@@ -102,7 +102,7 @@ const plans = [
   {
     id: "monthly",
     name: "Mensal",
-    price: "R$ 19,90",
+    price: "R$ 19,99",
     period: "por mes",
     description: "Acesso total ao Personal e Business, mes a mes.",
     features: [
@@ -116,7 +116,7 @@ const plans = [
   {
     id: "semiannual",
     name: "Semestral",
-    price: "R$ 65,67",
+    price: "R$ 89,96",
     period: "a cada 6 meses",
     description: "Economize pagando semestral. Acesso total aos dois produtos.",
     features: [
@@ -130,7 +130,7 @@ const plans = [
   {
     id: "annual",
     name: "Anual",
-    price: "R$ 167,16",
+    price: "R$ 164,93",
     period: "por ano",
     description: "Melhor custo por mes. Acesso total aos dois produtos.",
     features: [

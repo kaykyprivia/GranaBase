@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 type PlanType = "monthly" | "semiannual" | "annual";
 
 const PLAN_PRICES: Record<PlanType, number> = {
-  monthly: 19.90,
-  semiannual: 65.67,
-  annual: 167.16,
+  monthly: 19.99,
+  semiannual: 89.96,
+  annual: 164.93,
 };
 
 const PLAN_TITLES: Record<PlanType, string> = {
