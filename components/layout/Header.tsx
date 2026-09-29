@@ -237,7 +237,7 @@ export function Header({ pageTitle }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 lg:hidden bg-surface/90 backdrop-blur-md border-b border-border">
+      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -245,11 +245,11 @@ export function Header({ pageTitle }: HeaderProps) {
               type="button"
               aria-label="Abrir menu"
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <BrandLogo className="h-11 rounded-2xl" priority />
+            <BrandLogo className="h-11 rounded-2xl lg:hidden" priority />
           </div>
           <div className="flex items-center gap-2">
             {pageTitle && (
