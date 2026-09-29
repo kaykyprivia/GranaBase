@@ -162,6 +162,16 @@ export default function MyPlanPage() {
   }
 
   const isFree = !subscription;
+
+  // Considera acesso ativo tambem se cancelado mas ainda dentro do periodo pago
+  const subscriptionStillValid = Boolean(
+    subscription &&
+      subscription.status === "cancelled" &&
+      subscription.current_period_end &&
+      new Date(subscription.current_period_end) > new Date()
+  );
+  const hasActiveAccess =
+    (subscription?.status === "active") || isFree || subscriptionStillValid;
   const planLabel = subscription
     ? PLAN_LABELS[subscription.plan] ?? subscription.plan
     : "Free";
@@ -238,7 +248,12 @@ export default function MyPlanPage() {
                     <div className="mt-2 space-y-1 text-sm text-text-secondary">
                       <p className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        Renova em <strong className="text-text-primary">{formatDate(subscription.current_period_end)}</strong>
+                        {subscription.status === "cancelled"
+                          ? "Acesso ate"
+                          : "Renova em"}{" "}
+                        <strong className="text-text-primary">
+                          {formatDate(subscription.current_period_end)}
+                        </strong>
                       </p>
                       {subscription.days_remaining !== null && (
                         <p className="flex items-center gap-2">
@@ -296,12 +311,12 @@ export default function MyPlanPage() {
               <BenefitCard
                 icon={<Wallet className="h-4 w-4" />}
                 title="Personal"
-                active={isActive || isFree}
+                active={hasActiveAccess}
               />
               <BenefitCard
                 icon={<Crown className="h-4 w-4" />}
                 title="Negocio"
-                active={isActive || isFree}
+                active={hasActiveAccess}
               />
               <BenefitCard
                 icon={<TrendingUp className="h-4 w-4" />}
