@@ -137,36 +137,49 @@ export function NavigationGroups({ groups, onNavigate }: NavigationGroupsProps) 
                     return (
                       <div key={item.href}>
                         {item.children ? (
-                          <button
-                            type="button"
-                            tabIndex={isExpanded ? undefined : -1}
-                            aria-expanded={isItemExpanded}
-                            onClick={() => toggleItem(item.href)}
-                            className={cn(
-                              "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                              isActive || hasActiveChild
-                                ? "bg-accent/10 text-accent"
-                                : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
-                            )}
-                          >
-                            {(isActive || hasActiveChild) && (
-                              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
-                            )}
-                            <Icon
-                              className={cn(
-                                "h-[17px] w-[17px] shrink-0",
-                                isActive || hasActiveChild ? "text-accent" : "text-text-muted"
-                              )}
-                              strokeWidth={isActive || hasActiveChild ? 2 : 1.75}
-                            />
-                            <span className="flex-1 text-left">{item.label}</span>
-                            <ChevronDown
-                              className={cn(
-                                "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                                isItemExpanded && "rotate-180"
-                              )}
-                            />
-                          </button>
+                          <div className="relative">
+  <Link
+    href={item.href}
+    tabIndex={isExpanded ? undefined : -1}
+    onClick={onNavigate}
+    className={cn(
+      "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 pr-9 text-sm font-medium transition-all duration-150",
+      isActive || hasActiveChild
+        ? "bg-accent/10 text-accent"
+        : "text-text-secondary hover:bg-border/40 hover:text-text-primary"
+    )}
+  >
+    {(isActive || hasActiveChild) && (
+      <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent" />
+    )}
+    <Icon
+      className={cn(
+        "h-[17px] w-[17px] shrink-0",
+        isActive || hasActiveChild ? "text-accent" : "text-text-muted"
+      )}
+      strokeWidth={isActive || hasActiveChild ? 2 : 1.75}
+    />
+    <span className="flex-1 text-left">{item.label}</span>
+  </Link>
+  <button
+    type="button"
+    tabIndex={isExpanded ? undefined : -1}
+    aria-expanded={isItemExpanded}
+    aria-label={isItemExpanded ? "Recolher submenu" : "Expandir submenu"}
+    onClick={(e) => {
+      e.stopPropagation();
+      toggleItem(item.href);
+    }}
+    className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-border/60 hover:text-text-primary"
+  >
+    <ChevronDown
+      className={cn(
+        "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+        isItemExpanded && "rotate-180"
+      )}
+    />
+  </button>
+</div>
                         ) : (
                           <Link
                             href={item.href}
