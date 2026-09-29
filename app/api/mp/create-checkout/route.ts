@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
       body: {
         reason: PLAN_TITLES[planType],
         external_reference: userId,
+        payer_email:
+          environment === "sandbox"
+            ? "test@testuser.com"
+            : userData.user.email ?? undefined,
         back_url: `${baseUrl}/my-plan`,
         status: "pending",
         auto_recurring: {
