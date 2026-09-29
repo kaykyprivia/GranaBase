@@ -1,28 +1,89 @@
 ﻿📋 RELATÓRIO MESTRE COMPLETO — GRANABASE
 DOCUMENTO DE CONTINUIDADE PARA NOVO CHAT
-Data: 29/09/2026
+Data: 29/09/2026 (atualizado 20:40)
 ⚠️ INSTRUÇÕES CRÍTICAS PARA O NOVO CHAT
 LEIA TUDO ANTES DE AGIR.
 
-Este documento substitui todos os anteriores. Contém o estado REAL do projeto após 2 dias de hardening + sistema de missões + validação end-to-end.
+Este documento substitui todos os anteriores. Contém o estado REAL do projeto após 2 dias de hardening + sistema de missões + recuperação de senha.
 
 Contexto do usuário: Kayky. Trabalha comigo (assistente) + PowerShell. Executa 1 comando por vez, envia resultado, eu analiso, mando próximo comando. NÃO pular esse fluxo.
 
+═══════════════════════════════════════════════════════════════
+0. ATUALIZAÇÃO MAIS RECENTE (sessão 29/09)
+═══════════════════════════════════════════════════════════════
+
+Último commit: 53ee65d (feat(auth): add forgot-password and reset-password flows)
+
+O QUE FOI FEITO HOJE (29/09):
+✅ Recuperação de senha (/forgot-password + /reset-password)
+✅ Alinhamento de preços (19.99/89.96/164.93)
+✅ Header desktop com sino (era lg:hidden)
+✅ Nav com parent navega e chevron abre filhos
+✅ /withdrawals mostra pending + progresso
+✅ Cancelamento de assinatura (código pronto, MP pendente)
+✅ Comissão de referral validada end-to-end (R$ 3,00)
+✅ Bônus +5 dias concedido corretamente
+✅ Domínio granabase.com.br comprado no Registro.br
+✅ Registro A configurado (216.198.79.1) — aguardando propagação
+✅ Conta no Resend criada (plano free 3.000 emails/mês)
+
+DOMÍNIO granabase.com.br:
+- Comprado no Registro.br (R$ 40/ano)
+- Registro A configurado: 216.198.79.1
+- Status: aguardando propagação (~2h) — o Registro.br avisou "2h4m45s"
+- Vercel mostra "Invalid Configuration" (vai mudar quando propagar)
+- Depois de propagar: adicionar os 3 registros DNS do Resend
+
+EMAIL — RESEND (pendente verificação):
+Registros a adicionar no Registro.br APÓS propagação do DNS:
+
+1. TXT
+   Nome: resend._domainkey
+   Valor: p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC5BpAKcnT5YzTBbBnfKvYvtSW1T63RZeo+Nt0FHqnEXq8egf86AXYFL6lqyIEmMVEMR+lQihajUcJ3e4UBZnnKRpgnOJP+rmcRtkJBIi9AoeTtYAamqJLurXSru55zYPV500jZNODbvewZroEPjlgR+HaD6Hv1NtHdkjsIMyrnDQIDAQAB
+
+2. CNAME
+   Nome: rsend
+   Valor: rsend-sa.mta.net
+
+3. CNAME
+   Nome: send
+   Valor: send.for.mta.net
+
+DEPOIS DE ADICIONAR:
+- Voltar no Resend → "I've added the records"
+- Aguardar verificação (~15min)
+- Pegar SMTP credentials
+- Colar no Supabase: Authentication → SMTP Settings
+- Testar fluxo /forgot-password end-to-end
+
+PRÓXIMO PASSO (amanhã):
+1. Verificar se DNS granabase.com.br propagou (Resolve-DnsName granabase.com.br -Type A)
+2. Se propagou: adicionar os 3 registros DNS do Resend no Registro.br
+3. Verificar domínio no Resend
+4. Configurar SMTP do Resend no Supabase
+5. Testar /forgot-password com email real
+6. Testar pagamento real (após 24h do antifraude MP) com luizacampossjc@gmail.com
+7. Implementar cancelamento no MP (rota /api/mp/cancel-subscription)
+
+═══════════════════════════════════════════════════════════════
 1. PROJETO
+═══════════════════════════════════════════════════════════════
+
 Nome: GranaBase
 Repo: kaykyprivia/GranaBase
 Ambiente local: C:\Users\kayky\Downloads\GranaBase-deploy
 Branch: main
 Produção: https://granabase.vercel.app
+Domínio novo: https://granabase.com.br (aguardando DNS)
 Vercel: https://vercel.com/kayky/granabase/deployments
 
-Stack: Next.js 15.5.15 + React 19 + TypeScript + Supabase (PostgreSQL + RLS + RPC) + Vercel + PWA + Mercado Pago (PRODUÇÃO ativa).
+Stack: Next.js 15.5.15 + React 19 + TypeScript + Supabase (PostgreSQL + RLS + RPC) + Vercel + PWA + Mercado Pago (PRODUÇÃO ativa) + Resend (pendente SMTP).
 
 Dois ecossistemas:
 - Pessoal (income, expenses, bills, goals, receivables, installments, investments)
 - Negócio (V2 completo — purchases, sales, inventory, customers, reports)
 
-Objetivo: SaaS com Free (7 dias), Mensal (R$ 19,99), Semestral (R$ 89,96), Anual (R$ 164,93) + indicações + comissões + parceiros + Super Admin + Mercado Pago.
+Objetivo: SaaS com Free (7 dias), Mensal (R$ 19,99), Semestral (R$ 89,96), Anual (R$ 164,93) + indicações + comissões + parceiros + Super Admin + Mercado Pago + Missões.
 
 2. REGRAS DE TRABALHO (NÃO NEGOCIÁVEIS)
 - 1 comando por vez no PowerShell
@@ -33,18 +94,22 @@ Objetivo: SaaS com Free (7 dias), Mensal (R$ 19,99), Semestral (R$ 89,96), Anual
 - Mudança de retorno de RPC: precisa DROP FUNCTION antes de CREATE OR REPLACE
 - Cuidado com ambiguidade de nomes em PL/pgSQL (usar prefixo v_)
 - PowerShell Set-Content -Encoding utf8 adiciona BOM em arquivos LF. Preferir scripts Node
+- Arquivos alternam entre LF e CRLF — usar .split("\n").join(eol) com detecção
+- Para substituições complexas: usar Node com regex robusto ou substituição por linha única
 
 3. ESTADO ATUAL DO REPOSITÓRIO
-Último commit: 83f1f45 — "fix(cancel-subscription): fix cancelled_at ambiguity and event_type constraint"
+Último commit: 53ee65d — "feat(auth): add forgot-password and reset-password flows"
 Status: sincronizado com origin/main
-Working tree: limpo (exceto relatório a commitar)
+Working tree: limpo
 
 Validações:
 - Typecheck: 0 erros
 - Tests: 109 passando (11 arquivos)
 - Build: PASS
 
-Últimos commits relevantes (últimos 3 dias):
+Últimos commits (2 dias):
+53ee65d  feat(auth): add forgot-password and reset-password flows
+6b7d982  docs: update master report
 83f1f45  fix(cancel-subscription): fix cancelled_at ambiguity and event_type constraint
 9bf3a29  fix(header): show header on desktop (was hidden via lg:hidden)
 8353018  feat(withdrawals): show pending commissions and progress toward minimum
@@ -65,12 +130,20 @@ f585d25  feat(guards): use consolidated access status; redesign expired screen
 f0dc6eb  fix(bonus): stack bonus grants instead of overwriting
 
 4. MERCADO PAGO — MODO PRODUÇÃO ATIVO
-- Environment: production (MERCADO_PAGO_ENVIRONMENT="production" na Vercel)
-- Token: MERCADO_PAGO_ACCESS_TOKEN_PROD (configurado na Vercel e .env.local)
+- Environment: production (na Vercel)
+- Token: MERCADO_PAGO_ACCESS_TOKEN_PROD
 - App MP ID: 4413267820048657 (site MLB Brasil)
 - Webhook: https://granabase.vercel.app/api/mp/webhook (validado via x-signature)
 - payer_email: condicional (sandbox="test@testuser.com", produção=email do user GranaBase)
 - Preços alinhados: 19.99 / 89.96 / 164.93
+
+PROBLEMA CONHECIDO:
+- MP bloqueia self-payment (mesma conta do vendedor)
+- Último teste deu "pagamento recusado" por antifraude
+- Solução: esperar 24h OU usar outra conta MP (luizacampossjc@gmail.com)
+
+PENDENTE:
+- Cancelamento no MP (rota /api/mp/cancel-subscription) — quando user cancela no GranaBase, precisa chamar API do MP pra cancelar preapproval lá
 
 5. BANCO DE DADOS — ESTADO ATUAL
 Usuários: 3
@@ -80,71 +153,79 @@ Usuários: 3
 
 Referrals ativos:
   - kaykyalfeu@gmail.com indicou luizacampossjc@gmail.com
-  - Comissão criada: R$ 3,00 (pending, aguardando atingir R$ 20)
-  - Bônus concedido: +5 dias pra Kayky (Personal + Business)
+  - Comissão criada: R$ 3,00 (pending, aguardando R$ 20)
+  - Bônus concedido: +5 dias (Personal + Business)
 
 6. SISTEMA DE MISSÕES (implementado)
-- streak_7: usar app 7 dias seguidos → +3 dias (one-shot)
-- streak_30: usar app 30 dias seguidos → +5 dias (one-shot)
-- share_weekly: compartilhar link → +1 dia (1x/semana, reativa segunda)
+- streak_7: 7 dias seguidos → +3 dias (one-shot)
+- streak_30: 30 dias seguidos → +5 dias (one-shot)
+- share_weekly: compartilhar → +1 dia (1x/semana)
 - Tabelas: user_daily_streak, user_missions
 - RPCs: record_daily_visit, get_my_missions, claim_mission_reward
 - Frontend: /missions, DailyVisitTracker no layout, item no sidebar
 
-7. ACESSO SUMMARY CARD (implementado)
+7. ACESSO SUMMARY CARD
 Componente components/access/AccessSummaryCard.tsx
-- variant="full": acesso ate + dias restantes + ganhos por tarefas + histórico
+- variant="full": acesso ate + dias + ganhos por tarefas + histórico
 - variant="compact": apenas 2 KPIs
 - Usado em: /missions (full), /onboarding (compact), /my-plan (full)
 - RPC: get_my_access_summary
 
-8. SISTEMA DE COMISSÕES — REGRA ATUAL
-- Status: PENDING → AVAILABLE (quando soma >= R$ 20) → PAID
-- % por plano do indicador: Free 5% / Mensal 15% / Semestral 25% / Anual 35%
+8. SISTEMA DE COMISSÕES
+- Status: PENDING → AVAILABLE (>= R$ 20) → PAID
+- % por plano: Free 5% / Mensal 15% / Semestral 25% / Anual 35%
 - Influencer: % customizada (prioridade)
-- Mantém % até final do current_period_end mesmo se cancelado (regra nova)
-- RPC: get_referrer_commission_rate, create_referral_commission, recompute_commission_availability
-- Frontend: /withdrawals mostra pending + progresso
+- Mantém % até current_period_end mesmo se cancelado
+- RPCs: get_referrer_commission_rate, create_referral_commission, recompute_commission_availability
+- /withdrawals mostra pending + progresso
 
-9. CANCELAMENTO DE ASSINATURA (implementado parcialmente)
-- RPC cancel_my_subscription: marca cancelled no banco (mantém acesso até period_end)
+9. CANCELAMENTO DE ASSINATURA
+- RPC cancel_my_subscription: marca cancelled (mantém acesso até period_end)
 - UI: botão no card "Gerenciar" + dialog confirmação
-- PENDENTE: chamar API do MP pra cancelar preapproval lá (evita cobrança futura)
+- PENDENTE: chamar API do MP pra cancelar preapproval
 
-10. O QUE ESTÁ FUNCIONANDO (testado end-to-end)
-✅ Cadastro via link de referral (atribuição funciona)
+10. AUTENTICAÇÃO — RECUPERAÇÃO DE SENHA (implementado hoje)
+- Rota /forgot-password (user digita email → envia link)
+- Rota /reset-password (user define nova senha)
+- Link "Esqueci a senha" no /login (agora é Link real)
+- PENDENTE: SMTP configurado (depende do Resend)
+
+11. O QUE ESTÁ FUNCIONANDO (testado)
+✅ Cadastro via link de referral
 ✅ Onboarding Free (7 dias com contador)
 ✅ Guards bloqueando Personal/Business
 ✅ Super Admin bypass
 ✅ Assinatura em produção (MP real)
-✅ Comissão de referral (R$ 3,00 calculado corretamente)
+✅ Comissão de referral (R$ 3,00 correto)
 ✅ Bônus +5 dias pro indicador
-✅ Empilhamento de grants (não sobrescreve)
+✅ Empilhamento de grants
 ✅ Missões (streak + share)
 ✅ Histórico de dias (AccessSummaryCard)
 ✅ Saques mostrando pending + progresso
 ✅ Header desktop com sino
 ✅ Cancelamento de assinatura (backend + UI)
-✅ Nav com parent navega e chevron abre filhos
+✅ Nav com parent navega + chevron abre
+✅ Recuperação de senha (código pronto)
 
-11. O QUE ESTÁ PENDENTE
-🔴 Cancelamento no MP (quando user cancela no GranaBase, MP continua ativo) — CRÍTICO
-🟡 Teste de pagamento real (amanhã, 24h após último "recusado")
-🟡 Validar webhook do MP em produção real
-🟡 Testar ciclo de renovação
+12. O QUE ESTÁ PENDENTE
+🔴 Cancelamento no MP (evita cobrança indevida)
+🔴 SMTP Resend configurado (pra testar forgot-password)
+🔴 DNS granabase.com.br propagar (2h)
+🟡 Teste de pagamento real (após 24h)
+🟡 Validar webhook MP em produção
+🟡 Observabilidade (Sentry)
+🟡 Email transacional (boas-vindas, etc)
+🟡 Termos/privacidade revisão legal
 
-12. PROBLEMA DO PAGAMENTO REAL (28/09)
-Última tentativa deu "pagamento recusado" (antifraude do MP). Causas:
-- Mesma pessoa comprando de si mesma (self-payment)
-- Cartão já usado em muitos testes
-- Antifraude reativo
-Solução: esperar 24h OU usar outra conta MP (Luiza)
-
-13. PRÓXIMOS PASSOS RECOMENDADOS
-A. Implementar cancelamento no MP (rota /api/mp/cancel-subscription)
-B. Testar pagamento real (amanhã) com luizacampossjc@gmail.com
-C. Validar webhook em produção
-D. Iniciar beta fechado
+13. PRÓXIMOS PASSOS (amanhã, 30/09)
+A. Verificar DNS: Resolve-DnsName granabase.com.br -Type A
+B. Se propagou: adicionar 3 registros DNS do Resend no Registro.br
+C. Verificar domínio no Resend
+D. Configurar SMTP Resend no Supabase
+E. Testar /forgot-password com email real
+F. Testar pagamento real (após 24h) com luizacampossjc@gmail.com
+G. Implementar cancelamento no MP
+H. Configurar Sentry
 
 14. FERRAMENTAS ÚTEIS
 git status
@@ -152,6 +233,7 @@ npm run typecheck 2>&1 | Select-Object -Last 10
 npm run test 2>&1 | Select-Object -Last 8
 npm run build 2>&1 | Select-String -Pattern "Error|Failed|error|Compiled successfully"
 Start-Process "supabase/migrations/arquivo.sql"
+Resolve-DnsName granabase.com.br -Type A
 
 15. APRENDIZADOS IMPORTANTES
 - RPC com RETURNING de coluna com mesmo nome de variável: usar prefixo (s.cancelled_at)
@@ -160,6 +242,9 @@ Start-Process "supabase/migrations/arquivo.sql"
 - MP payer_email obrigatório em produção: usar email do user GranaBase
 - MP antifraude bloqueia self-payment: testar com outra conta
 - PowerShell cria arquivos com BOM se não usar script Node
+- Arquivos alternam LF/CRLF. Detectar com .includes("\r\n")
+- Registro.br avisa "servidores DNS em transição" por ~2h após registro
+- Resend exige domínio próprio verificado (não aceita .vercel.app)
 
 16. CONTATO E CONTEXTO
 Usuário: Kayky
@@ -168,11 +253,11 @@ Preferências:
 - 1 comando por vez
 - Explicações curtas
 - Não usar DevTools sem necessidade
-- Progresso tangível, sem enrolação
+- Progresso tangível
 
-17. FRASE DE ABERTURA RECOMENDADA PARA O NOVO CHAT
-"Estamos retomando o GranaBase. Todo o código de engenharia está fechado. Sistema de missões, AccessSummaryCard, cancelamento de assinatura, alinhamento de preços, header desktop, e nav por parent/chevron implementados. MP em modo produção. Fluxo de referral testado end-to-end (comissão R$ 3,00 correta, bônus +5d). Pendente: implementar cancelamento no MP + testar pagamento real (amanhã). Último commit: 83f1f45. Como quer começar?"
+17. FRASE DE ABERTURA RECOMENDADA
+"Estamos retomando o GranaBase. Último commit: 53ee65d. Recuperação de senha implementada, domínio granabase.com.br comprado (aguardando propagação DNS), conta Resend criada (pendente verificação de domínio). Próximos passos: (1) verificar DNS propagou, (2) adicionar registros DNS do Resend no Registro.br, (3) configurar SMTP no Supabase, (4) testar pagamento real. Como quer começar?"
 
 FIM DO RELATÓRIO
-Documento gerado em 29/09/2026.
-Estado do commit: 83f1f45 (main, sincronizado com origin/main).
+Documento gerado em 29/09/2026 20:40.
+Estado do commit: 53ee65d (main, sincronizado com origin/main).
