@@ -1,0 +1,87 @@
+﻿-- ============================================================
+-- RPC: cancel_my_subscription
+-- Cancela a assinatura ATIVA do usuario autenticado.
+-- Mantem acesso ate current_period_end.
+-- ============================================================
+
+create or replace function public.cancel_my_subscription()
+returns table (
+  success boolean,
+  cancelled_at timestamptz,
+  access_until timestamptz,
+  message text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_sub_id uuid;
+  v_status text;
+  v_period_end timestamptz;
+  v_cancelled_at timestamptz;
+begin
+  if v_user_id is null then
+    raise exception 'Usuario nao autenticado';
+  end if;
+
+  -- Pega a subscription ativa do user
+  select
+    s.id,
+    s.status,
+    s.current_period_end
+  into
+    v_sub_id,
+    v_status,
+    v_period_end
+  from public.subscriptions s
+  where s.user_id = v_user_id
+    and s.status = 'active'
+  order by s.created_at desc
+  limit 1;
+
+  if v_sub_id is null then
+    return query select false, null::timestamptz, null::timestamptz,
+      'Nenhuma assinatura ativa encontrada'::text;
+    return;
+  end if;
+
+  -- Atualiza a subscription
+  update public.subscriptions
+  set
+    status = 'cancelled',
+    cancelled_at = now(),
+    updated_at = now()
+  where id = v_sub_id
+  returning cancelled_at into v_cancelled_at;
+
+  -- Registra no subscription_events (se a tabela existir)
+  begin
+    insert into public.subscription_events (
+      subscription_id, user_id, event_type, metadata
+    ) values (
+      v_sub_id, v_user_id, 'cancelled_by_user',
+      jsonb_build_object('cancelled_via', 'cancel_my_subscription', 'cancelled_at', now())
+    );
+  exception when undefined_table then
+    -- subscription_events nao existe em alguns schemas, ignora
+    null;
+  end;
+
+  return query select
+    true,
+    v_cancelled_at,
+    v_period_end,
+    'Assinatura cancelada. Voce mantem acesso ate ' || to_char(v_period_end, 'DD/MM/YYYY')::text;
+end;
+$$;
+
+revoke all on function public.cancel_my_subscription()
+  from public, anon;
+
+grant execute on function public.cancel_my_subscription()
+  to authenticated;
+
+comment on function public.cancel_my_subscription() is
+  'Cancela a assinatura ativa do usuario. Mantem acesso ate current_period_end.';

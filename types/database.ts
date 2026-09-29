@@ -2761,6 +2761,15 @@ export interface Database {
           message: string;
         }>;
       };
+      cancel_my_subscription: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          success: boolean;
+          cancelled_at: string | null;
+          access_until: string | null;
+          message: string;
+        }>;
+      };
       get_my_access_summary: {
         Args: Record<PropertyKey, never>;
         Returns: Array<{

@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { AccessSummaryCard } from "@/components/access/AccessSummaryCard";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 type Subscription = {
   subscription_id: string;
@@ -97,6 +98,8 @@ export default function MyPlanPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [commissions, setCommissions] = useState<CommissionSummary | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -132,6 +135,31 @@ export default function MyPlanPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  async function handleCancelSubscription() {
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase.rpc("cancel_my_subscription");
+      if (error) throw error;
+
+      const result = (data as { success: boolean; message: string }[] | null)?.[0];
+
+      if (result?.success) {
+        toast.success(result.message || "Assinatura cancelada");
+        setCancelDialogOpen(false);
+        await loadData();
+      } else {
+        toast.error(result?.message || "Nao foi possivel cancelar");
+      }
+    } catch (error) {
+      console.error("Erro ao cancelar assinatura:", error);
+      const msg =
+        error instanceof Error ? error.message : "Erro ao cancelar assinatura";
+      toast.error(msg);
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   const isFree = !subscription;
   const planLabel = subscription
@@ -254,7 +282,8 @@ export default function MyPlanPage() {
                       type="button"
                       variant="ghost"
                       className="min-h-10 text-expense hover:text-expense"
-                      disabled
+                      onClick={() => setCancelDialogOpen(true)}
+                      disabled={cancelling}
                     >
                       Cancelar assinatura
                     </Button>
@@ -456,14 +485,27 @@ export default function MyPlanPage() {
                 type="button"
                 variant="outline"
                 className="min-h-11 justify-start text-expense hover:text-expense"
-                disabled={isFree}
+                onClick={() => setCancelDialogOpen(true)}
+                disabled={isFree || cancelling}
               >
-                Cancelar assinatura (em breve)
+                Cancelar assinatura
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        title="Cancelar assinatura"
+        description="Tem certeza que deseja cancelar sua assinatura? Voce mantem o acesso ate o final do periodo pago. Apos isso, o acesso sera bloqueado."
+        confirmLabel="Sim, cancelar"
+        cancelLabel="Voltar"
+        onConfirm={() => void handleCancelSubscription()}
+        loading={cancelling}
+        variant="destructive"
+      />
     </div>
   );
 }
