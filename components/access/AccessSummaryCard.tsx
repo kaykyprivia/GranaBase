@@ -202,7 +202,7 @@ export function AccessSummaryCard({
               Historico de dias
             </p>
           </div>
-          <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-[200px] space-y-2 overflow-y-auto pr-1">
             {summary.breakdown.map((item, index) => {
               const sourceLabel =
                 SOURCE_LABELS[item.source] ?? item.source;

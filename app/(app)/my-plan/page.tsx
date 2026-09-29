@@ -272,7 +272,7 @@ export default function MyPlanPage() {
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-secondary">
               Beneficios ativos
             </h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
               <BenefitCard
                 icon={<Wallet className="h-4 w-4" />}
                 title="Personal"
@@ -494,8 +494,8 @@ function BenefitCard({
       >
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-text-primary">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-text-primary leading-tight">
           {title}
         </p>
         <p
