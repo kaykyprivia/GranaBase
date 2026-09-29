@@ -278,15 +278,6 @@ export default function MyPlanPage() {
                       <TrendingUp className="h-4 w-4" />
                       Trocar plano
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="min-h-10 text-expense hover:text-expense"
-                      onClick={() => setCancelDialogOpen(true)}
-                      disabled={cancelling}
-                    >
-                      Cancelar assinatura
-                    </Button>
                   </>
                 )}
               </div>

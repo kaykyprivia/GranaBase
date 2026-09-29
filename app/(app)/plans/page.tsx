@@ -34,6 +34,12 @@ type Plan = {
   features: string[];
 };
 
+const PLAN_LABELS: Record<string, string> = {
+  monthly: "Mensal",
+  semiannual: "Semestral",
+  annual: "Anual",
+};
+
 const PLANS: Plan[] = [
   {
     id: "free",
@@ -218,7 +224,8 @@ export default function PlansPage() {
                 <p className="text-sm text-text-primary">
                   Voce ja tem uma assinatura ativa:{" "}
                   <strong className="text-accent">
-                    {currentSubscription.plan.toUpperCase()}
+                    {PLAN_LABELS[currentSubscription.plan] ??
+                      currentSubscription.plan}
                   </strong>
                 </p>
               </div>
