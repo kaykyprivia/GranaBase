@@ -24,11 +24,13 @@ import { cn, formatCurrency } from "@/lib/utils";
 
 type WithdrawalSummary = {
   available_total: number;
+  pending_total: number;
   reserved_total: number;
   paid_total: number;
   can_withdraw: boolean;
   minimum_withdrawal: number;
   has_pending_request: boolean;
+  progress_amount: number;
 };
 
 type WithdrawalRequest = {
@@ -250,7 +252,7 @@ export default function WithdrawalsPage() {
                     Progresso para saque
                   </span>
                   <span className="font-semibold text-text-primary">
-                    {formatCurrency(summary?.available_total ?? 0)} /{" "}
+                    {formatCurrency(summary?.progress_amount ?? 0)} /{" "}
                     {formatCurrency(summary?.minimum_withdrawal ?? 20)}
                   </span>
                 </div>
@@ -260,7 +262,7 @@ export default function WithdrawalsPage() {
                     style={{
                       width: `${Math.min(
                         100,
-                        ((summary?.available_total ?? 0) /
+                        ((summary?.progress_amount ?? 0) /
                           (summary?.minimum_withdrawal ?? 20)) *
                           100
                       )}%`,
@@ -274,7 +276,7 @@ export default function WithdrawalsPage() {
                       Math.max(
                         0,
                         (summary?.minimum_withdrawal ?? 20) -
-                          (summary?.available_total ?? 0)
+                          (summary?.progress_amount ?? 0)
                       )
                     )}
                   </strong>{" "}
@@ -284,7 +286,13 @@ export default function WithdrawalsPage() {
             )}
 
             {/* Mini stats */}
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg bg-background/40 p-3">
+                <p className="text-xs text-text-muted">Aguardando</p>
+                <p className="mt-1 font-semibold text-warning">
+                  {formatCurrency(summary?.pending_total ?? 0)}
+                </p>
+              </div>
               <div className="rounded-lg bg-background/40 p-3">
                 <p className="text-xs text-text-muted">Reservado</p>
                 <p className="mt-1 font-semibold text-text-primary">
@@ -298,16 +306,29 @@ export default function WithdrawalsPage() {
                 </p>
               </div>
               <div className="rounded-lg bg-background/40 p-3">
-                <p className="text-xs text-text-muted">Total solicitado</p>
+                <p className="text-xs text-text-muted">Total</p>
                 <p className="mt-1 font-semibold text-text-primary">
                   {formatCurrency(
                     (summary?.available_total ?? 0) +
+                      (summary?.pending_total ?? 0) +
                       (summary?.reserved_total ?? 0) +
                       (summary?.paid_total ?? 0)
                   )}
                 </p>
               </div>
             </div>
+
+            {/* Card explicativo: aguardando maturacao */}
+            {(summary?.pending_total ?? 0) > 0 && !summary?.can_withdraw && (
+              <div className="mt-3 rounded-lg border border-warning/30 bg-warning/5 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                  <p className="text-xs text-text-secondary">
+                    Voce tem <strong className="text-warning">{formatCurrency(summary?.pending_total ?? 0)}</strong> em comissoes aguardando. Elas sao liberadas automaticamente quando o total atinge {formatCurrency(summary?.minimum_withdrawal ?? 20)}.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form de solicitacao */}
