@@ -101,9 +101,9 @@ export default function LoginPage() {
         </FormField>
 
         <div className="flex justify-end">
-          <button type="button" className="text-sm text-accent hover:underline">
+          <Link href="/forgot-password" className="text-sm text-accent hover:underline">
             Esqueci minha senha
-          </button>
+          </Link>
         </div>
 
         <Button
