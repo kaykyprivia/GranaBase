@@ -2761,6 +2761,45 @@ export interface Database {
           message: string;
         }>;
       };
+      list_my_cards: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          id: string;
+          name: string;
+          due_day: number;
+          closing_day: number;
+          credit_limit: number | null;
+          active: boolean;
+          created_at: string;
+          expense_count: number;
+        }>;
+      };
+      create_my_card: {
+        Args: {
+          p_name: string;
+          p_due_day: number;
+          p_closing_day: number;
+          p_credit_limit?: number | null;
+        };
+        Returns: string;
+      };
+      update_my_card: {
+        Args: {
+          p_card_id: string;
+          p_name: string;
+          p_due_day: number;
+          p_closing_day: number;
+          p_credit_limit?: number | null;
+          p_active?: boolean;
+        };
+        Returns: void;
+      };
+      delete_my_card: {
+        Args: {
+          p_card_id: string;
+        };
+        Returns: void;
+      };
       cancel_my_subscription: {
         Args: Record<PropertyKey, never>;
         Returns: Array<{
