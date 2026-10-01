@@ -1730,11 +1730,6 @@ export default function ExpensesPage() {
                   />
                 </FormField>
               )}
-              {paymentMethodValue === "Cartao Credito" && (
-                <FormField label="Vencimento da fatura" hint="Opcional a edite se for diferente da data do gasto">
-                  <Input type="date" {...register("card_due_date")} />
-                </FormField>
-              )}
               <FormField label="Observacoes">
                 <Textarea placeholder="Notas opcionais..." rows={2} {...register("notes")} />
               </FormField>
