@@ -22,19 +22,29 @@ interface CardsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const EMPTY_FORM: CardInput = {
+type CardFormState = {
+  name: string;
+  due_day: string;
+  closing_day: string;
+  credit_limit: number | null;
+  active: boolean;
+};
+
+const EMPTY_FORM: CardFormState = {
   name: "",
-  due_day: 10,
-  closing_day: 3,
+  due_day: "10",
+  closing_day: "3",
   credit_limit: null,
   active: true,
 };
 
-function validate(input: CardInput): string | null {
+function validate(input: CardFormState): string | null {
   if (!input.name.trim()) return "Informe o nome do cartao";
-  if (input.due_day < 1 || input.due_day > 31)
+  const due = Number(input.due_day);
+  const closing = Number(input.closing_day);
+  if (!input.due_day || !Number.isFinite(due) || due < 1 || due > 31)
     return "Dia de vencimento deve ser 1-31";
-  if (input.closing_day < 1 || input.closing_day > 31)
+  if (!input.closing_day || !Number.isFinite(closing) || closing < 1 || closing > 31)
     return "Dia de fechamento deve ser 1-31";
   if (input.credit_limit != null && input.credit_limit < 0)
     return "Limite nao pode ser negativo";
@@ -44,7 +54,7 @@ function validate(input: CardInput): string | null {
 export function CardsModal({ open, onOpenChange }: CardsModalProps) {
   const { cards, loading, createCard, updateCard, deleteCard } = useCards();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<CardInput>(EMPTY_FORM);
+  const [form, setForm] = useState<CardFormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Card | null>(null);
 
@@ -57,8 +67,8 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
     setEditingId(card.id);
     setForm({
       name: card.name,
-      due_day: card.due_day,
-      closing_day: card.closing_day,
+      due_day: String(card.due_day),
+      closing_day: String(card.closing_day),
       credit_limit: card.credit_limit,
       active: card.active,
     });
@@ -73,11 +83,18 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
 
     setSubmitting(true);
     try {
+      const payload: CardInput = {
+        name: form.name,
+        due_day: Number(form.due_day),
+        closing_day: Number(form.closing_day),
+        credit_limit: form.credit_limit,
+        active: form.active,
+      };
       if (editingId) {
-        await updateCard(editingId, form);
+        await updateCard(editingId, payload);
         toast.success("Cartao atualizado");
       } else {
-        await createCard(form);
+        await createCard(payload);
         toast.success("Cartao criado");
       }
       resetForm();
@@ -193,7 +210,7 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
                   max={31}
                   value={form.due_day}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, due_day: Number(e.target.value) }))
+                    setForm((f) => ({ ...f, due_day: e.target.value }))
                   }
                 />
               </FormField>
@@ -206,7 +223,7 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
-                      closing_day: Number(e.target.value),
+                      closing_day: e.target.value,
                     }))
                   }
                 />

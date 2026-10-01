@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, CreditCard, Gift, LogOut, Menu, Package, Settings, ShoppingCart, Sparkles, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { BrandLogo } from "@/components/shared/BrandLogo";
@@ -41,6 +41,7 @@ export function Header({ pageTitle }: HeaderProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const [supabase] = useState(() => createClient());
 
   const loadUserAndNotifications = useCallback(
@@ -257,14 +258,16 @@ export function Header({ pageTitle }: HeaderProps) {
             {pageTitle && (
               <span className="max-w-[7rem] truncate text-sm font-medium text-text-secondary">{pageTitle}</span>
             )}
-            <button
-              type="button"
-              aria-label="Meus cartoes"
-              onClick={() => setCardsModalOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <CreditCard className="h-[18px] w-[18px]" />
-            </button>
+            {pathname?.startsWith("/expenses") && (
+              <button
+                type="button"
+                aria-label="Meus cartoes"
+                onClick={() => setCardsModalOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <CreditCard className="h-[18px] w-[18px]" />
+              </button>
+            )}
             <ThemeToggle />
             <div ref={notificationsRef} className="relative">
               <button
