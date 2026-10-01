@@ -32,6 +32,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { ExpensesFilters } from "@/components/expenses/ExpensesFilters";
+import { useCards } from "@/lib/hooks/useCards";
 import { MonthGroupCard } from "@/components/expenses/MonthGroupCard";
 import type { DisplayExpense } from "@/components/expenses/types";
 
@@ -213,9 +214,10 @@ export default function ExpensesPage() {
 
   const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
-    defaultValues: { description: "", amount: 0, category: "", spent_at: "", payment_method: "", card_due_date: "", notes: "" },
+    defaultValues: { description: "", amount: 0, category: "", spent_at: "", payment_method: "", card_due_date: "", card_id: null, notes: "" },
   });
   const paymentMethodValue = watch("payment_method");
+  const { cards: availableCards } = useCards({ onlyActive: true });
 
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -838,11 +840,11 @@ export default function ExpensesPage() {
   const onSubmit = async (data: ExpenseFormData) => {
     try {
       if (editingEntry) {
-        const { error } = await supabase.rpc("update_expense_entry", { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, notes: data.notes || null } });
+        const { error } = await supabase.rpc("update_expense_entry", { p_id: editingEntry.id, p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, card_id: data.card_id || null,notes: data.notes || null } });
         if (error) throw error;
         toast.success("Gasto atualizado");
       } else {
-        const { error } = await supabase.rpc("create_expense_entry", { p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, notes: data.notes || null } });
+        const { error } = await supabase.rpc("create_expense_entry", { p_payload: { description: data.description, amount: data.amount, category: data.category, spent_at: data.spent_at, payment_method: data.payment_method || null, card_due_date: data.payment_method === "CartÃ£o CrÃ©dito" ? (data.card_due_date || null) : null, card_id: data.card_id || null,notes: data.notes || null } });
         if (error) throw error;
         toast.success("Gasto registrado");
       }
@@ -1702,6 +1704,32 @@ export default function ExpensesPage() {
                   </Select>
                 )} />
               </FormField>
+              {paymentMethodValue === "Cartao Credito" && availableCards.length > 0 && (
+                <FormField label="Cartao">
+                  <Controller
+                    name="card_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? "__none__"}
+                        onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o cartao..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sem cartao</SelectItem>
+                          {availableCards.map((card) => (
+                            <SelectItem key={card.id} value={card.id}>
+                              {card.name} (vence dia {card.due_day})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </FormField>
+              )}
               {paymentMethodValue === "Cartao Credito" && (
                 <FormField label="Vencimento da fatura" hint="Opcional a edite se for diferente da data do gasto">
                   <Input type="date" {...register("card_due_date")} />

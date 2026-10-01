@@ -37,6 +37,7 @@ export const expenseSchema = z.object({
     .refine((value) => value <= todayLocalDateString(), "A data do gasto não pode ser no futuro — use o vencimento da fatura para isso"),
   payment_method: z.string().min(1, "Método de pagamento é obrigatório"),
   card_due_date: z.string().optional(),
+  card_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional(),
 });
 

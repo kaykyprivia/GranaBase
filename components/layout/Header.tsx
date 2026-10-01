@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, Gift, LogOut, Menu, Package, Settings, ShoppingCart, Sparkles, X } from "lucide-react";
+import { Bell, Check, CreditCard, Gift, LogOut, Menu, Package, Settings, ShoppingCart, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { CardsModal } from "@/components/cards/CardsModal";
 import { NavigationGroups } from "@/components/layout/NavigationGroups";
 import { getNavigationGroups } from "@/components/layout/navigation";
 import { MAE_USER_ID } from "@/lib/mae";
@@ -32,6 +33,7 @@ export function Header({ pageTitle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMaeUser, setIsMaeUser] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [cardsModalOpen, setCardsModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -255,6 +257,14 @@ export function Header({ pageTitle }: HeaderProps) {
             {pageTitle && (
               <span className="max-w-[7rem] truncate text-sm font-medium text-text-secondary">{pageTitle}</span>
             )}
+            <button
+              type="button"
+              aria-label="Meus cartoes"
+              onClick={() => setCardsModalOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <CreditCard className="h-[18px] w-[18px]" />
+            </button>
             <ThemeToggle />
             <div ref={notificationsRef} className="relative">
               <button
@@ -430,6 +440,7 @@ export function Header({ pageTitle }: HeaderProps) {
           </div>
         </div>
       )}
+      <CardsModal open={cardsModalOpen} onOpenChange={setCardsModalOpen} />
     </>
   );
 }
