@@ -2800,6 +2800,33 @@ export interface Database {
         };
         Returns: void;
       };
+      list_my_card_invoices: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          card_id: string;
+          card_name: string;
+          card_due_day: number;
+          reference_month: string;
+          total_amount: number;
+          expense_count: number;
+          is_paid: boolean;
+          paid_at: string | null;
+          invoice_payment_id: string | null;
+        }>;
+      };
+      pay_card_invoice: {
+        Args: {
+          p_card_id: string;
+          p_reference_month: string;
+        };
+        Returns: string;
+      };
+      unpay_card_invoice: {
+        Args: {
+          p_payment_id: string;
+        };
+        Returns: void;
+      };
       cancel_my_subscription: {
         Args: Record<PropertyKey, never>;
         Returns: Array<{

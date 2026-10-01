@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { CreditCard, Pencil, Plus, Trash2, Power } from "lucide-react";
+import { CreditCard, Pencil, Plus, Trash2, Power, CheckCircle2, CircleDollarSign } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { useCards, type Card, type CardInput } from "@/lib/hooks/useCards";
+import { useCardInvoices, type CardInvoice } from "@/lib/hooks/useCardInvoices";
 
 interface CardsModalProps {
   open: boolean;
@@ -53,6 +55,20 @@ function validate(input: CardFormState): string | null {
 
 export function CardsModal({ open, onOpenChange }: CardsModalProps) {
   const { cards, loading, createCard, updateCard, deleteCard } = useCards();
+  const {
+    invoices,
+    loading: invoicesLoading,
+    payInvoice,
+    unpayInvoice,
+    refresh: refreshInvoices,
+  } = useCardInvoices({ enabled: open });
+  const [payingInvoice, setPayingInvoice] = useState<{
+    cardId: string;
+    referenceMonth: string;
+    total: number;
+    cardName: string;
+  } | null>(null);
+  const [unpayingInvoice, setUnpayingInvoice] = useState<CardInvoice | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CardFormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -114,6 +130,36 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
       setConfirmDelete(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao remover cartao");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmPay = async () => {
+    if (!payingInvoice) return;
+    setSubmitting(true);
+    try {
+      await payInvoice(payingInvoice.cardId, payingInvoice.referenceMonth);
+      await refreshInvoices();
+      toast.success("Fatura marcada como paga");
+      setPayingInvoice(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao pagar fatura");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmUnpay = async () => {
+    if (!unpayingInvoice || !unpayingInvoice.invoice_payment_id) return;
+    setSubmitting(true);
+    try {
+      await unpayInvoice(unpayingInvoice.invoice_payment_id);
+      await refreshInvoices();
+      toast.success("Pagamento desfeito");
+      setUnpayingInvoice(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao desfazer pagamento");
     } finally {
       setSubmitting(false);
     }
@@ -265,6 +311,85 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
               </Button>
             </div>
           </div>
+          <div className="space-y-3 pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <CircleDollarSign className="h-4 w-4 text-accent" />
+              <p className="text-sm font-semibold text-text-primary">Faturas</p>
+            </div>
+
+            {invoicesLoading ? (
+              <p className="text-sm text-text-secondary">Carregando...</p>
+            ) : invoices.length === 0 ? (
+              <p className="text-sm text-text-secondary">
+                Nenhuma fatura registrada ainda.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map((inv) => {
+                  const monthLabel = formatMonth(inv.reference_month);
+                  return (
+                    <div
+                      key={`${inv.card_id}-${inv.reference_month}`}
+                      className={`rounded-lg border p-3 ${inv.is_paid ? "border-border/50 bg-surface-2/50" : "border-border bg-surface-2"}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium text-text-primary">
+                              {inv.card_name}
+                            </p>
+                            {inv.is_paid && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-profit">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Paga
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-text-secondary">
+                            {monthLabel} &middot; {inv.expense_count} gasto
+                            {inv.expense_count === 1 ? "" : "s"}
+                            {inv.is_paid && inv.paid_at && (
+                              <> &middot; paga em {formatDate(inv.paid_at)}</>
+                            )}
+                          </p>
+                          <p className="mt-1 text-base font-semibold text-text-primary">
+                            {formatCurrency(inv.total_amount)}
+                          </p>
+                        </div>
+
+                        {inv.is_paid ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={submitting}
+                            onClick={() => setUnpayingInvoice(inv)}
+                          >
+                            Desfazer
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            disabled={submitting}
+                            onClick={() =>
+                              setPayingInvoice({
+                                cardId: inv.card_id,
+                                referenceMonth: inv.reference_month,
+                                total: inv.total_amount,
+                                cardName: inv.card_name,
+                              })
+                            }
+                          >
+                            Pagar fatura
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </DialogContent>
       </Dialog>
 
@@ -279,6 +404,35 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
         }
         confirmLabel="Excluir"
         onConfirm={handleDelete}
+        loading={submitting}
+      />
+
+      <ConfirmDialog
+        open={!!payingInvoice}
+        onOpenChange={(o) => !o && setPayingInvoice(null)}
+        title="Pagar fatura"
+        description={
+          payingInvoice
+            ? `Confirmar pagamento da fatura do ${payingInvoice.cardName} no valor de ${formatCurrency(payingInvoice.total)}?`
+            : ""
+        }
+        confirmLabel="Pagar"
+        variant="default"
+        onConfirm={handleConfirmPay}
+        loading={submitting}
+      />
+
+      <ConfirmDialog
+        open={!!unpayingInvoice}
+        onOpenChange={(o) => !o && setUnpayingInvoice(null)}
+        title="Desfazer pagamento"
+        description={
+          unpayingInvoice
+            ? `Desfazer o pagamento da fatura do ${unpayingInvoice.card_name}? Os gastos voltarao a ficar pendentes.`
+            : ""
+        }
+        confirmLabel="Desfazer"
+        onConfirm={handleConfirmUnpay}
         loading={submitting}
       />
     </>
