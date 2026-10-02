@@ -326,7 +326,9 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
             ) : (
               <div className="space-y-2">
                 {invoices.map((inv) => {
-                  const monthLabel = formatMonth(inv.reference_month);
+                  const monthLabel = inv.reference_month
+                    ? formatMonth(inv.reference_month)
+                    : "—";
                   return (
                     <div
                       key={`${inv.card_id}-${inv.reference_month}`}
@@ -348,9 +350,9 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
                           <p className="mt-0.5 text-xs text-text-secondary">
                             {monthLabel} &middot; {inv.expense_count} gasto
                             {inv.expense_count === 1 ? "" : "s"}
-                            {inv.is_paid && inv.paid_at && (
+                            {inv.is_paid && inv.paid_at ? (
                               <> &middot; paga em {formatDate(inv.paid_at)}</>
-                            )}
+                            ) : null}
                           </p>
                           <p className="mt-1 text-base font-semibold text-text-primary">
                             {formatCurrency(inv.total_amount)}
