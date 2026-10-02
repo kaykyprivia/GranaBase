@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CreditCard, Pencil, Plus, Trash2, Power, CheckCircle2, CircleDollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
+import { formatCurrency, formatMonth } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,17 @@ import { FormField } from "@/components/shared/FormField";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { useCards, type Card, type CardInput } from "@/lib/hooks/useCards";
 import { useCardInvoices, type CardInvoice } from "@/lib/hooks/useCardInvoices";
+
+function safeFormatDateTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(d);
+}
 
 interface CardsModalProps {
   open: boolean;
@@ -351,7 +362,7 @@ export function CardsModal({ open, onOpenChange }: CardsModalProps) {
                             {monthLabel} &middot; {inv.expense_count} gasto
                             {inv.expense_count === 1 ? "" : "s"}
                             {inv.is_paid && inv.paid_at ? (
-                              <> &middot; paga em {formatDate(inv.paid_at)}</>
+                              <> &middot; paga em {safeFormatDateTime(inv.paid_at)}</>
                             ) : null}
                           </p>
                           <p className="mt-1 text-base font-semibold text-text-primary">
