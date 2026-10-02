@@ -33,6 +33,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { ExpensesFilters } from "@/components/expenses/ExpensesFilters";
 import { useCards } from "@/lib/hooks/useCards";
+import { useCardInvoices } from "@/lib/hooks/useCardInvoices";
 import { MonthGroupCard } from "@/components/expenses/MonthGroupCard";
 import type { DisplayExpense } from "@/components/expenses/types";
 
@@ -218,6 +219,7 @@ export default function ExpensesPage() {
   });
   const paymentMethodValue = watch("payment_method");
   const { cards: availableCards } = useCards({ onlyActive: true });
+  const { invoices: cardInvoices } = useCardInvoices();
 
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -772,15 +774,10 @@ export default function ExpensesPage() {
     return sorted.map((m) => ({ value: m, label: formatMonthLabel(m) }));
   }, [groupedByMonth, currentMonth]);
 
-  // Gastos no CARTAO DE CREDITO com fatura vencendo no mes atual
-  const cardExpensesThisMonth = allEntries
-    .filter((entry) => {
-      if (entry.status === "paid") return false;
-      if (!entry.payment_method) return false;
-      if (!entry.payment_method.toLowerCase().includes("credito")) return false;
-      return entry.spent_at.startsWith(currentMonth);
-    })
-    .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
+  // Faturas de cartao pendentes (todas as pendentes, qualquer mes)
+  const pendingCardInvoicesTotal = cardInvoices
+    .filter((inv) => !inv.is_paid)
+    .reduce((sum, inv) => sum + Number(inv.total_amount ?? 0), 0);
 
   // Parcelas com vencimento neste mes, ainda nao pagas
   const openInstallmentsThisMonth = payments
@@ -810,7 +807,7 @@ export default function ExpensesPage() {
     .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
 
   const faltaPagarTotal =
-    cardExpensesThisMonth +
+    pendingCardInvoicesTotal +
     openInstallmentsThisMonth +
     pendingBillsThisMonth +
     pendingConsortiumsThisMonth;
