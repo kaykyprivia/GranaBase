@@ -33,7 +33,6 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormField } from "@/components/shared/FormField";
 import { ExpensesFilters } from "@/components/expenses/ExpensesFilters";
 import { useCards } from "@/lib/hooks/useCards";
-import { useCardInvoices } from "@/lib/hooks/useCardInvoices";
 import { MonthGroupCard } from "@/components/expenses/MonthGroupCard";
 import type { DisplayExpense } from "@/components/expenses/types";
 
@@ -219,7 +218,6 @@ export default function ExpensesPage() {
   });
   const paymentMethodValue = watch("payment_method");
   const { cards: availableCards } = useCards({ onlyActive: true });
-  const { invoices: cardInvoices } = useCardInvoices();
 
   const fetchEntries = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -774,10 +772,18 @@ export default function ExpensesPage() {
     return sorted.map((m) => ({ value: m, label: formatMonthLabel(m) }));
   }, [groupedByMonth, currentMonth]);
 
-  // Faturas de cartao pendentes (todas as pendentes, qualquer mes)
-  const pendingCardInvoicesTotal = cardInvoices
-    .filter((inv) => !inv.is_paid)
-    .reduce((sum, inv) => sum + Number(inv.total_amount ?? 0), 0);
+  // Gastos no CARTAO DE CREDITO ainda NAO vencidos (card_due_date >= hoje)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const cardExpensesNotDue = allEntries
+    .filter((entry) => {
+      if (!entry.payment_method) return false;
+      if (!entry.payment_method.toLowerCase().includes("credito")) return false;
+      if (!entry.card_due_date) return false;
+      const due = new Date(entry.card_due_date + "T00:00:00");
+      return due >= today;
+    })
+    .reduce((sum, entry) => sum + (entry.dueAmount ?? entry.amount), 0);
 
   // Parcelas com vencimento neste mes, ainda nao pagas
   const openInstallmentsThisMonth = payments
@@ -807,7 +813,7 @@ export default function ExpensesPage() {
     .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
 
   const faltaPagarTotal =
-    pendingCardInvoicesTotal +
+    cardExpensesNotDue +
     openInstallmentsThisMonth +
     pendingBillsThisMonth +
     pendingConsortiumsThisMonth;

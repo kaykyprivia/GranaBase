@@ -9,6 +9,7 @@ export interface DisplayExpense {
   source: "manual" | "bill" | "installment" | "consortium";
   status: "paid" | "pending" | "overdue";
   dueAmount?: number;
+  card_due_date?: string | null;
   scheduledAmount?: number;
   actualDate?: string;
   dueDateRef?: string;
