@@ -58,7 +58,13 @@ begin
   from gastos g
   join public.user_cards c on c.id = g.card_id
   left join public.card_invoice_payments p on p.id = g.inv_id
-  order by g.ref_month desc, c.name asc;
+  where
+    g.inv_id is null
+    or (
+      g.inv_id is not null
+      and g.ref_month = date_trunc('month', current_date)::date
+    )
+    order by g.ref_month desc, c.name asc;
 end;
 $$;
 
